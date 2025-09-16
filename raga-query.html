@@ -30,7 +30,7 @@
 
   <!-- button to go home-->
   <div style="position: fixed; top: 10px; right: 10px; z-index: 1000; display: flex; gap: 8px;">
-    <a href="/index.html" aria-label="Back to Chord Tool" style="padding: 6px 10px; background: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-size: 13px;">Chord Tool</a>
+    <a data-link="chord-tool" href="/index.html" aria-label="Back to Chord Tool" style="padding: 6px 10px; background: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-size: 13px;">Chord Tool</a>
   </div>
 
   <script type="text/babel">
@@ -256,6 +256,36 @@
 
     const root = ReactDOM.createRoot(document.getElementById('root'));
     root.render(<RagaQueryTool />);
+  </script>
+
+  <script>
+    // Helper to safely build URL with raga query
+    function linkToChordWithRaga(ragaName) {
+      const url = new URL('/index.html', window.location.origin);
+      url.searchParams.set('raga', ragaName);
+      return url.toString();
+    }
+    // Expose a small function to update the link if the selection changes dynamically
+    window.__setChordLinkForRaga = function(ragaName) {
+      const anchor = document.querySelector('a[data-link="chord-tool"]');
+      if (anchor) anchor.href = linkToChordWithRaga(ragaName);
+    }
+
+    // If this page encodes the selected raga in a known element/select, update the link on load.
+    // Try common selectors; adjust if your page structure differs.
+    window.addEventListener('DOMContentLoaded', () => {
+      const sel = document.querySelector('select[name="raga"], select#raga, select[data-role="raga-select"], select');
+      const activeName = sel && sel.value ? sel.value : (window.__currentRagaName || null);
+      if (activeName) {
+        window.__setChordLinkForRaga(activeName);
+      }
+      if (sel) {
+        sel.addEventListener('change', (e) => {
+          const name = e.target.value;
+          window.__setChordLinkForRaga(name);
+        });
+      }
+    });
   </script>
 </body>
 </html>

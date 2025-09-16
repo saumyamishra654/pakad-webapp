@@ -103,7 +103,7 @@
             const swarNames = ['Sa', 'Re♭', 'Re', 'Ga♭', 'Ga', 'Ma', 'Ma♯', 'Pa', 'Dha♭', 'Dha', 'Ni♭', 'Ni'];
             
             // Western note names for tonic mapping
-            const westernNotes = ['C', 'C#/D♭', 'D', 'D#/E♭', 'E', 'F', 'F#/G♭', 'G', 'G#/A♭', 'A', 'A#/B♭', 'B'];
+            const westernNotes = ['C', 'C#/D♭', 'D', 'D#/E♭', 'E', 'F', 'F#/G♭', 'G', 'G#/A♭', 'A', 'A#', 'B'];
             const westernNotesFlat = ['C', 'D♭', 'D', 'E♭', 'E', 'F', 'G♭', 'G', 'A♭', 'A', 'B♭', 'B'];
             const westernNotesSharp = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
@@ -129,7 +129,25 @@
                     const ragas = await ragasRes.json(); // [{name}]
                     setServerChordTypes(types);
                     setRagaList(ragas);
-                    if (ragas.length > 0) setSelectedRagaName(ragas[0].name);
+
+                    // Preselect raga via query param (?raga=... or ?raag=... or ?name=...)
+                    const params = new URLSearchParams(window.location.search);
+                    const rawParam = params.get('raga') || params.get('raag') || params.get('name') || params.get('ragaName');
+                    let chosen = null;
+                    if (rawParam && Array.isArray(ragas) && ragas.length) {
+                        const decoded = decodeURIComponent(rawParam).trim();
+                        const normalize = (s) => s.toLowerCase().replace(/[-_]/g, ' ').replace(/\s+/g, ' ').trim();
+                        const target = normalize(decoded);
+                        chosen = ragas.find(r => {
+                            const rn = normalize(r.name);
+                            return rn === target || r.name.toLowerCase() === decoded.toLowerCase();
+                        });
+                    }
+                    if (chosen) {
+                        setSelectedRagaName(chosen.name);
+                    } else if (ragas.length > 0) {
+                        setSelectedRagaName(ragas[0].name);
+                    }
                 } catch (e) {
                     console.error(e);
                     setLoadError('Failed to load initial data from server');
