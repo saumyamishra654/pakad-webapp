@@ -27,6 +27,18 @@ const chordTypes = [
   { id: 'm7b5', name: 'Half-diminished (m7♭5)', intervals: [0, 3, 6, 10], color: '#0ea5e9' }
 ];
 
+function countSwaras(pattern) {
+  const swaraGroups = [[0], [1,2], [3,4], [5,6], [7], [8,9], [10,11]];
+  return swaraGroups.reduce((acc, grp) => acc + (grp.some(i => pattern[i] === 1) ? 1 : 0), 0);
+}
+
+function getJati(count) {
+  if (count === 5) return 'Audav (Pentatonic)';
+  if (count === 6) return 'Shadav (Hexatonic)';
+  if (count === 7) return 'Sampoorna (Heptatonic)';
+  return `${count} notes`;
+}
+
 function parseAarohAvrohCSV(csvText) {
   const lines = csvText.split(/\r?\n/).filter(Boolean);
   const out = [];
@@ -151,6 +163,88 @@ export async function handler(event) {
 
   if (pathname === '/api/ragas') {
     return json(200, getRagas().map(r => ({ name: r.name })));
+  }
+
+  if (pathname === '/api/raga-search') {
+    const search = (searchParams.get('search') || '').trim().toLowerCase();
+    const scaleType = searchParams.get('scaleType') || 'any';
+    const searchMode = searchParams.get('searchMode') || 'contains';
+    const separate = (searchParams.get('separate') || 'false').toLowerCase() === 'true';
+
+    const readSet = (key) => new Set(((searchParams.get(key) || '')
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean)
+      .map(n => parseInt(n, 10))
+      .filter(n => Number.isInteger(n) && n >= 0 && n <= 11)));
+
+    const selectedSet = readSet('selectedNotes');
+    const excludedSet = readSet('excludedNotes');
+    const selASet = readSet('selectedAarohNotes');
+    const excASet = readSet('excludedAarohNotes');
+    const selVSet = readSet('selectedAvrohNotes');
+    const excVSet = readSet('excludedAvrohNotes');
+
+    const ragas = getRagas();
+    const enriched = ragas.map(r => {
+      const noteCount = countSwaras(r.notePattern);
+      const aarohCount = countSwaras(r.aarohPattern);
+      const avrohCount = countSwaras(r.avrohPattern);
+      return { ...r, noteCount, aarohJati: getJati(aarohCount), avrohJati: getJati(avrohCount) };
+    });
+
+    let filtered = enriched;
+    if (search) {
+      filtered = filtered.filter(r => r.name.toLowerCase().includes(search));
+    }
+    if (scaleType !== 'any') {
+      const target = parseInt(scaleType, 10);
+      if (!Number.isNaN(target)) filtered = filtered.filter(r => r.noteCount === target);
+    }
+
+    const exactMatch = (pattern, includeSet) => {
+      const withSa = new Set(includeSet); withSa.add(0);
+      return pattern.every((v, idx) => v === (withSa.has(idx) ? 1 : 0));
+    };
+
+    if (separate) {
+      if (selASet.size > 0) {
+        const withSa = new Set(selASet); withSa.add(0);
+        const arr = Array.from(withSa);
+        filtered = searchMode === 'exact'
+          ? filtered.filter(r => exactMatch(r.aarohPattern, selASet))
+          : filtered.filter(r => arr.every(i => r.aarohPattern[i] === 1));
+      }
+      if (excASet.size > 0) {
+        const arr = Array.from(excASet);
+        filtered = filtered.filter(r => arr.every(i => r.aarohPattern[i] === 0));
+      }
+      if (selVSet.size > 0) {
+        const withSa = new Set(selVSet); withSa.add(0);
+        const arr = Array.from(withSa);
+        filtered = searchMode === 'exact'
+          ? filtered.filter(r => exactMatch(r.avrohPattern, selVSet))
+          : filtered.filter(r => arr.every(i => r.avrohPattern[i] === 1));
+      }
+      if (excVSet.size > 0) {
+        const arr = Array.from(excVSet);
+        filtered = filtered.filter(r => arr.every(i => r.avrohPattern[i] === 0));
+      }
+    } else {
+      if (selectedSet.size > 0) {
+        const withSa = new Set(selectedSet); withSa.add(0);
+        const arr = Array.from(withSa);
+        filtered = searchMode === 'exact'
+          ? filtered.filter(r => exactMatch(r.notePattern, selectedSet))
+          : filtered.filter(r => arr.every(i => r.notePattern[i] === 1));
+      }
+      if (excludedSet.size > 0) {
+        const arr = Array.from(excludedSet);
+        filtered = filtered.filter(r => arr.every(i => r.notePattern[i] === 0));
+      }
+    }
+
+    return json(200, filtered);
   }
 
   const ragas = getRagas();

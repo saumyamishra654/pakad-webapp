@@ -42,6 +42,27 @@ const chordTypes = [
   { id: 'm7b5', name: 'Half-diminished (m7♭5)', intervals: [0, 3, 6, 10], color: '#0ea5e9' }
 ];
 
+// Helpers for raga search/jati
+function countSwaras(pattern) {
+  const swaraGroups = [
+    [0],        // Sa
+    [1, 2],     // Re
+    [3, 4],     // Ga
+    [5, 6],     // Ma
+    [7],        // Pa
+    [8, 9],     // Dha
+    [10, 11]    // Ni
+  ];
+  return swaraGroups.reduce((count, group) => count + (group.some(idx => pattern[idx] === 1) ? 1 : 0), 0);
+}
+
+function getJati(count) {
+  if (count === 5) return 'Audav (Pentatonic)';
+  if (count === 6) return 'Shadav (Hexatonic)';
+  if (count === 7) return 'Sampoorna (Heptatonic)';
+  return `${count} notes`;
+}
+
 // Parse aaroh/avroh CSV into patterns
 function parseAarohAvrohCSV(csvText) {
   const lines = csvText.split(/\r?\n/).filter(Boolean);
@@ -172,6 +193,131 @@ app.get('/api/ragas/:name', (req, res) => {
   const r = ragas.find(x => x.name.toLowerCase() === req.params.name.toLowerCase());
   if (!r) return res.status(404).json({ error: 'Not found' });
   res.json(r);
+});
+
+// Server-side raga search and filtering
+// Query params:
+//  search (string), scaleType ('any' | '5' | '6' | '7'), searchMode ('contains' | 'exact'), separate ('true'|'false')
+//  selectedNotes, excludedNotes, selectedAarohNotes, excludedAarohNotes, selectedAvrohNotes, excludedAvrohNotes (comma-separated ints, excluded of Sa)
+app.get('/api/raga-search', (req, res) => {
+  const {
+    search = '',
+    scaleType = 'any',
+    searchMode = 'contains',
+    separate = 'false',
+    selectedNotes = '',
+    excludedNotes = '',
+    selectedAarohNotes = '',
+    excludedAarohNotes = '',
+    selectedAvrohNotes = '',
+    excludedAvrohNotes = ''
+  } = req.query;
+
+  const toSet = (str) => new Set(
+    (String(str || '')
+      .split(',')
+      .map(s => s.trim())
+      .filter(s => s !== '')
+      .map(n => parseInt(n, 10))
+      .filter(n => Number.isInteger(n) && n >= 0 && n <= 11))
+  );
+
+  const selectedSet = toSet(selectedNotes);
+  const excludedSet = toSet(excludedNotes);
+  const selASet = toSet(selectedAarohNotes);
+  const excASet = toSet(excludedAarohNotes);
+  const selVSet = toSet(selectedAvrohNotes);
+  const excVSet = toSet(excludedAvrohNotes);
+
+  const ragas = getRagas();
+
+  // Enrich with counts/jati
+  const enriched = ragas.map(r => {
+    const noteCount = countSwaras(r.notePattern);
+    const aarohCount = countSwaras(r.aarohPattern);
+    const avrohCount = countSwaras(r.avrohPattern);
+    return {
+      ...r,
+      noteCount,
+      aarohJati: getJati(aarohCount),
+      avrohJati: getJati(avrohCount)
+    };
+  });
+
+  let filtered = enriched;
+
+  // Name filter
+  if (search && search.trim()) {
+    const q = search.trim().toLowerCase();
+    filtered = filtered.filter(r => r.name.toLowerCase().includes(q));
+  }
+
+  // Scale type filter (by swara groups)
+  if (scaleType !== 'any') {
+    const target = parseInt(scaleType, 10);
+    if (!Number.isNaN(target)) {
+      filtered = filtered.filter(r => r.noteCount === target);
+    }
+  }
+
+  const separateBool = String(separate).toLowerCase() === 'true';
+
+  // Helper exact match
+  const exactMatch = (pattern, includeSet) => {
+    const withSa = new Set(includeSet);
+    withSa.add(0);
+    return pattern.every((val, idx) => val === (withSa.has(idx) ? 1 : 0));
+  };
+
+  if (separateBool) {
+    // Aaroh includes
+    if (selASet.size > 0) {
+      const withSa = new Set(selASet); withSa.add(0);
+      const arr = Array.from(withSa);
+      if (searchMode === 'exact') {
+        filtered = filtered.filter(r => exactMatch(r.aarohPattern, selASet));
+      } else {
+        filtered = filtered.filter(r => arr.every(i => r.aarohPattern[i] === 1));
+      }
+    }
+    // Aaroh excludes
+    if (excASet.size > 0) {
+      const arr = Array.from(excASet);
+      filtered = filtered.filter(r => arr.every(i => r.aarohPattern[i] === 0));
+    }
+    // Avroh includes
+    if (selVSet.size > 0) {
+      const withSa = new Set(selVSet); withSa.add(0);
+      const arr = Array.from(withSa);
+      if (searchMode === 'exact') {
+        filtered = filtered.filter(r => exactMatch(r.avrohPattern, selVSet));
+      } else {
+        filtered = filtered.filter(r => arr.every(i => r.avrohPattern[i] === 1));
+      }
+    }
+    // Avroh excludes
+    if (excVSet.size > 0) {
+      const arr = Array.from(excVSet);
+      filtered = filtered.filter(r => arr.every(i => r.avrohPattern[i] === 0));
+    }
+  } else {
+    // Combined selection
+    if (selectedSet.size > 0) {
+      const withSa = new Set(selectedSet); withSa.add(0);
+      const arr = Array.from(withSa);
+      if (searchMode === 'exact') {
+        filtered = filtered.filter(r => exactMatch(r.notePattern, selectedSet));
+      } else {
+        filtered = filtered.filter(r => arr.every(i => r.notePattern[i] === 1));
+      }
+    }
+    if (excludedSet.size > 0) {
+      const arr = Array.from(excludedSet);
+      filtered = filtered.filter(r => arr.every(i => r.notePattern[i] === 0));
+    }
+  }
+
+  res.json(filtered);
 });
 
 // Get chords for a raga
