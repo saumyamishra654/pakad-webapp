@@ -1,0 +1,17 @@
+# Netlify configuration
+[build]
+  # We deploy with Base directory = server, so publish the server folder itself which contains index.html
+  publish = "."
+  command = ""
+
+[functions]
+  node_bundler = "esbuild"
+  external_node_modules = []
+  # CSV placed in this folder at deploy time
+  included_files = ["aarohavroh.csv"]
+
+# Redirect API calls to the Netlify function
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
