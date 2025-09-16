@@ -23,6 +23,19 @@
     .dark-mode .form-checkbox { accent-color: #60a5fa; }
     .dark-mode button, .dark-mode .hover\:bg-gray-200:hover { border-color: #374151 !important; }
     .dark-mode .hover\:bg-gray-200:hover { background-color: #1f2937 !important; }
+
+  /* 3-octave compact piano styles for Query page */
+  .rq-piano-wrap { overflow-x: auto; padding: 10px; border-radius: 8px; width: 100%; display: flex; justify-content: center; align-items: center; background: rgba(0,0,0,0.04); }
+  .dark-mode .rq-piano-wrap { background: rgba(255,255,255,0.06); }
+  .rq-piano { position: relative; display: flex; flex-wrap: nowrap; user-select: none; -webkit-user-select: none; height: 120px; }
+  .rq-octave { position: relative; display: inline-block; height: 120px; }
+  .rq-white-keys { display: flex; }
+  .rq-white-key { width: 24px; height: 120px; background: #ffffff; border: 1px solid #cbd5e1; border-bottom-left-radius: 4px; border-bottom-right-radius: 4px; box-sizing: border-box; cursor: pointer; }
+  .rq-white-key:active { background: #f3f4f6; }
+  .dark-mode .rq-white-key { background: #e5e7eb; border-color: #94a3b8; }
+  .dark-mode .rq-white-key:active { background: #93c5fd; }
+  .rq-black-key { position: absolute; top: 0; width: 16px; height: 72px; background: #111827; border: 1px solid #0f172a; border-bottom-left-radius: 3px; border-bottom-right-radius: 3px; color: #e5e7eb; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 2px; box-shadow: 0 2px 6px rgba(0,0,0,0.35); cursor: pointer; font-size: 10px; z-index: 5; }
+  .rq-black-key:active { background: #1f2937; }
   </style>
 </head>
 <body>
@@ -34,7 +47,7 @@
   </div>
 
   <script type="text/babel">
-    const { useState, useEffect } = React;
+  const { useState, useEffect, useRef } = React;
 
     const Filter = () => (
       <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -47,6 +60,10 @@
       const [darkMode, setDarkMode] = useState(true);
       const [isLoading, setIsLoading] = useState(false);
       const [loadError, setLoadError] = useState('');
+
+      // Audio state
+      const [audioContext, setAudioContext] = useState(null);
+      const [isPlaying, setIsPlaying] = useState(false);
 
       // Filters
       const [searchQuery, setSearchQuery] = useState('');
@@ -65,11 +82,123 @@
       const swarNames = ['Sa', 'Re♭', 'Re', 'Ga♭', 'Ga', 'Ma', 'Ma♯', 'Pa', 'Dha♭', 'Dha', 'Ni♭', 'Ni'];
       const selectableSwarNames = swarNames.slice(1);
 
+  // Piano state and labels
+      const [showPiano, setShowPiano] = useState(false);
+      const westernNotes = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+      const noteLabel = (pc) => `${westernNotes[pc]}/${swarNames[pc]}`;
+  // For 3-octave layout
+  const whitePcs = [0,2,4,5,7,9,11];
+  const blackPcs = [1,3,6,8,10];
+
       useEffect(() => {
         if (darkMode) document.body.classList.add('dark-mode');
         else document.body.classList.remove('dark-mode');
         return () => document.body.classList.remove('dark-mode');
       }, [darkMode]);
+
+      // Initialize audio context once
+      useEffect(() => {
+        try {
+          const ctx = new (window.AudioContext || window.webkitAudioContext)();
+          setAudioContext(ctx);
+        } catch (e) {
+          console.warn('WebAudio not available');
+        }
+      }, []);
+
+      // Simple tone with ADSR
+      const playNote = (frequency, duration = 0.5, delay = 0) => {
+        if (!audioContext) return;
+        const startTime = audioContext.currentTime + delay;
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(frequency, startTime);
+        osc.connect(gain);
+        gain.connect(audioContext.destination);
+        // Envelope
+        const attack = 0.02, decay = 0.15, sustain = 0.3, release = 0.3;
+        gain.gain.setValueAtTime(0, startTime);
+        gain.gain.linearRampToValueAtTime(0.5, startTime + attack);
+        gain.gain.linearRampToValueAtTime(sustain, startTime + attack + decay);
+        gain.gain.setValueAtTime(sustain, startTime + Math.max(0, duration - release));
+        gain.gain.linearRampToValueAtTime(0.0001, startTime + duration);
+        osc.start(startTime);
+        osc.stop(startTime + duration + 0.01);
+      };
+
+      // Play a single key
+      const playKey = async (pc, octave) => {
+        if (!audioContext) return;
+        try {
+          if (audioContext.state === 'suspended') await audioContext.resume();
+          playNote(getFrequencyFromNote(pc, octave), 0.45, 0);
+        } catch (e) { console.error('key play error', e); }
+      };
+
+      const getFrequencyFromNote = (noteIndex, octave = 4) => {
+        const base = 261.63; // C4
+        return base * Math.pow(2, (noteIndex / 12) + (octave - 4));
+      };
+
+      const arrangeNotesAscending = (pcs) => {
+        if (!pcs || pcs.length === 0) return [];
+        const sorted = [...pcs].sort((a,b) => a - b);
+        const out = [];
+        let oct = 3;
+        for (let i = 0; i < sorted.length; i++) {
+          if (i > 0 && sorted[i] < sorted[i-1]) oct++;
+          out.push({ noteIndex: sorted[i], octave: oct, frequency: getFrequencyFromNote(sorted[i], oct) });
+        }
+        return out;
+      };
+
+      const arrangeNotesDescending = (pcs, startingOctave = 5, includeLowerSa = true) => {
+        if (!pcs || pcs.length === 0) return [];
+        const uniqueDesc = Array.from(new Set(pcs)).sort((a,b) => b - a);
+        const result = [];
+        let prevAbs = startingOctave * 12 + 0; // start on high Sa
+        result.push({ noteIndex: 0, octave: startingOctave, frequency: getFrequencyFromNote(0, startingOctave) });
+        for (const pc of uniqueDesc) {
+          if (pc === 0) continue;
+          const o = Math.floor((prevAbs - 1 - pc) / 12);
+          const octave = Math.max(3, o);
+          const abs = octave * 12 + pc;
+          prevAbs = abs;
+          result.push({ noteIndex: pc, octave, frequency: getFrequencyFromNote(pc, octave) });
+        }
+        if (includeLowerSa) {
+          const o = Math.floor((prevAbs - 1) / 12);
+          const octave = Math.max(3, o);
+          result.push({ noteIndex: 0, octave, frequency: getFrequencyFromNote(0, octave) });
+        }
+        return result;
+      };
+
+      const playAarohAvroh = async (raga) => {
+        if (!audioContext || !raga || !raga.aarohPattern || !raga.avrohPattern || isPlaying) return;
+        setIsPlaying(true);
+        try {
+          if (audioContext.state === 'suspended') await audioContext.resume();
+          const toPcs = (pattern) => pattern.map((p,i)=>p?i:null).filter(v=>v!==null);
+          const aarohPcs = toPcs(raga.aarohPattern);
+          const avrohPcs = toPcs(raga.avrohPattern);
+          const up = arrangeNotesAscending(aarohPcs);
+          const highSaOct = (up.length ? Math.max(...up.map(n=>n.octave)) : 4) + 1;
+          const highSa = { noteIndex: 0, octave: highSaOct, frequency: getFrequencyFromNote(0, highSaOct) };
+          const aarohSeq = [...up, highSa];
+          const avrohSeq = arrangeNotesDescending(avrohPcs, highSaOct, true);
+          aarohSeq.forEach((n,i)=> playNote(n.frequency, 0.6, i*0.4));
+          const aarohTime = aarohSeq.length * 0.4;
+          const gap = 0.3;
+          avrohSeq.forEach((n,i)=> playNote(n.frequency, 0.6, aarohTime + gap + i*0.4));
+          const total = aarohTime + gap + avrohSeq.length * 0.4 + 0.6;
+          setTimeout(()=> setIsPlaying(false), total*1000);
+        } catch (e) {
+          console.error('play error', e);
+          setIsPlaying(false);
+        }
+      };
 
       const fetchResults = async () => {
         setIsLoading(true);
@@ -130,7 +259,18 @@
       return (
         <div className={`${darkMode ? 'dark-mode ' : ''}max-w-6xl mx-auto p-6 bg-white min-h-screen`}>
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-800 mb-2">Raga Database Query Tool</h1>
+            <h1 className="text-xl font-bold text-gray-600 mb-2">Raga Database Query Tool</h1>
+            {/* Collapsible Piano */}
+            <div className="mt-4">
+              <button onClick={() => setShowPiano(v => !v)} className="px-3 py-2 rounded-md text-sm font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 border">
+                show piano {showPiano ? '▲' : '▼'}
+              </button>
+              {showPiano && (
+                <div className="mt-3">
+                  <PianoKeyboardQuery onPlay={playKey} baseOctave={3} octaves={3} showLabels={false} />
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
@@ -231,7 +371,14 @@
                             <div className="text-sm text-gray-600">{raga.aarohJati.replace(/ \(.*/, '')} - {raga.avrohJati.replace(/ \(.*/, '')}</div>
                           )}
                         </div>
-                        <a href="/index.html" className="text-sm text-indigo-500 hover:underline">Open in Chord Tool</a>
+                        <button
+                          onClick={() => playAarohAvroh(raga)}
+                          disabled={isLoading || isPlaying}
+                          className="px-3 py-1 rounded bg-indigo-600 text-white text-sm hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Play Aaroh + Avroh"
+                        >
+                          ▶ Full Raga
+                        </button>
                       </div>
                       <div className="flex flex-wrap gap-1 mt-2">
                         {raga.notePattern.map((present, noteIndex) => (
@@ -253,6 +400,64 @@
         </div>
       );
     };
+
+    // 3-octave compact keyboard component for Query page
+    function PianoKeyboardQuery({ onPlay, baseOctave = 3, octaves = 3, showLabels = false }) {
+      const wrapRef = useRef(null);
+      useEffect(() => {
+        const el = wrapRef.current;
+        if (el) {
+          const target = Math.max(0, (el.scrollWidth - el.clientWidth) / 2);
+          el.scrollLeft = target;
+        }
+      }, []);
+
+      const WHITE_W = 24; // px
+      const BLACK_W = 16; // px
+      const whitePC = [0,2,4,5,7,9,11];
+      const blackLefts = [
+        WHITE_W - BLACK_W / 2,      // between 0-2
+        WHITE_W * 2 - BLACK_W / 2,  // between 2-4
+        WHITE_W * 4 - BLACK_W / 2,  // between 5-7
+        WHITE_W * 5 - BLACK_W / 2,  // between 7-9
+        WHITE_W * 6 - BLACK_W / 2   // between 9-11
+      ];
+
+      return (
+        <div className="rq-piano-wrap" ref={wrapRef}>
+          <div className="rq-piano" style={{ width: `${WHITE_W * 7 * octaves}px` }}>
+            {Array.from({ length: octaves }).map((_, o) => (
+              <div key={o} className="rq-octave" style={{ width: `${WHITE_W * 7}px` }}>
+                <div className="rq-white-keys">
+                  {whitePC.map((pc, i) => (
+                    <div
+                      key={i}
+                      className="rq-white-key"
+                      onMouseDown={() => onPlay(pc, baseOctave + o)}
+                      onTouchStart={() => onPlay(pc, baseOctave + o)}
+                      role="button"
+                      aria-label={`Play ${pc} at octave ${baseOctave + o}`}
+                      title={showLabels ? `${pc}` : undefined}
+                    />
+                  ))}
+                </div>
+                {[1,3,6,8,10].map((pc, idx) => (
+                  <div
+                    key={idx}
+                    className="rq-black-key"
+                    style={{ left: `${blackLefts[idx]}px` }}
+                    onMouseDown={() => onPlay(pc, baseOctave + o)}
+                    onTouchStart={() => onPlay(pc, baseOctave + o)}
+                    role="button"
+                    aria-label={`Play ${pc} at octave ${baseOctave + o}`}
+                  />
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
 
     const root = ReactDOM.createRoot(document.getElementById('root'));
     root.render(<RagaQueryTool />);

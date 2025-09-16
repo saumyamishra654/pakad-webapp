@@ -161,6 +161,48 @@ export async function handler(event) {
     return json(200, chordTypes);
   }
 
+  // Generate chords for a custom-provided scale pattern
+  if (pathname === '/api/custom-scale/chords') {
+    if (event.httpMethod !== 'POST') return json(405, { error: 'Method not allowed' });
+    let body;
+    try {
+      body = JSON.parse(event.body || '{}');
+    } catch {
+      return json(400, { error: 'Invalid JSON' });
+    }
+    const { notePattern, aarohPattern, avrohPattern } = body || {};
+
+    const isValidPattern = (p) => Array.isArray(p) && p.length === 12 && p.every(v => v === 0 || v === 1);
+    let patternAll = null, patternAar = null, patternAvr = null;
+    if (isValidPattern(notePattern)) patternAll = notePattern;
+    if (isValidPattern(aarohPattern)) patternAar = aarohPattern;
+    if (isValidPattern(avrohPattern)) patternAvr = avrohPattern;
+    if (!patternAll && (patternAar || patternAvr)) {
+      // derive combined from provided parts
+      const a = patternAar || new Array(12).fill(0);
+      const v = patternAvr || new Array(12).fill(0);
+      patternAll = a.map((x,i) => (x || v[i]) ? 1 : 0);
+    }
+    if (!patternAll) {
+      return json(400, { error: 'Provide notePattern or aarohPattern/avrohPattern as arrays of 12 (0/1)' });
+    }
+
+    const part = searchParams.get('part') || 'all';
+    const chordType = searchParams.get('chordType') || 'all';
+    const extendBool = (searchParams.get('extend') || 'false').toLowerCase() === 'true';
+    const selectedNote = searchParams.get('selectedNote');
+    const filterMode = searchParams.get('filterMode') || 'root';
+    const tonic = searchParams.get('tonic');
+
+    const pattern = part === 'aaroh' ? (patternAar || patternAll) : part === 'avroh' ? (patternAvr || patternAll) : patternAll;
+    let chords = availableChordsForPattern(pattern, chordType, extendBool);
+    const sel = selectedNote !== null && selectedNote !== undefined ? parseInt(selectedNote, 10) : null;
+    const tnx = tonic !== null && tonic !== undefined ? parseInt(tonic, 10) : null;
+    if (!Number.isNaN(sel) && sel !== null) chords = filterChordsByNote(chords, sel, filterMode);
+    if (!Number.isNaN(tnx) && tnx !== null) chords = attachWesternNames(chords, tnx);
+    return json(200, chords);
+  }
+
   if (pathname === '/api/ragas') {
     return json(200, getRagas().map(r => ({ name: r.name })));
   }
