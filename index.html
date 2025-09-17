@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Raga-Based Chord Formation Tool</title>
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
@@ -146,6 +146,8 @@
             // Show more chords state
             const [showAllChords, setShowAllChords] = useState(false);
             const [showMoreAvailable, setShowMoreAvailable] = useState(false);
+            const [showMoreAaroh, setShowMoreAaroh] = useState(false);
+            const [showMoreAvroh, setShowMoreAvroh] = useState(false);
             // Tonic selection state
             const [selectedTonic, setSelectedTonic] = useState(null);
             // Audio state
@@ -153,6 +155,13 @@
             const [isPlaying, setIsPlaying] = useState(false);
             const [showKeyboard, setShowKeyboard] = useState(false);
             
+            // Custom scale mode
+            const [customScaleMode, setCustomScaleMode] = useState(false);
+            const [separateCustomScale, setSeparateCustomScale] = useState(false);
+            const [customNotePattern, setCustomNotePattern] = useState(Array(12).fill(false));
+            const [customAarohPattern, setCustomAarohPattern] = useState(Array(12).fill(false));
+            const [customAvrohPattern, setCustomAvrohPattern] = useState(Array(12).fill(false));
+
             // Chord progression builder (drag and drop)
             const [progression, setProgression] = useState([]); // [{id, chord}]
             const nextProgIdRef = useRef(1);
@@ -397,6 +406,12 @@
                 return baseFreq * Math.pow(2, (noteIndex / 12) + (octave - 4));
             };
 
+            // Absolute frequency for the keyboard (C is fixed regardless of selected tonic)
+            const getFrequencyFromNoteAbsolute = (noteIndex, octave = 4) => {
+                const baseC4 = 261.63; // Hz
+                return baseC4 * Math.pow(2, (noteIndex / 12) + (octave - 4));
+            };
+
             // Helper function to arrange notes in ascending order without octave jumps
             const arrangeNotesAscending = (noteIndices) => {
                 if (noteIndices.length === 0) return [];
@@ -632,21 +647,39 @@
             };
 
             // Play a single key (does not toggle global isPlaying)
-            const playKey = async (pc, octave) => {
+        const playKey = async (pc, octave) => {
                 if (!audioContext) return;
                 try {
                     if (audioContext.state === 'suspended') {
                         await audioContext.resume();
                     }
-                    const freq = getFrequencyFromNote(pc, octave);
+            // Use absolute mapping so the keyboard doesn't shift with selected tonic
+            const freq = getFrequencyFromNoteAbsolute(pc, octave);
                     playNote(freq, 0.45, 0);
                 } catch (err) {
                     console.error('Key playback error', err);
                 }
             };
 
-            // Current patterns from selected raga only
-            const getCurrentPatterns = () => ({ all: selectedRaga.notePattern, aaroh: selectedRaga.aarohPattern, avroh: selectedRaga.avrohPattern });
+            // Current patterns from selected raga or custom scale
+            const getCurrentPatterns = () => {
+                if (customScaleMode) {
+                    if (separateCustomScale) {
+                        const aar = customAarohPattern.map(v => v ? 1 : 0);
+                        const avr = customAvrohPattern.map(v => v ? 1 : 0);
+                        const all = aar.map((x, i) => (x || avr[i]) ? 1 : 0);
+                        return { all, aaroh: aar, avroh: avr };
+                    }
+                    const all = customNotePattern.map(v => v ? 1 : 0);
+                    return { all, aaroh: all, avroh: all };
+                }
+                return { all: selectedRaga.notePattern, aaroh: selectedRaga.aarohPattern, avroh: selectedRaga.avrohPattern };
+            };
+
+            // Clear chords immediately on custom-scale changes to avoid stale edges then re-fetch in effects
+            useEffect(() => {
+                setChordsAll([]); setChordsAaroh([]); setChordsAvroh([]);
+            }, [customScaleMode, separateCustomScale, JSON.stringify(customNotePattern), JSON.stringify(customAarohPattern), JSON.stringify(customAvrohPattern)]);
 
             // Get available notes for a pattern
             const getAvailableNotes = (pattern) => {
@@ -679,7 +712,32 @@
                         params.set('tonic', String(selectedTonic));
                     }
 
-                    if (!separateAarohAvroh) {
+                    const current = getCurrentPatterns();
+                    if (customScaleMode) {
+                        if (!separateAarohAvroh) {
+                            const res = await fetch(`${API_BASE}/api/custom-scale/chords?${params.toString()}&part=all`, {
+                                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ notePattern: current.all })
+                            });
+                            const data = await res.json();
+                            if (chordsFetchVersionRef.current !== myVersion) return;
+                            setChordsAll(data); setChordsAaroh([]); setChordsAvroh([]);
+                        } else {
+                            const [ra, rv] = await Promise.all([
+                                fetch(`${API_BASE}/api/custom-scale/chords?${params.toString()}&part=aaroh`, {
+                                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ aarohPattern: current.aaroh, avrohPattern: current.avroh })
+                                }),
+                                fetch(`${API_BASE}/api/custom-scale/chords?${params.toString()}&part=avroh`, {
+                                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ aarohPattern: current.aaroh, avrohPattern: current.avroh })
+                                })
+                            ]);
+                            const [da, dv] = await Promise.all([ra.json(), rv.json()]);
+                            if (chordsFetchVersionRef.current !== myVersion) return;
+                            setChordsAaroh(da); setChordsAvroh(dv); setChordsAll([]);
+                        }
+                    } else if (!separateAarohAvroh) {
                             const res = await fetch(`${API_BASE}/api/ragas/${encodeURIComponent(selectedRagaName)}/chords?${params.toString()}&part=all`);
                             const data = await res.json();
                             if (chordsFetchVersionRef.current !== myVersion) return; // stale
@@ -707,7 +765,7 @@
                     refreshChords();
                 }
             // eslint-disable-next-line react-hooks/exhaustive-deps
-            }, [selectedRagaName, selectedRaga, selectedChordType, extendChords, separateAarohAvroh, selectedNote, noteFilterMode, selectedTonic]);
+            }, [selectedRagaName, selectedRaga, selectedChordType, extendChords, separateAarohAvroh, selectedNote, noteFilterMode, selectedTonic, customScaleMode, separateCustomScale, JSON.stringify(customNotePattern), JSON.stringify(customAarohPattern), JSON.stringify(customAvrohPattern)]);
 
             const availableChordsAll = chordsAll;
             const availableChordsAaroh = chordsAaroh;
@@ -770,27 +828,52 @@
                     const entries = await Promise.all(
                         chordTypes.map(async (ct) => {
                             const params = new URLSearchParams({ chordType: ct.id === 'all' ? 'all' : ct.id, extend: String(extendChords) });
+                            const current = getCurrentPatterns();
                             if (!separateAarohAvroh) {
                                 if (selectedNote !== null && noteFilterMode !== 'none') {
                                     params.set('selectedNote', String(selectedNote));
                                     params.set('filterMode', noteFilterMode);
                                 }
                                 if (selectedTonic !== null) params.set('tonic', String(selectedTonic));
-                                const res = await fetch(`${API_BASE}/api/ragas/${encodeURIComponent(selectedRagaName)}/chords?${params.toString()}&part=all`);
-                                const data = await res.json();
-                                return [ct.id, data.length];
+                                if (customScaleMode) {
+                                    const res = await fetch(`${API_BASE}/api/custom-scale/chords?${params.toString()}&part=all`, {
+                                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ notePattern: current.all })
+                                    });
+                                    const data = await res.json();
+                                    return [ct.id, data.length];
+                                } else {
+                                    const res = await fetch(`${API_BASE}/api/ragas/${encodeURIComponent(selectedRagaName)}/chords?${params.toString()}&part=all`);
+                                    const data = await res.json();
+                                    return [ct.id, data.length];
+                                }
                             } else {
                                 if (selectedNote !== null && noteFilterMode !== 'none') {
                                     params.set('selectedNote', String(selectedNote));
                                     params.set('filterMode', noteFilterMode);
                                 }
                                 if (selectedTonic !== null) params.set('tonic', String(selectedTonic));
-                                const [ra, rv] = await Promise.all([
-                                    fetch(`${API_BASE}/api/ragas/${encodeURIComponent(selectedRagaName)}/chords?${params.toString()}&part=aaroh`),
-                                    fetch(`${API_BASE}/api/ragas/${encodeURIComponent(selectedRagaName)}/chords?${params.toString()}&part=avroh`)
-                                ]);
-                                const [da, dv] = await Promise.all([ra.json(), rv.json()]);
-                                return [ct.id, da.length + dv.length];
+                                if (customScaleMode) {
+                                    const [ra, rv] = await Promise.all([
+                                        fetch(`${API_BASE}/api/custom-scale/chords?${params.toString()}&part=aaroh`, {
+                                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ aarohPattern: current.aaroh, avrohPattern: current.avroh })
+                                        }),
+                                        fetch(`${API_BASE}/api/custom-scale/chords?${params.toString()}&part=avroh`, {
+                                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ aarohPattern: current.aaroh, avrohPattern: current.avroh })
+                                        })
+                                    ]);
+                                    const [da, dv] = await Promise.all([ra.json(), rv.json()]);
+                                    return [ct.id, da.length + dv.length];
+                                } else {
+                                    const [ra, rv] = await Promise.all([
+                                        fetch(`${API_BASE}/api/ragas/${encodeURIComponent(selectedRagaName)}/chords?${params.toString()}&part=aaroh`),
+                                        fetch(`${API_BASE}/api/ragas/${encodeURIComponent(selectedRagaName)}/chords?${params.toString()}&part=avroh`)
+                                    ]);
+                                    const [da, dv] = await Promise.all([ra.json(), rv.json()]);
+                                    return [ct.id, da.length + dv.length];
+                                }
                             }
                         })
                     );
@@ -798,7 +881,7 @@
                 };
                 fetchCounts();
             // eslint-disable-next-line react-hooks/exhaustive-deps
-            }, [selectedRagaName, separateAarohAvroh, extendChords, selectedNote, noteFilterMode, serverChordTypes]);
+            }, [selectedRagaName, separateAarohAvroh, extendChords, selectedNote, noteFilterMode, serverChordTypes, customScaleMode, separateCustomScale, JSON.stringify(customNotePattern), JSON.stringify(customAarohPattern), JSON.stringify(customAvrohPattern)]);
 
             if (!selectedRaga) {
                 return (
@@ -872,7 +955,6 @@
                                 {/* Toggle Separate Aaroh/Avroh */}
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Circle Layout:
                                     </label>
                                     <div className="flex items-center h-12">
                                         <label className="inline-flex items-center">
@@ -892,7 +974,6 @@
                                 {/* Dark Mode Toggle */}
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Theme:
                                         </label>
                                         <div className="flex items-center h-12">
                                             <label className="inline-flex items-center">
@@ -951,7 +1032,7 @@
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
                                         Custom Mode:
                                     </label>
-                                    <div className="flex items-center h-12">
+                                    <div className="flex items-center h-12 gap-4 flex-nowrap whitespace-nowrap overflow-x-auto">
                                         <label className="inline-flex items-center">
                                             <input
                                                 type="checkbox"
@@ -960,11 +1041,33 @@
                                                 className="form-checkbox h-5 w-5 text-pink-600 rounded focus:ring-pink-500"
                                             />
                                             <span className="ml-2 text-sm text-gray-700">
-                                                Enable
+                                                Chord
                                             </span>
                                         </label>
+                                        {/* Custom Scale Toggle (next to Custom Mode) */}
+                                        <label className="inline-flex items-center">
+                                            <input
+                                                type="checkbox"
+                                                checked={customScaleMode}
+                                                onChange={e => setCustomScaleMode(e.target.checked)}
+                                                className="form-checkbox h-5 w-5 text-emerald-600 rounded focus:ring-emerald-500"
+                                            />
+                                            <span className="ml-2 text-sm text-gray-700">Scale</span>
+                                        </label>
+                                        {customScaleMode && (
+                                            <label className="inline-flex items-center">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={separateCustomScale}
+                                                    onChange={e => setSeparateCustomScale(e.target.checked)}
+                                                    className="form-checkbox h-5 w-5 text-emerald-600 rounded focus:ring-emerald-500"
+                                                />
+                                                <span className="ml-2 text-sm text-gray-700">Separate Aaroh/Avroh</span>
+                                            </label>
+                                        )}
                                     </div>
                                 </div>
+                                
                             </div>
                         </div>
 
@@ -972,7 +1075,7 @@
                         <div className="bg-white rounded-xl p-6 pb-10 shadow-lg border">
                             {/* Audio Controls */}
                             <div className="mb-6 flex flex-wrap items-center justify-center gap-4">
-                                <div className="flex items-center gap-2">
+                                    <div className="flex items-center h-12 gap-6 flex-wrap">
                                     <span className="text-sm font-medium text-gray-700">Play Raga:</span>
                                     <button
                                         onClick={() => playScale(getCurrentPatterns().aaroh, true)}
@@ -1006,12 +1109,11 @@
                             {/* Collapsible Keyboard */}
                             <div className="mt-4">
                                 <div className="flex items-center justify-between mb-2">
-                                    <div className="text-sm font-medium text-gray-700">Keyboard (3 octaves)</div>
                                     <button
                                         onClick={() => setShowKeyboard(v => !v)}
                                         className="px-3 py-1 text-xs rounded border bg-gray-50 hover:bg-gray-100 text-gray-700"
                                     >
-                                        {showKeyboard ? 'Hide' : 'Show'}
+                                        {showKeyboard ? 'Hide Keyboard' : 'Show Keyboard'}
                                     </button>
                                 </div>
                                 {showKeyboard && (
@@ -1019,7 +1121,86 @@
                                 )}
                             </div>
 
-                            {/* Custom Scale Controls removed for now */}
+                            {/* Custom Scale Controls */}
+                            {customScaleMode && (
+                                <div className="mt-6 p-4 rounded-lg border bg-gray-50">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <h3 className="text-sm font-semibold text-gray-700">Custom Scale Editor</h3>
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => {
+                                                    setCustomNotePattern(Array(12).fill(false));
+                                                    setCustomAarohPattern(Array(12).fill(false));
+                                                    setCustomAvrohPattern(Array(12).fill(false));
+                                                }}
+                                                className="px-2 py-1 text-xs rounded border bg-white hover:bg-gray-100"
+                                            >
+                                                Clear
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    if (!selectedRaga) return;
+                                                    const { all, aaroh, avroh } = { all: selectedRaga.notePattern, aaroh: selectedRaga.aarohPattern, avroh: selectedRaga.avrohPattern };
+                                                    setCustomNotePattern(all.map(v => !!v));
+                                                    setCustomAarohPattern(aaroh.map(v => !!v));
+                                                    setCustomAvrohPattern(avroh.map(v => !!v));
+                                                }}
+                                                className="px-2 py-1 text-xs rounded border bg-white hover:bg-gray-100"
+                                            >
+                                                Copy From Raga
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {!separateCustomScale ? (
+                                        <div>
+                                            <div className="text-xs text-gray-600 mb-1">Select notes for the scale</div>
+                                            <div className="flex flex-wrap gap-1">
+                                                {swarNames.map((s, i) => (
+                                                    <button
+                                                        key={i}
+                                                        onClick={() => setCustomNotePattern(prev => prev.map((v, idx) => idx === i ? !v : v))}
+                                                        className={`px-2 py-1 text-xs rounded border ${customNotePattern[i] ? 'bg-emerald-200 border-emerald-400' : 'bg-white hover:bg-gray-100'}`}
+                                                    >
+                                                        {s}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                            <div>
+                                                <div className="text-xs text-gray-600 mb-1">Aaroh (Ascending)</div>
+                                                <div className="flex flex-wrap gap-1">
+                                                    {swarNames.map((s, i) => (
+                                                        <button
+                                                            key={`aar-${i}`}
+                                                            onClick={() => setCustomAarohPattern(prev => prev.map((v, idx) => idx === i ? !v : v))}
+                                                            className={`px-2 py-1 text-xs rounded border ${customAarohPattern[i] ? 'bg-emerald-200 border-emerald-400' : 'bg-white hover:bg-gray-100'}`}
+                                                        >
+                                                            {s}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div className="text-xs text-gray-600 mb-1">Avroh (Descending)</div>
+                                                <div className="flex flex-wrap gap-1">
+                                                    {swarNames.map((s, i) => (
+                                                        <button
+                                                            key={`avr-${i}`}
+                                                            onClick={() => setCustomAvrohPattern(prev => prev.map((v, idx) => idx === i ? !v : v))}
+                                                            className={`px-2 py-1 text-xs rounded border ${customAvrohPattern[i] ? 'bg-emerald-200 border-emerald-400' : 'bg-white hover:bg-gray-100'}`}
+                                                        >
+                                                            {s}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
 
                              {separateAarohAvroh ? (
                                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
@@ -1268,15 +1449,15 @@
                             ) : (
                                 !separateAarohAvroh ? (
                                     <>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                                            {(showMoreAvailable ? availableChordsAll : availableChordsAll.slice(0, 5)).map((chord, index) => (
+                                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                                            {(showMoreAvailable ? availableChordsAll : availableChordsAll.slice(0, 6)).map((chord, index) => (
                                                 <div 
                                                     key={index} 
                                                     draggable
                                                     onDragStart={(e) => {
                                                         e.dataTransfer.setData('application/json', JSON.stringify(chord));
                                                     }}
-                                                    className={`p-4 rounded-lg border ${
+                                                    className={`p-3 rounded-lg border ${
                                                         chord.isExtended 
                                                             ? 'extended-chord text-white' 
                                                             : 'bg-gray-50'
@@ -1317,7 +1498,7 @@
                                                 </div>
                                             ))}
                                         </div>
-                                        {availableChordsAll.length > 5 && (
+                                        {availableChordsAll.length > 6 && (
                                             <div className="mt-4 text-center">
                                                 <button
                                                     onClick={() => setShowMoreAvailable(!showMoreAvailable)}
@@ -1332,15 +1513,15 @@
                                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                                         <div>
                                             <h3 className="text-lg font-medium text-gray-700 mb-3">Aaroh Chords</h3>
-                                            <div className="space-y-3">
-                                                {availableChordsAaroh.map((chord, index) => (
-                                                    <div 
-                                                        key={index} 
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                                {(showMoreAaroh ? availableChordsAaroh : availableChordsAaroh.slice(0, 6)).map((chord, index) => (
+                                                    <div
+                                                        key={index}
                                                         draggable
                                                         onDragStart={(e) => e.dataTransfer.setData('application/json', JSON.stringify(chord))}
                                                         className={`p-3 rounded-lg border ${
-                                                            chord.isExtended 
-                                                                ? 'extended-chord text-white border-yellow-400' 
+                                                            chord.isExtended
+                                                                ? 'extended-chord text-white border-yellow-400'
                                                                 : 'bg-blue-50 border-blue-200'
                                                         }`}
                                                     >
@@ -1378,20 +1559,30 @@
                                                         </div>
                                                     </div>
                                                 ))}
+                                                {availableChordsAaroh.length > 6 && (
+                                                    <div className="mt-3 text-center">
+                                                        <button
+                                                            onClick={() => setShowMoreAaroh(!showMoreAaroh)}
+                                                            className="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"
+                                                        >
+                                                            {showMoreAaroh ? 'Show Less' : 'Show More'}
+                                                        </button>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                         
                                         <div>
                                             <h3 className="text-lg font-medium text-gray-700 mb-3">Avroh Chords</h3>
-                                            <div className="space-y-3">
-                                                {availableChordsAvroh.map((chord, index) => (
-                                                    <div 
-                                                        key={index} 
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                                {(showMoreAvroh ? availableChordsAvroh : availableChordsAvroh.slice(0, 6)).map((chord, index) => (
+                                                    <div
+                                                        key={index}
                                                         draggable
                                                         onDragStart={(e) => e.dataTransfer.setData('application/json', JSON.stringify(chord))}
                                                         className={`p-3 rounded-lg border ${
-                                                            chord.isExtended 
-                                                                ? 'extended-chord text-white border-yellow-400' 
+                                                            chord.isExtended
+                                                                ? 'extended-chord text-white border-yellow-400'
                                                                 : 'bg-green-50 border-green-200'
                                                         }`}
                                                     >
@@ -1429,6 +1620,16 @@
                                                         </div>
                                                     </div>
                                                 ))}
+                                                {availableChordsAvroh.length > 6 && (
+                                                    <div className="mt-3 text-center">
+                                                        <button
+                                                            onClick={() => setShowMoreAvroh(!showMoreAvroh)}
+                                                            className="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"
+                                                        >
+                                                            {showMoreAvroh ? 'Show Less' : 'Show More'}
+                                                        </button>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
@@ -1535,8 +1736,8 @@
 
     const CircleVisualization = ({ notes, title, availableChords, customNotes, darkMode }) => {
             const radius = 120;
-            const centerX = 150;
-            const centerY = 150;
+            const centerX = 170;
+            const centerY = 170;
 
             const getPointPosition = (index) => {
                 const angle = (index * 30 - 90) * (Math.PI / 180);
@@ -1546,11 +1747,20 @@
                 };
             };
 
+            // Compute a point on the circle for any given radius
+            const getPointPositionAt = (index, r) => {
+                const angle = (index * 30 - 90) * (Math.PI / 180);
+                return {
+                    x: centerX + r * Math.cos(angle),
+                    y: centerY + r * Math.sin(angle)
+                };
+            };
+
             return (
                 <div className="flex flex-col items-center">
                     <h3 className="text-lg font-semibold text-gray-800 mb-4">{title}</h3>
                     <div className="relative">
-                        <svg width="300" height="300" className="chord-circle">
+                        <svg width="340" height="340" className="chord-circle">
                             {/* Background circle */}
                             <circle 
                                 cx={centerX} 
@@ -1644,7 +1854,8 @@
 
                             {/* Note dots */}
                             {['Sa', 'Re♭', 'Re', 'Ga♭', 'Ga', 'Ma', 'Ma♯', 'Pa', 'Dha♭', 'Dha', 'Ni♭', 'Ni'].map((swara, index) => {
-                                const pos = getPointPosition(index);
+                                // Position both the circle and label on the outer ring
+                                const pos = getPointPositionAt(index, radius + 20);
                                 const isPresent = notes[index];
                                 const isRoot = availableChords.some(chord => chord.root === index);
                                 const isInExtendedChord = availableChords.some(chord => 
@@ -1665,27 +1876,22 @@
                                             strokeWidth="2"
                                             className="note-dot"
                                         />
-                                        <text
-                                            x={pos.x}
-                                            y={pos.y + 4}
-                                            textAnchor="middle"
-                                            fontSize={isRoot ? "9" : "10"}
-                                            fill={isPresent ? "#ffffff" : (darkMode ? "#94a3b8" : "#6b7280")}
-                                            fontWeight="bold"
-                                        >
-                                            {swara}
-                                        </text>
-                                        {/* Note names outside circle */}
-                                        <text
-                                            x={pos.x + (pos.x > centerX ? 25 : -25)}
-                                            y={pos.y + 4}
-                                            textAnchor={pos.x > centerX ? "start" : "end"}
-                                            fontSize="12"
-                                            fill={darkMode ? "#cbd5e1" : "#4b5563"}
-                                            fontWeight="medium"
-                                        >
-                                            {swara}
-                                        </text>
+                                        {(() => {
+                                            const labelPos = getPointPositionAt(index, radius + 20);
+                                            return (
+                                                <text
+                                                    x={labelPos.x}
+                                                    y={labelPos.y + 4}
+                                                    textAnchor="middle"
+                                                    fontSize={isRoot ? "9" : "10"}
+                                                    fill={darkMode ? "#cbd5e1" : "#4b5563"}
+                                                    fontWeight="bold"
+                                                >
+                                                    {swara}
+                                                </text>
+                                            );
+                                        })()}
+                                        {}
                                     </g>
                                 );
                             })}
@@ -1716,7 +1922,7 @@
 
         <!-- Quick links in corner -->
         <div style="position: fixed; top: 10px; right: 10px; z-index: 1000; display: flex; gap: 8px;">
-            <a href="/raga-query.html" style="padding: 6px 10px; background: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-size: 13px;">Query DB</a>
+            <a href="/raga-query.html" style="padding: 6px 10px; background: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-size: 13px;"> Raga DB</a>
         </div>
 </body>
 </html>
