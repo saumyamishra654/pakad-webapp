@@ -8,11 +8,6 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- WebAudioFont for GM Instruments -->
-    <script src="https://cdn.jsdelivr.net/npm/webaudiofont@2.7.0/dist/WebAudioFontPlayer.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/webaudiofont@2.7.0/dist/webaudiofont.js"></script>
-    <!-- Load a default instrument font (Acoustic Grand Piano) -->
-    <script src="https://surikov.github.io/webaudiofontdata/sound/0000_SBLive_sf2.js"></script>
     <style>
         .chord-circle {
             filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.15));
@@ -65,7 +60,7 @@
         .dark-mode .extended-chord {
             background: linear-gradient(135deg, #d97706, #92400e);
         }
-        /* Piano keyboard styles */
+        /* piano keyboard styles */
         .piano-wrap {
             overflow-x: auto;
             padding: 10px;
@@ -126,10 +121,10 @@
     const { useState, useEffect, useRef } = React;
 
         const ChordFormationTool = () => {
-            // Backend base (same origin)
+            // backend base (same origin)
             const API_BASE = '';
 
-            // Data from backend
+            // data from backend
             const [ragaList, setRagaList] = useState([]); // [{name}]
             const [selectedRagaName, setSelectedRagaName] = useState('');
             const [selectedRaga, setSelectedRaga] = useState(null); // { name, notePattern, aarohPattern, avrohPattern }
@@ -140,33 +135,36 @@
             const [darkMode, setDarkMode] = useState(true);
             const [extendChords, setExtendChords] = useState(false);
             const [loadError, setLoadError] = useState('');
-            // Custom chord builder state
+            // custom chord builder state
             const [customMode, setCustomMode] = useState(false);
             const [customRoot, setCustomRoot] = useState(0);
-            // Store absolute stacked intervals from root (0), e.g., [0, 3, 7, 12]
+            // store absolute stacked intervals from root (0), e.g., [0, 3, 7, 12]
             const [customIntervalsAbs, setCustomIntervalsAbs] = useState([0]);
-            // Note filter state
+            // note filter state
             const [selectedNote, setSelectedNote] = useState(null);
             const [noteFilterMode, setNoteFilterMode] = useState('root'); // 'root', 'any', or 'none'
-            // Show more chords state
+            // show more chords state
             const [showAllChords, setShowAllChords] = useState(false);
             const [showMoreAvailable, setShowMoreAvailable] = useState(false);
             const [showMoreAaroh, setShowMoreAaroh] = useState(false);
             const [showMoreAvroh, setShowMoreAvroh] = useState(false);
-            // Tonic selection state
+            // tonic selection state
             const [selectedTonic, setSelectedTonic] = useState(null);
-            // Audio state
+            const [baseOctave, setBaseOctave] = useState(4); // controls chord voicing and keyboard base octave
+            // audio state
             const [audioContext, setAudioContext] = useState(null);
             const [isPlaying, setIsPlaying] = useState(false);
             const [showKeyboard, setShowKeyboard] = useState(false);
-            // WebAudioFont state
-            const [useGmSynth, setUseGmSynth] = useState(false);
-            const [gmProgram, setGmProgram] = useState(0); // 0=Acoustic Grand Piano
-            const webAudioFontPlayerRef = useRef(null);
-            const audioInitializedRef = useRef(false);
-            const instrumentCacheRef = useRef({});
+            // midi settings state (tunable)
+            const [midiTempo, setMidiTempo] = useState(120); // bpm
+            const [midiProgram, setMidiProgram] = useState(0); // 0-127 (acoustic grand piano)
+            const [midiVelocity, setMidiVelocity] = useState(96); // 1-127
+            const [midiNoteLengthBeats, setMidiNoteLengthBeats] = useState(3.2); // beats per chord (default ~1.6s @120bpm)
+            const [midiGapBeats, setMidiGapBeats] = useState(0.4); // beats gap between chords (default ~0.2s @120bpm)
+            const [midiChannel, setMidiChannel] = useState(1); // 1-16
+            const [showMidiSettings, setShowMidiSettings] = useState(false);
             
-            // Custom scale mode
+            // custom scale mode
             const [customScaleMode, setCustomScaleMode] = useState(false);
             const [separateCustomScale, setSeparateCustomScale] = useState(false);
             const [customNotePattern, setCustomNotePattern] = useState(Array(12).fill(false));
@@ -177,7 +175,7 @@
             const [progression, setProgression] = useState([]); // [{id, chord}]
             const nextProgIdRef = useRef(1);
 
-            // Progression persistence
+            // progression persistence
             useEffect(() => {
                 try {
                     const raw = localStorage.getItem('ragaChordProgression');
@@ -200,12 +198,12 @@
 
             const swarNames = ['Sa', 'Re♭', 'Re', 'Ga♭', 'Ga', 'Ma', 'Ma♯', 'Pa', 'Dha♭', 'Dha', 'Ni♭', 'Ni'];
             
-            // Western note names for tonic mapping
+            // western note names for tonic mapping
             const westernNotes = ['C', 'C#/D♭', 'D', 'D#/E♭', 'E', 'F', 'F#/G♭', 'G', 'G#/A♭', 'A', 'A#', 'B'];
             const westernNotesFlat = ['C', 'D♭', 'D', 'E♭', 'E', 'F', 'G♭', 'G', 'A♭', 'A', 'B♭', 'B'];
             const westernNotesSharp = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
-            // Chord types from server (+ local 'all')
+            // chord types from server (+ local 'all')
             const chordTypes = React.useMemo(() => {
                 const base = serverChordTypes || [];
                 return [
@@ -214,7 +212,7 @@
                 ];
             }, [serverChordTypes]);
 
-            // Backend data loading
+            // backend data loading
             const loadInitialData = async () => {
                 try {
                     setLoadError('');
@@ -228,7 +226,7 @@
                     setServerChordTypes(types);
                     setRagaList(ragas);
 
-                    // Preselect raga via query param (?raga=... or ?raag=... or ?name=...)
+                    // preselect raga via query param (?raga=... or ?raag=... or ?name=... or ?ragaName)
                     const params = new URLSearchParams(window.location.search);
                     const rawParam = params.get('raga') || params.get('raag') || params.get('name') || params.get('ragaName');
                     let chosen = null;
@@ -252,42 +250,21 @@
                 }
             };
 
-            // Initialize audio context and WebAudioFont player on first user interaction
-            const initAudioSystem = () => {
-                if (audioInitializedRef.current) return;
-                try {
-                    console.log('Initializing audio system...');
-                    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-                    setAudioContext(ctx);
-                    
-                    const player = new window.WebAudioFontPlayer();
-                    webAudioFontPlayerRef.current = player;
-                    
-                    // Load the default instrument (piano)
-                    player.loader.decodeAfterLoading(ctx, '_tone_0000_SBLive_sf2');
-                    instrumentCacheRef.current[0] = window._tone_0000_SBLive_sf2;
-
-                    audioInitializedRef.current = true;
-                    console.log('Audio system initialized successfully.');
-                    
-                    // Remove the event listener after successful initialization
-                    document.removeEventListener('click', initAudioSystem);
-                } catch (error) {
-                    console.error('Failed to initialize audio system:', error);
-                }
-            };
-
             useEffect(() => {
-                // Add a one-time event listener for the first user click
-                document.addEventListener('click', initAudioSystem, { once: true });
-
-                return () => {
-                    // Cleanup the listener if the component unmounts
-                    document.removeEventListener('click', initAudioSystem);
+                loadInitialData();
+                // initialize audio context
+                const initAudio = () => {
+                    try {
+                        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                        setAudioContext(ctx);
+                    } catch (error) {
+                        console.error('Audio context not supported:', error);
+                    }
                 };
+                initAudio();
             }, []);
 
-            // Load selected raga details when name changes
+            // load selected raga details when name changes
             useEffect(() => {
                 const fetchRaga = async () => {
                     if (!selectedRagaName) return;
@@ -304,7 +281,7 @@
                 fetchRaga();
             }, [selectedRagaName]);
 
-            // Auto-select Separate Aaroh/Avroh if patterns differ for this raga
+            // auto-select separate aaroh/avroh if patterns differ for this raga
             useEffect(() => {
                 if (!selectedRaga) return;
                 try {
@@ -313,12 +290,12 @@
                     const differ = aar.length !== avr.length || aar.some((v, i) => v !== avr[i]);
                     setSeparateAarohAvroh(differ);
                 } catch (err) {
-                    // No-op: keep previous state on any unexpected shape
+                    // no-op: keep previous state on any unexpected shape
                     console.warn('Could not compare aaroh/avroh patterns', err);
                 }
             }, [selectedRagaName, selectedRaga]);
 
-            // Custom chord helpers
+            // custom chord helpers
             const customPitchClasses = customIntervalsAbs.map(v => ((v % 12) + 12) % 12);
             const customNotesFromRoot = (rootIndex) => customPitchClasses.map(iv => (rootIndex + iv) % 12);
             const addStack = (semitones) => {
@@ -327,99 +304,99 @@
             const removeLast = () => setCustomIntervalsAbs(prev => prev.length > 1 ? prev.slice(0, -1) : prev);
             const resetCustom = () => setCustomIntervalsAbs([0]);
 
-            // Interval degree labels relative to root (Sa)
+            // interval degree labels relative to root (Sa)
             const degreeFromSemitone = (s) => {
                 const map = ['1','♭2','2','♭3','3','4','♭5','5','♯5','6','♭7','7'];
                 return map[((s % 12) + 12) % 12];
             };
 
-            // Audio playback functions
+            // audio playback functions
             const playNote = (frequency, duration = 0.5, delay = 0) => {
                 if (!audioContext) return;
                 
-                // Create a more piano-like sound using multiple oscillators
+                // create a more piano-like sound using multiple oscillators
                 const createPianoNote = (freq, startTime, noteDuration) => {
-                    // Main oscillator (fundamental frequency)
+                    // main oscillator (fundamental frequency)
                     const osc1 = audioContext.createOscillator();
                     const gain1 = audioContext.createGain();
                     
-                    // Second harmonic (octave)
+                    // second harmonic (octave)
                     const osc2 = audioContext.createOscillator();
                     const gain2 = audioContext.createGain();
                     
-                    // Third harmonic (perfect fifth above octave)
+                    // third harmonic (perfect fifth above octave)
                     const osc3 = audioContext.createOscillator();
                     const gain3 = audioContext.createGain();
                     
-                    // Fourth harmonic (two octaves)
+                    // fourth harmonic (two octaves)
                     const osc4 = audioContext.createOscillator();
                     const gain4 = audioContext.createGain();
                     
-                    // Master gain for the note
+                    // master gain for the note
                     const masterGain = audioContext.createGain();
                     
-                    // Connect oscillators to their gains
+                    // connect oscillators to their gains
                     osc1.connect(gain1);
                     osc2.connect(gain2);
                     osc3.connect(gain3);
                     osc4.connect(gain4);
                     
-                    // Connect gains to master gain
+                    // connect gains to master gain
                     gain1.connect(masterGain);
                     gain2.connect(masterGain);
                     gain3.connect(masterGain);
                     gain4.connect(masterGain);
                     
-                    // Connect to destination
+                    // connect to destination
                     masterGain.connect(audioContext.destination);
                     
-                    // Set frequencies (harmonics)
-                    osc1.frequency.setValueAtTime(freq, startTime);           // Fundamental
-                    osc2.frequency.setValueAtTime(freq * 2, startTime);       // Octave
-                    osc3.frequency.setValueAtTime(freq * 3, startTime);       // Perfect fifth above octave
-                    osc4.frequency.setValueAtTime(freq * 4, startTime);       // Two octaves
+                    // set frequencies (harmonics)
+                    osc1.frequency.setValueAtTime(freq, startTime);           // fundamental
+                    osc2.frequency.setValueAtTime(freq * 2, startTime);       // octave
+                    osc3.frequency.setValueAtTime(freq * 3, startTime);       // perfect fifth above octave
+                    osc4.frequency.setValueAtTime(freq * 4, startTime);       // two octaves
                     
-                    // Use triangle waves for warmer sound
+                    // use triangle waves for warmer sound
                     osc1.type = 'triangle';
                     osc2.type = 'triangle';
                     osc3.type = 'sine';
                     osc4.type = 'sine';
                     
-                    // Set harmonic levels (piano-like balance)
-                    gain1.gain.setValueAtTime(1.0, startTime);     // Fundamental (strongest)
-                    gain2.gain.setValueAtTime(0.3, startTime);     // Second harmonic
-                    gain3.gain.setValueAtTime(0.15, startTime);    // Third harmonic
-                    gain4.gain.setValueAtTime(0.05, startTime);    // Fourth harmonic
+                    // set harmonic levels (piano-like balance)
+                    gain1.gain.setValueAtTime(1.0, startTime);     // fundamental (strongest)
+                    gain2.gain.setValueAtTime(0.3, startTime);     // second harmonic
+                    gain3.gain.setValueAtTime(0.15, startTime);    // third harmonic
+                    gain4.gain.setValueAtTime(0.05, startTime);    // fourth harmonic
                     
-                    // Piano-like envelope (quick attack, slower decay, sustain, release)
+                    // piano-like envelope (quick attack, slower decay, sustain, release)
                     const attackTime = 0.02;
                     const decayTime = 0.3;
                     const sustainLevel = 0.3;
                     const releaseTime = 0.5;
                     
-                    // Master envelope
+                    // master envelope
                     masterGain.gain.setValueAtTime(0, startTime);
                     
-                    // Attack
+                    // attack
                     masterGain.gain.linearRampToValueAtTime(0.4, startTime + attackTime);
                     
-                    // Decay to sustain
+                    // decay to sustain
                     masterGain.gain.exponentialRampToValueAtTime(sustainLevel, startTime + attackTime + decayTime);
                     
-                    // Sustain
+                    // sustain
                     const sustainTime = Math.max(0.1, noteDuration - attackTime - decayTime - releaseTime);
                     masterGain.gain.setValueAtTime(sustainLevel, startTime + attackTime + decayTime + sustainTime);
                     
-                    // Release
+                    // release
                     masterGain.gain.exponentialRampToValueAtTime(0.01, startTime + noteDuration);
                     
-                    // Start all oscillators
+                    // start all oscillators
                     osc1.start(startTime);
                     osc2.start(startTime);
                     osc3.start(startTime);
                     osc4.start(startTime);
                     
-                    // Stop all oscillators
+                    // stop all oscillators
                     osc1.stop(startTime + noteDuration);
                     osc2.stop(startTime + noteDuration);
                     osc3.stop(startTime + noteDuration);
@@ -430,87 +407,32 @@
             };
 
             const getFrequencyFromNote = (noteIndex, octave = 4) => {
-                // Use C4 = 261.63 Hz as base, but adjust the calculation
+                // use C4 = 261.63 Hz as base, but adjust the calculation
                 const baseFreq = selectedTonic !== null ? 
                     261.63 * Math.pow(2, selectedTonic / 12) : // C4 adjusted for tonic
                     261.63; // C4 default
-                // Calculate frequency using proper octave offset
+                // calculate frequency using proper octave offset
                 return baseFreq * Math.pow(2, (noteIndex / 12) + (octave - 4));
             };
 
-            // Absolute frequency for the keyboard (C is fixed regardless of selected tonic)
+            // absolute frequency for the keyboard (C is fixed regardless of selected tonic)
             const getFrequencyFromNoteAbsolute = (noteIndex, octave = 4) => {
                 const baseC4 = 261.63; // Hz
                 return baseC4 * Math.pow(2, (noteIndex / 12) + (octave - 4));
             };
 
-            // MIDI helpers
-            const midiFromPcOct = (pc, octave) => (octave + 1) * 12 + pc; // C4=60
-            
-            const getGmInstrument = async (program) => {
-                if (!webAudioFontPlayerRef.current || !audioContext) {
-                    console.warn('WebAudioFont player or audio context not ready.');
-                    return null;
-                }
-                
-                if (instrumentCacheRef.current[program]) {
-                    return instrumentCacheRef.current[program];
-                }
-
-                try {
-                    const programStr = String(program).padStart(3, '0');
-                    const varName = `_tone_${programStr}0_SBLive_sf2`;
-                    
-                    // Check if font is already loaded in window
-                    if (window[varName]) {
-                        webAudioFontPlayerRef.current.loader.decodeAfterLoading(audioContext, varName);
-                        instrumentCacheRef.current[program] = window[varName];
-                        return window[varName];
-                    }
-
-                    // If not, load it dynamically
-                    const url = `https://surikov.github.io/webaudiofontdata/sound/${programStr}0_SBLive_sf2.js`;
-                    await new Promise((resolve, reject) => {
-                        const script = document.createElement('script');
-                        script.src = url;
-                        script.onload = () => {
-                            if (window[varName]) {
-                                webAudioFontPlayerRef.current.loader.decodeAfterLoading(audioContext, varName);
-                                instrumentCacheRef.current[program] = window[varName];
-                                resolve();
-                            } else {
-                                reject(new Error(`Font variable ${varName} not found after loading script.`));
-                            }
-                        };
-                        script.onerror = reject;
-                        document.head.appendChild(script);
-                    });
-                    return instrumentCacheRef.current[program];
-                } catch (error) {
-                    console.error(`Failed to load GM instrument for program ${program}:`, error);
-                    return null;
-                }
-            };
-
-            // Preload instrument when GM toggled/program changed
-            useEffect(() => {
-                if (useGmSynth && audioInitializedRef.current) {
-                    getGmInstrument(gmProgram);
-                }
-            }, [useGmSynth, gmProgram, audioInitializedRef.current]);
-
-            // Helper function to arrange notes in ascending order without octave jumps
-            const arrangeNotesAscending = (noteIndices) => {
+            // helper function to arrange notes in ascending order without octave jumps
+            const arrangeNotesAscending = (noteIndices, baseOctave = 3) => {
                 if (noteIndices.length === 0) return [];
                 
                 const sortedNotes = [...noteIndices].sort((a, b) => a - b);
                 const arrangedNotes = [];
-                let currentOctave = 3; // Start at octave 3 for lower pitch
+                let currentOctave = baseOctave; // Start at configured base octave
                 
                 for (let i = 0; i < sortedNotes.length; i++) {
                     const noteIndex = sortedNotes[i];
                     
-                    // If this note would be lower than the previous note in the same octave,
+                    // if this note would be lower than the previous note in the same octave,
                     // move it to the next octave
                     if (i > 0 && noteIndex < sortedNotes[i - 1]) {
                         currentOctave++;
@@ -526,15 +448,15 @@
                 return arrangedNotes;
             };
 
-            // NEW: Helper function specifically for arranging notes in descending order
-            const arrangeNotesDescending = (noteIndices, startingOctave = 4, includeLowerSa = true) => {
+            // new: helper function specifically for arranging notes in descending order
+            const arrangeNotesDescending = (noteIndices, startingOctave = 4, includeLowerSa = true, baseLowerOctave = 3) => {
                 if (!noteIndices || noteIndices.length === 0) return [];
 
-                // Unique pitch classes sorted high -> low
+                // unique pitch classes sorted high -> low
                 const pcsDesc = Array.from(new Set(noteIndices)).sort((a, b) => b - a);
 
                 const arranged = [];
-                // Start on higher Sa explicitly
+                // start on higher Sa explicitly
                 let prevAbs = startingOctave * 12 + 0; // absolute semitone number for Sa at startingOctave
                 arranged.push({
                     noteIndex: 0,
@@ -542,13 +464,13 @@
                     frequency: getFrequencyFromNote(0, startingOctave)
                 });
 
-                // Follow with remaining pitch classes (excluding 0 already used)
+                // follow with remaining pitch classes (excluding 0 already used)
                 for (const pc of pcsDesc) {
                     if (pc === 0) continue; // skip Sa here; we'll handle optional lower Sa at the end
 
-                    // Choose the highest octave for this pc that is strictly below prevAbs
+                    // choose the highest octave for this pc that is strictly below prevAbs
                     const o = Math.floor((prevAbs - 1 - pc) / 12);
-                    const octave = Math.max(3, o);
+                    const octave = Math.max(baseLowerOctave, o);
                     const abs = octave * 12 + pc;
 
                     prevAbs = abs;
@@ -559,10 +481,10 @@
                     });
                 }
 
-                // Optionally finish on the next lower Sa
+                // optionally finish on the next lower Sa
                 if (includeLowerSa) {
                     const o = Math.floor((prevAbs - 1 - 0) / 12);
-                    const octave = Math.max(3, o);
+                    const octave = Math.max(baseLowerOctave, o);
                     arranged.push({
                         noteIndex: 0,
                         octave,
@@ -573,14 +495,14 @@
                 return arranged;
             };
 
-            // Arrange chord notes preserving input order, raising octaves minimally to keep notes strictly ascending
+            // arrange chord notes preserving input order, raising octaves minimally to keep notes strictly ascending
             const arrangeChordNotes = (noteIndices, baseOctave = 3) => {
                 if (!noteIndices || noteIndices.length === 0) return [];
                 const arranged = [];
                 // lastAbs is absolute semitone of previous note; start just below base octave so first fits in base
                 let lastAbs = baseOctave * 12 - 1;
                 for (const pc of noteIndices) {
-                    // Smallest octave such that abs(pc, octave) > lastAbs
+                    // smallest octave such that abs(pc, octave) > lastAbs
                     const minOct = Math.max(baseOctave, Math.floor((lastAbs - pc) / 12) + 1);
                     const abs = minOct * 12 + pc;
                     arranged.push({
@@ -593,45 +515,137 @@
                 return arranged;
             };
 
+            // --- midi export helpers ---
+            const writeVarLen = (value) => {
+                let buffer = value & 0x7F;
+                const bytes = [];
+                while ((value >>= 7)) {
+                    buffer <<= 8;
+                    buffer |= ((value & 0x7F) | 0x80);
+                }
+                while (true) {
+                    bytes.push(buffer & 0xFF);
+                    if (buffer & 0x80) buffer >>= 8; else break;
+                }
+                return bytes;
+            };
+
+            const buildMidiFromProgression = () => {
+                if (!progression || progression.length === 0) return null;
+                const TPQ = 480; // ticks per quarter
+                const tempoBPM = Math.max(1, Math.min(400, Number(midiTempo) || 120));
+                const tempoUS = Math.round(60000000 / tempoBPM);
+                // durations specified in beats; convert to ticks directly
+                const chordDurTicks = Math.max(1, Math.round((Number(midiNoteLengthBeats) || 3.2) * TPQ));
+                const gapTicks = Math.max(0, Math.round((Number(midiGapBeats) || 0.4) * TPQ));
+
+                const events = [];
+                const pushEvent = (delta, bytes) => {
+                    events.push(...writeVarLen(delta), ...bytes);
+                };
+
+                // tempo meta
+                pushEvent(0, [0xFF, 0x51, 0x03, (tempoUS >> 16) & 0xFF, (tempoUS >> 8) & 0xFF, tempoUS & 0xFF]);
+                // program change on selected channel
+                const ch = Math.max(1, Math.min(16, Number(midiChannel) || 1)) - 1; // 0-15
+                const program = Math.max(0, Math.min(127, Number(midiProgram) || 0));
+                pushEvent(0, [0xC0 | ch, program]);
+
+                let pendingDelta = 0;
+                const tonicOffset = (selectedTonic !== null ? selectedTonic : 0);
+
+                for (const item of progression) {
+                    const chord = item.chord;
+                    if (!chord || !Array.isArray(chord.notes) || chord.notes.length === 0) continue;
+                    const voiced = arrangeChordNotes(chord.notes, baseOctave);
+                    const midiNotes = voiced.map(n => 12 + (n.octave * 12 + n.noteIndex + tonicOffset));
+                    const vel = Math.max(1, Math.min(127, Number(midiVelocity) || 96));
+                    // note on (first uses pendingDelta, rest delta=0)
+                    midiNotes.forEach((m, idx) => pushEvent(idx === 0 ? pendingDelta : 0, [0x90 | ch, Math.max(0, Math.min(127, m)), vel]));
+                    // note off after chord duration
+                    midiNotes.forEach((m, idx) => pushEvent(idx === 0 ? chordDurTicks : 0, [0x80 | ch, Math.max(0, Math.min(127, m)), 64]));
+                    // prepare gap before next chord
+                    pendingDelta = gapTicks;
+                }
+
+                // end of track
+                pushEvent(pendingDelta, [0xFF, 0x2F, 0x00]);
+
+                // build track chunk
+                const trackData = Uint8Array.from(events);
+                const trackHeader = new Uint8Array(8);
+                trackHeader.set([0x4D, 0x54, 0x72, 0x6B]); // 'MTrk'
+                const trackLen = trackData.length;
+                trackHeader[4] = (trackLen >>> 24) & 0xFF;
+                trackHeader[5] = (trackLen >>> 16) & 0xFF;
+                trackHeader[6] = (trackLen >>> 8) & 0xFF;
+                trackHeader[7] = trackLen & 0xFF;
+
+                // build header chunk (format 0, 1 track, TPQ)
+                const header = new Uint8Array(14);
+                header.set([0x4D, 0x54, 0x68, 0x64, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01]);
+                header[12] = (TPQ >>> 8) & 0xFF;
+                header[13] = TPQ & 0xFF;
+
+                // concatenate
+                const out = new Uint8Array(header.length + trackHeader.length + trackData.length);
+                out.set(header, 0);
+                out.set(trackHeader, header.length);
+                out.set(trackData, header.length + trackHeader.length);
+                return out;
+            };
+
+            const downloadProgressionAsMIDI = () => {
+                const bytes = buildMidiFromProgression();
+                if (!bytes) return;
+                const blob = new Blob([bytes], { type: 'audio/midi' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                const name = (selectedRagaName ? selectedRagaName.replace(/\s+/g, '_') : 'progression');
+                a.href = url;
+                a.download = `${name}_progression.mid`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+            };
+
             const playScale = async (pattern, isAscending = true) => {
-                if (!audioInitializedRef.current || isPlaying) return;
+                if (!audioContext || isPlaying) return;
                 
                 setIsPlaying(true);
                 
                 try {
+                    // resume audio context if suspended
+                    if (audioContext.state === 'suspended') {
+                        await audioContext.resume();
+                    }
+                    
                     const noteIndices = pattern.map((present, index) => present ? index : null)
                                               .filter(note => note !== null);
                     
                     let arrangedNotes;
                     if (isAscending) {
-                        const baseNotes = arrangeNotesAscending(noteIndices);
+                        // for ascending, add higher Sa at the end
+                        const baseNotes = arrangeNotesAscending(noteIndices, baseOctave);
                         const higherSa = {
-                            noteIndex: 0,
+                            noteIndex: 0, // Sa
                             octave: Math.max(...baseNotes.map(n => n.octave)) + 1,
                             frequency: getFrequencyFromNote(0, Math.max(...baseNotes.map(n => n.octave)) + 1)
                         };
                         arrangedNotes = [...baseNotes, higherSa];
                     } else {
-                        const baseNotes = arrangeNotesAscending(noteIndices);
+                        // for descending, compute peak octave same as ascending's higher Sa and descend strictly
+                        const baseNotes = arrangeNotesAscending(noteIndices, baseOctave);
                         const peakOctave = Math.max(...baseNotes.map(n => n.octave)) + 1;
-                        arrangedNotes = arrangeNotesDescending(noteIndices, peakOctave, true);
+                        arrangedNotes = arrangeNotesDescending(noteIndices, peakOctave, true, baseOctave);
                     }
                     
-                    if (useGmSynth) {
-                        const instrument = await getGmInstrument(gmProgram);
-                        if (instrument) {
-                            arrangedNotes.forEach((note, i) => {
-                                const midi = midiFromPcOct(note.noteIndex, note.octave);
-                                webAudioFontPlayerRef.current.queueWaveTable(audioContext, audioContext.destination, instrument, audioContext.currentTime + i * 0.4, midi, 0.6);
-                            });
-                        } else {
-                            console.warn('GM instrument not available, falling back to sine waves');
-                            arrangedNotes.forEach((note, i) => playNote(note.frequency, 0.6, i * 0.4));
-                        }
-                    } else {
-                        arrangedNotes.forEach((note, i) => playNote(note.frequency, 0.6, i * 0.4));
-                    }
+                    arrangedNotes.forEach((note, i) => {
+                        playNote(note.frequency, 0.6, i * 0.4);
+                    });
                     
+                    // set playing state to false after all notes finish
                     setTimeout(() => setIsPlaying(false), arrangedNotes.length * 400 + 600);
                     
                 } catch (error) {
@@ -640,50 +654,55 @@
                 }
             };
 
+            // new function to play both Aaroh and Avroh sequentially
             const playAarohAvroh = async () => {
-                if (!audioInitializedRef.current || isPlaying) return;
+                if (!audioContext || isPlaying) return;
                 
                 setIsPlaying(true);
                 
                 try {
-                    const aarohIndices = getCurrentPatterns().aaroh.map((p, i) => p ? i : null).filter(n => n !== null);
-                    const avrohIndices = getCurrentPatterns().avroh.map((p, i) => p ? i : null).filter(n => n !== null);
+                    // resume audio context if suspended
+                    if (audioContext.state === 'suspended') {
+                        await audioContext.resume();
+                    }
                     
-                    const aarohNotesBase = arrangeNotesAscending(aarohIndices);
+                    // get Aaroh notes
+                    const aarohIndices = getCurrentPatterns().aaroh.map((present, index) => present ? index : null)
+                                                                  .filter(note => note !== null);
+                    
+                    // get Avroh notes  
+                    const avrohIndices = getCurrentPatterns().avroh.map((present, index) => present ? index : null)
+                                                                  .filter(note => note !== null);
+                    
+                    // arrange Aaroh (ascending) and add higher Sa at the end
+                    const aarohNotesBase = arrangeNotesAscending(aarohIndices, baseOctave);
                     const higherSa = {
-                        noteIndex: 0,
+                        noteIndex: 0, // Sa
                         octave: Math.max(...aarohNotesBase.map(n => n.octave)) + 1,
                         frequency: getFrequencyFromNote(0, Math.max(...aarohNotesBase.map(n => n.octave)) + 1)
                     };
                     const aarohNotes = [...aarohNotesBase, higherSa];
-                    const avrohNotes = arrangeNotesDescending(avrohIndices, higherSa.octave, true);
                     
-                    const pauseBetween = 0.3;
+                    // arrange Avroh starting from the same higher Sa octave and descend strictly to lower Sa
+                    const avrohNotes = arrangeNotesDescending(avrohIndices, higherSa.octave, true, baseOctave);
+                    
+                    // play Aaroh first (including higher Sa at the end)
+                    aarohNotes.forEach((note, i) => {
+                        playNote(note.frequency, 0.6, i * 0.4);
+                    });
+                    
+                    // calculate delay for Avroh to start after Aaroh finishes
                     const aarohDuration = aarohNotes.length * 0.4;
-                    const totalDuration = (aarohDuration + pauseBetween + avrohNotes.length * 0.4 + 0.6) * 1000;
-
-                    if (useGmSynth) {
-                        const instrument = await getGmInstrument(gmProgram);
-                        if (instrument) {
-                            aarohNotes.forEach((note, i) => {
-                                const midi = midiFromPcOct(note.noteIndex, note.octave);
-                                webAudioFontPlayerRef.current.queueWaveTable(audioContext, audioContext.destination, instrument, audioContext.currentTime + i * 0.4, midi, 0.6);
-                            });
-                            avrohNotes.forEach((note, i) => {
-                                const midi = midiFromPcOct(note.noteIndex, note.octave);
-                                webAudioFontPlayerRef.current.queueWaveTable(audioContext, audioContext.destination, instrument, audioContext.currentTime + aarohDuration + pauseBetween + i * 0.4, midi, 0.6);
-                            });
-                        } else {
-                            // Fallback for GM failure
-                            aarohNotes.forEach((note, i) => playNote(note.frequency, 0.6, i * 0.4));
-                            avrohNotes.forEach((note, i) => playNote(note.frequency, 0.6, aarohDuration + pauseBetween + i * 0.4));
-                        }
-                    } else {
-                        aarohNotes.forEach((note, i) => playNote(note.frequency, 0.6, i * 0.4));
-                        avrohNotes.forEach((note, i) => playNote(note.frequency, 0.6, aarohDuration + pauseBetween + i * 0.4));
-                    }
+                    const pauseBetween = 0.3; // short pause between Aaroh and Avroh
                     
-                    setTimeout(() => setIsPlaying(false), totalDuration);
+                    // play Avroh after Aaroh completes
+                    avrohNotes.forEach((note, i) => {
+                        playNote(note.frequency, 0.6, aarohDuration + pauseBetween + (i * 0.4));
+                    });
+                    
+                    // calculate total duration
+                    const totalDuration = aarohDuration + pauseBetween + (avrohNotes.length * 0.4) + 0.6;
+                    setTimeout(() => setIsPlaying(false), totalDuration * 1000);
                     
                 } catch (error) {
                     console.error('Audio playback error:', error);
@@ -692,38 +711,31 @@
             };
 
             const playChord = async (chordNotes, isUnison = true) => {
-                if (!audioInitializedRef.current || isPlaying) return;
+                if (!audioContext || isPlaying) return;
                 
                 setIsPlaying(true);
                 
                 try {
-                    const arrangedNotes = arrangeChordNotes(chordNotes);
-                    const duration = isUnison ? 2.0 : 0.8;
-                    const totalDuration = isUnison ? 2000 : arrangedNotes.length * 300 + 800;
-
-                    if (useGmSynth) {
-                        const instrument = await getGmInstrument(gmProgram);
-                        if (instrument) {
-                            if (isUnison) {
-                                arrangedNotes.forEach(note => {
-                                    const midi = midiFromPcOct(note.noteIndex, note.octave);
-                                    webAudioFontPlayerRef.current.queueWaveTable(audioContext, audioContext.destination, instrument, 0, midi, duration);
-                                });
-                            } else {
-                                arrangedNotes.forEach((note, i) => {
-                                    const midi = midiFromPcOct(note.noteIndex, note.octave);
-                                    webAudioFontPlayerRef.current.queueWaveTable(audioContext, audioContext.destination, instrument, audioContext.currentTime + i * 0.3, midi, duration);
-                                });
-                            }
-                        } else {
-                            // Fallback for GM failure
-                            arrangedNotes.forEach((note, i) => playNote(note.frequency, duration, isUnison ? 0 : i * 0.3));
-                        }
-                    } else {
-                        arrangedNotes.forEach((note, i) => playNote(note.frequency, duration, isUnison ? 0 : i * 0.3));
+                    // resume audio context if suspended
+                    if (audioContext.state === 'suspended') {
+                        await audioContext.resume();
                     }
                     
-                    setTimeout(() => setIsPlaying(false), totalDuration);
+                    const arrangedNotes = arrangeChordNotes(chordNotes, baseOctave);
+                    
+                    if (isUnison) {
+                        // play all notes simultaneously with proper voicing
+                        arrangedNotes.forEach(note => {
+                            playNote(note.frequency, 2.0, 0);
+                        });
+                        setTimeout(() => setIsPlaying(false), 2000);
+                    } else {
+                        // play notes in sequence (arpeggio) with proper voicing
+                        arrangedNotes.forEach((note, i) => {
+                            playNote(note.frequency, 0.8, i * 0.3);
+                        });
+                        setTimeout(() => setIsPlaying(false), arrangedNotes.length * 300 + 800);
+                    }
                     
                 } catch (error) {
                     console.error('Chord playback error:', error);
@@ -731,38 +743,22 @@
                 }
             };
 
-            const playKey = async (pc, octave) => {
-                if (!audioInitializedRef.current) {
-                    console.warn('Audio system not initialized. Click anywhere to initialize.');
-                    // As a fallback, we can try to initialize it right now
-                    initAudioSystem();
-                    // It might not be ready immediately, so we might have to skip this first play
-                    if (!audioInitializedRef.current) return;
-                }
-
-                if (useGmSynth) {
-                    try {
-                        const instrument = await getGmInstrument(gmProgram);
-                        if (instrument) {
-                            const midiNote = midiFromPcOct(pc, octave);
-                            webAudioFontPlayerRef.current.queueWaveTable(audioContext, audioContext.destination, instrument, 0, midiNote, 0.5);
-                        } else {
-                             console.warn('GM instrument not ready, falling back to sine wave.');
-                             const freq = getFrequencyFromNoteAbsolute(pc, octave);
-                             playNote(freq, 0.45, 0);
-                        }
-                    } catch (error) {
-                        console.error('Error playing GM note:', error);
-                        const freq = getFrequencyFromNoteAbsolute(pc, octave);
-                        playNote(freq, 0.45, 0);
+            // play a single key (does not toggle global isPlaying)
+        const playKey = async (pc, octave) => {
+                if (!audioContext) return;
+                try {
+                    if (audioContext.state === 'suspended') {
+                        await audioContext.resume();
                     }
-                } else {
-                    const freq = getFrequencyFromNoteAbsolute(pc, octave);
+            // use absolute mapping so the keyboard doesn't shift with selected tonic
+            const freq = getFrequencyFromNoteAbsolute(pc, octave);
                     playNote(freq, 0.45, 0);
+                } catch (err) {
+                    console.error('Key playback error', err);
                 }
             };
 
-            // Current patterns from selected raga or custom scale
+            // current patterns from selected raga or custom scale
             const getCurrentPatterns = () => {
                 if (customScaleMode) {
                     if (separateCustomScale) {
@@ -777,25 +773,25 @@
                 return { all: selectedRaga.notePattern, aaroh: selectedRaga.aarohPattern, avroh: selectedRaga.avrohPattern };
             };
 
-            // Clear chords immediately on custom-scale changes to avoid stale edges then re-fetch in effects
+            // clear chords immediately on custom-scale changes to avoid stale edges then re-fetch in effects
             useEffect(() => {
                 setChordsAll([]); setChordsAaroh([]); setChordsAvroh([]);
             }, [customScaleMode, separateCustomScale, JSON.stringify(customNotePattern), JSON.stringify(customAarohPattern), JSON.stringify(customAvrohPattern)]);
 
-            // Get available notes for a pattern
+            // get available notes for a pattern
             const getAvailableNotes = (pattern) => {
                 return pattern.map((isPresent, index) => isPresent ? index : null)
                              .filter(note => note !== null);
             };
 
-            // Server handles chord filtering and western naming
+            // server handles chord filtering and western naming
 
-            // Chords from backend
+            // chords from backend
             const [chordsAll, setChordsAll] = useState([]);
             const [chordsAaroh, setChordsAaroh] = useState([]);
             const [chordsAvroh, setChordsAvroh] = useState([]);
 
-            // Guard against race conditions when switching ragas/modes
+            // guard against race conditions when switching ragas/modes
             const chordsFetchVersionRef = useRef(0);
 
             const refreshChords = async () => {
@@ -872,13 +868,13 @@
             const availableChordsAaroh = chordsAaroh;
             const availableChordsAvroh = chordsAvroh;
 
-            // Custom chord current notes and validity
+            // custom chord current notes and validity
             const customNotesAll = customNotesFromRoot(customRoot);
             const customValidAll = selectedRaga ? customNotesAll.every(i => selectedRaga.notePattern[i]) : false;
             const customValidAaroh = selectedRaga ? customNotesAll.every(i => selectedRaga.aarohPattern[i]) : false;
             const customValidAvroh = selectedRaga ? customNotesAll.every(i => selectedRaga.avrohPattern[i]) : false;
 
-            // Custom matches via backend
+            // custom matches via backend
             const [customMatches, setCustomMatches] = useState({ aaroh: [], avroh: [], all: [] });
             useEffect(() => {
                 const doFetch = async () => {
@@ -900,7 +896,7 @@
                 doFetch();
             }, [customMode, customIntervalsAbs, selectedRagaName]);
 
-            // Aggregated counts from backend
+            // aggregated counts from backend
             const [aggregatedBasic, setAggregatedBasic] = useState(0);
             const [aggregatedExtended, setAggregatedExtended] = useState(0);
             useEffect(() => {
@@ -921,7 +917,7 @@
                 fetchAgg();
             }, [selectedRagaName, separateAarohAvroh, extendChords]);
 
-            // For counts per chord type in UI
+            // for counts per chord type in UI
             const [countsByType, setCountsByType] = useState({});
             useEffect(() => {
                 const fetchCounts = async () => {
@@ -1000,7 +996,7 @@
             return (
                 <div className={`${darkMode ? 'dark-mode ' : ''}min-h-screen p-6`}>
                     <div className="max-w-7xl mx-auto">
-                        {/* Header */}
+                        {/* header */}
                         <div className="text-center mb-8">
                             <h1 className="text-4xl font-bold text-gray-800 mb-2">
                                 Raga-Based Chord Formation
@@ -1010,7 +1006,7 @@
                             </p>
                         </div>
 
-                        {/* Controls */}
+                        {/* controls */}
                         <div className="bg-white rounded-xl p-6 mb-8 shadow-lg border">
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-6">
                                 {/* Raga Selection */}
@@ -1091,42 +1087,19 @@
                                         </div>
                                     </div>
 
-                                    {/* Synth Engine */}
+                                    {/* Base Octave */}
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">Synth Engine:</label>
-                                        <div className="flex items-center gap-3 h-12">
-                                            <label className="inline-flex items-center">
-                                                <input type="checkbox" className="form-checkbox h-5 w-5 text-indigo-600 rounded focus:ring-indigo-500" checked={useGmSynth} onChange={e => setUseGmSynth(e.target.checked)} />
-                                                <span className="ml-2 text-sm text-gray-700">General MIDI</span>
-                                            </label>
-                                        </div>
-                                    </div>
-
-                                    {/* GM Instrument */}
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">Instrument:</label>
-                                        <select
-                                            value={gmProgram}
-                                            onChange={e => setGmProgram(parseInt(e.target.value))}
-                                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                                            disabled={!useGmSynth}
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Base Octave:
+                                        </label>
+                                        <select 
+                                            value={baseOctave}
+                                            onChange={(e) => setBaseOctave(parseInt(e.target.value, 10))}
+                                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                         >
-                                            <option value={0}>Acoustic Grand Piano (0)</option>
-                                            <option value={24}>Nylon Guitar (24)</option>
-                                            <option value={25}>Steel Guitar (25)</option>
-                                            <option value={32}>Acoustic Bass (32)</option>
-                                            <option value={40}>Violin (40)</option>
-                                            <option value={41}>Viola (41)</option>
-                                            <option value={42}>Cello (42)</option>
-                                            <option value={46}>Harp (46)</option>
-                                            <option value={48}>String Ensemble (48)</option>
-                                            <option value={56}>Trumpet (56)</option>
-                                            <option value={60}>French Horn (60)</option>
-                                            <option value={64}>Soprano Sax (64)</option>
-                                            <option value={73}>Flute (73)</option>
-                                            <option value={80}>Square Lead (80)</option>
-                                            <option value={81}>Saw Lead (81)</option>
-                                            <option value={89}>Pad (89)</option>
+                                            {[2,3,4,5].map(o => (
+                                                <option key={o} value={o}>Octave {o}</option>
+                                            ))}
                                         </select>
                                     </div>
 
@@ -1211,9 +1184,9 @@
                             </div>
                         </div>
 
-                        {/* Main Visualization */}
+                        {/* main visualization */}
                         <div className="bg-white rounded-xl p-6 pb-10 shadow-lg border">
-                            {/* Audio Controls */}
+                            {/* audio controls */}
                             <div className="mb-6 flex flex-wrap items-center justify-center gap-4">
                                     <div className="flex items-center h-12 gap-6 flex-wrap">
                                     <span className="text-sm font-medium text-gray-700">Play Raga:</span>
@@ -1246,7 +1219,7 @@
                                 )}
                             </div>
 
-                            {/* Collapsible Keyboard */}
+                            {/* collapsible keyboard */}
                             <div className="mt-4">
                                 <div className="flex items-center justify-between mb-2">
                                     <button
@@ -1257,11 +1230,11 @@
                                     </button>
                                 </div>
                                 {showKeyboard && (
-                                    <PianoKeyboard onPlay={playKey} baseOctave={3} octaves={3} />
+                                    <PianoKeyboard onPlay={playKey} baseOctave={baseOctave} octaves={3} />
                                 )}
                             </div>
 
-                            {/* Custom Scale Controls */}
+                            {/* custom scale controls */}
                             {customScaleMode && (
                                 <div className="mt-6 p-4 rounded-lg border bg-gray-50">
                                     <div className="flex items-center justify-between mb-3">
@@ -1372,7 +1345,7 @@
                             )}
                         </div>
 
-                        {/* Custom Chord Builder */}
+                        {/* custom chord builder */}
                         {customMode && (
                             <div className="bg-white rounded-xl p-6 mb-8 shadow-lg border mt-10">
                                 <h2 className="text-xl font-semibold text-gray-800 mb-4">Custom Chord Builder</h2>
@@ -1418,7 +1391,7 @@
                             </div>
                         )}
 
-                        {/* Chord Type Information (moved down to where diagram was) */}
+                        {/* chord type information (moved down to where diagram was) */}
                         {!customMode && (
                             <div className="mt-8 bg-white rounded-xl p-6 mb-8 shadow-lg border">
                                  <h2 className="text-xl font-semibold text-gray-800 mb-4">Chord Presets</h2>
@@ -1472,7 +1445,7 @@
                             </div>
                         )}
 
-                        {/* Available Chords List */}
+                        {/* available chords list */}
                         <div className="bg-white rounded-xl p-6 mt-8 shadow-lg border">
                             <h2 className="text-xl font-semibold text-gray-800 mb-4">
                                 {customMode 
@@ -1493,6 +1466,8 @@
                                     <h3 className="text-sm font-semibold text-gray-700">Progression (drag chords here)</h3>
                                     <div className="flex gap-2">
                                         <button onClick={() => setProgression([])} className="px-2 py-1 text-xs rounded border bg-white hover:bg-gray-50">Clear</button>
+                                            <button onClick={() => setShowMidiSettings(v => !v)} className="px-2 py-1 text-xs rounded border bg-white hover:bg-gray-50">{showMidiSettings ? 'Hide MIDI Settings' : 'MIDI Settings'}</button>
+                                        <button onClick={downloadProgressionAsMIDI} disabled={progression.length===0} className="px-2 py-1 text-xs rounded border bg-white hover:bg-gray-50 disabled:opacity-50">Download MIDI</button>
                                         <button onClick={async () => {
                                             if (!audioContext || progression.length === 0 || isPlaying) return;
                                             setIsPlaying(true);
@@ -1502,7 +1477,7 @@
                                                 const total = progression.length * (chordDur + gap);
                                                 progression.forEach((item, idx) => {
                                                     const notes = item.chord.notes;
-                                                    const arranged = arrangeChordNotes(notes);
+                                                    const arranged = arrangeChordNotes(notes, baseOctave);
                                                     arranged.forEach(n => playNote(n.frequency, chordDur, (chordDur + gap) * idx));
                                                 });
                                                 setTimeout(() => setIsPlaying(false), (total + 0.3) * 1000);
@@ -1510,6 +1485,75 @@
                                         }} className="px-2 py-1 text-xs rounded bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50">Play</button>
                                     </div>
                                 </div>
+                                    {showMidiSettings && (
+                                        <div className="mb-3 p-3 rounded border bg-white">
+                                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                                                <label className="text-xs text-gray-700">
+                                                    Tempo (BPM)
+                                                    <input type="number" min="1" max="400" step="1" value={midiTempo}
+                                                        onChange={e => setMidiTempo(parseInt(e.target.value || '120', 10))}
+                                                        className="mt-1 w-full p-2 border rounded text-sm" />
+                                                </label>
+                                                <label className="text-xs text-gray-700">
+                                                    Program (0-127)
+                                                    <input type="number" min="0" max="127" step="1" value={midiProgram}
+                                                        onChange={e => setMidiProgram(parseInt(e.target.value || '0', 10))}
+                                                        className="mt-1 w-full p-2 border rounded text-sm" />
+                                                </label>
+                                                <label className="text-xs text-gray-700">
+                                                    Velocity (1-127)
+                                                    <input type="number" min="1" max="127" step="1" value={midiVelocity}
+                                                        onChange={e => setMidiVelocity(parseInt(e.target.value || '96', 10))}
+                                                        className="mt-1 w-full p-2 border rounded text-sm" />
+                                                </label>
+                                                <label className="text-xs text-gray-700">
+                                                    Note length (beats)
+                                                    <input type="number" min="0.1" max="64" step="0.1" value={midiNoteLengthBeats}
+                                                        onChange={e => setMidiNoteLengthBeats(parseFloat(e.target.value || '3.2'))}
+                                                        className="mt-1 w-full p-2 border rounded text-sm" />
+                                                </label>
+                                                <label className="text-xs text-gray-700">
+                                                    Gap (beats)
+                                                    <input type="number" min="0" max="16" step="0.1" value={midiGapBeats}
+                                                        onChange={e => setMidiGapBeats(parseFloat(e.target.value || '0.4'))}
+                                                        className="mt-1 w-full p-2 border rounded text-sm" />
+                                                </label>
+                                                <label className="text-xs text-gray-700">
+                                                    Channel (1-16)
+                                                    <input type="number" min="1" max="16" step="1" value={midiChannel}
+                                                        onChange={e => setMidiChannel(parseInt(e.target.value || '1', 10))}
+                                                        className="mt-1 w-full p-2 border rounded text-sm" />
+                                                </label>
+                                            </div>
+                                            <div className="mt-2 text-[11px] text-gray-500">midi file will include a tempo meta, a single-track format 0, and a program change on the chosen channel.</div>
+
+
+                                            {/* midi program legend - common instruments */}
+                                            <div className="mt-3">
+                                                <h4 className="text-xs font-semibold text-gray-700 mb-2">midi program legend (common instruments)</h4>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-10 gap-2 text-xs">
+                                                    {[
+                                                        { p: 0, name: 'Acoustic Grand Piano' },
+                                                        { p: 24, name: 'Nylon Acoustic Guitar' },
+                                                        { p: 25, name: 'Steel Acoustic Guitar' },
+                                                        { p: 32, name: 'Acoustic Bass' },
+                                                        { p: 40, name: 'Violin' },
+                                                        { p: 41, name: 'Viola' },
+                                                        { p: 42, name: 'Cello' },
+                                                        { p: 56, name: 'Trumpet' },
+                                                        { p: 65, name: 'Alto Sax' },
+                                                        { p: 72, name: 'Flute' }
+                                                    ].map(item => (
+                                                        <div key={item.p} className="flex flex-col items-center p-2 bg-gray-50 border rounded">
+                                                            <div className="text-sm font-medium">{item.p}</div>
+                                                            <div className="text-gray-600 text-center">{item.name}</div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                <div className="mt-2 text-[11px] text-gray-500">program numbers are 0-based (0-127). set the Program input above to choose an instrument.</div>
+                                            </div>
+                                        </div>
+                                    )}
                                 {progression.length === 0 ? (
                                     <div className="text-xs text-gray-500">No chords yet.</div>
                                 ) : (
@@ -1777,7 +1821,7 @@
                             )}
                         </div>
 
-                        {/* Musical Theory Info */}
+                        {/* musical theory info */}
                         <div className="bg-white rounded-xl p-6 mt-8 shadow-lg border">
                             <h2 className="text-xl font-semibold text-gray-800 mb-4">Musical Analysis</h2>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1811,11 +1855,11 @@
             );
         };
 
-        // Simple 3-octave piano keyboard, swara-based (Sa=0) with black/white layout
+        // simple 3-octave piano keyboard, swara-based (Sa=0) with black/white layout
         function PianoKeyboard({ onPlay, baseOctave = 3, octaves = 3 }) {
             const wrapRef = React.useRef(null);
             React.useEffect(() => {
-                // Center the scroll on mount (shows the middle octave initially)
+                // center the scroll on mount (shows the middle octave initially)
                 const el = wrapRef.current;
                 if (el) {
                     const target = Math.max(0, (el.scrollWidth - el.clientWidth) / 2);

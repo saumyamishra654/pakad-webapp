@@ -24,7 +24,7 @@
     .dark-mode button, .dark-mode .hover\:bg-gray-200:hover { border-color: #374151 !important; }
     .dark-mode .hover\:bg-gray-200:hover { background-color: #1f2937 !important; }
 
-  /* 3-octave compact piano styles for Query page */
+  /* 3-octave compact piano styles for query page */
   .rq-piano-wrap { overflow-x: auto; padding: 10px; border-radius: 8px; width: 100%; display: flex; justify-content: center; align-items: center; background: rgba(0,0,0,0.04); }
   .dark-mode .rq-piano-wrap { background: rgba(255,255,255,0.06); }
   .rq-piano { position: relative; display: flex; flex-wrap: nowrap; user-select: none; -webkit-user-select: none; height: 120px; }
@@ -61,11 +61,12 @@
       const [isLoading, setIsLoading] = useState(false);
       const [loadError, setLoadError] = useState('');
 
-      // Audio state
+      // audio state
       const [audioContext, setAudioContext] = useState(null);
-      const [isPlaying, setIsPlaying] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [baseOctave, setBaseOctave] = useState(4);
 
-      // Filters
+      // filters
       const [searchQuery, setSearchQuery] = useState('');
       const [scaleType, setScaleType] = useState('any');
       const [searchMode, setSearchMode] = useState('contains');
@@ -82,11 +83,11 @@
       const swarNames = ['Sa', 'Re♭', 'Re', 'Ga♭', 'Ga', 'Ma', 'Ma♯', 'Pa', 'Dha♭', 'Dha', 'Ni♭', 'Ni'];
       const selectableSwarNames = swarNames.slice(1);
 
-  // Piano state and labels
+  // piano state and labels
       const [showPiano, setShowPiano] = useState(false);
       const westernNotes = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
       const noteLabel = (pc) => `${westernNotes[pc]}/${swarNames[pc]}`;
-  // For 3-octave layout
+  // for 3-octave layout
   const whitePcs = [0,2,4,5,7,9,11];
   const blackPcs = [1,3,6,8,10];
 
@@ -96,7 +97,7 @@
         return () => document.body.classList.remove('dark-mode');
       }, [darkMode]);
 
-      // Initialize audio context once
+      // initialize audio context once
       useEffect(() => {
         try {
           const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -106,29 +107,103 @@
         }
       }, []);
 
-      // Simple tone with ADSR
+      // simple tone with ADSR
       const playNote = (frequency, duration = 0.5, delay = 0) => {
         if (!audioContext) return;
-        const startTime = audioContext.currentTime + delay;
-        const osc = audioContext.createOscillator();
-        const gain = audioContext.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(frequency, startTime);
-        osc.connect(gain);
-        gain.connect(audioContext.destination);
-        // Envelope
-        const attack = 0.02, decay = 0.15, sustain = 0.3, release = 0.3;
-        gain.gain.setValueAtTime(0, startTime);
-        gain.gain.linearRampToValueAtTime(0.5, startTime + attack);
-        gain.gain.linearRampToValueAtTime(sustain, startTime + attack + decay);
-        gain.gain.setValueAtTime(sustain, startTime + Math.max(0, duration - release));
-        gain.gain.linearRampToValueAtTime(0.0001, startTime + duration);
-        osc.start(startTime);
-        osc.stop(startTime + duration + 0.01);
+        // create a more piano-like sound using multiple oscillators
+        const createPianoNote = (freq, startTime, noteDuration) => {
+          // main oscillator (fundamental frequency)
+          const osc1 = audioContext.createOscillator();
+          const gain1 = audioContext.createGain();
+
+          // second harmonic (octave)
+          const osc2 = audioContext.createOscillator();
+          const gain2 = audioContext.createGain();
+
+          // third harmonic (perfect fifth above octave)
+          const osc3 = audioContext.createOscillator();
+          const gain3 = audioContext.createGain();
+
+          // fourth harmonic (two octaves)
+          const osc4 = audioContext.createOscillator();
+          const gain4 = audioContext.createGain();
+
+          // master gain for the note
+          const masterGain = audioContext.createGain();
+
+          // connect oscillators to their gains
+          osc1.connect(gain1);
+          osc2.connect(gain2);
+          osc3.connect(gain3);
+          osc4.connect(gain4);
+
+          // connect gains to master gain
+          gain1.connect(masterGain);
+          gain2.connect(masterGain);
+          gain3.connect(masterGain);
+          gain4.connect(masterGain);
+
+          // connect to destination
+          masterGain.connect(audioContext.destination);
+
+          // set frequencies (harmonics)
+          osc1.frequency.setValueAtTime(freq, startTime);           // fundamental
+          osc2.frequency.setValueAtTime(freq * 2, startTime);       // octave
+          osc3.frequency.setValueAtTime(freq * 3, startTime);       // perfect fifth above octave
+          osc4.frequency.setValueAtTime(freq * 4, startTime);       // two octaves
+
+          // use triangle waves for warmer sound
+          osc1.type = 'triangle';
+          osc2.type = 'triangle';
+          osc3.type = 'sine';
+          osc4.type = 'sine';
+
+          // set harmonic levels (piano-like balance)
+          gain1.gain.setValueAtTime(1.0, startTime);     // fundamental (strongest)
+          gain2.gain.setValueAtTime(0.3, startTime);     // second harmonic
+          gain3.gain.setValueAtTime(0.15, startTime);    // third harmonic
+          gain4.gain.setValueAtTime(0.05, startTime);    // fourth harmonic
+
+          // piano-like envelope (quick attack, slower decay, sustain, release)
+          const attackTime = 0.02;
+          const decayTime = 0.3;
+          const sustainLevel = 0.3;
+          const releaseTime = 0.5;
+
+          // master envelope
+          masterGain.gain.setValueAtTime(0, startTime);
+
+          // attack
+          masterGain.gain.linearRampToValueAtTime(0.4, startTime + attackTime);
+
+          // decay to sustain
+          masterGain.gain.exponentialRampToValueAtTime(sustainLevel, startTime + attackTime + decayTime);
+
+          // sustain
+          const sustainTime = Math.max(0.1, noteDuration - attackTime - decayTime - releaseTime);
+          masterGain.gain.setValueAtTime(sustainLevel, startTime + attackTime + decayTime + sustainTime);
+
+          // release
+          masterGain.gain.exponentialRampToValueAtTime(0.01, startTime + noteDuration);
+
+          // start all oscillators
+          osc1.start(startTime);
+          osc2.start(startTime);
+          osc3.start(startTime);
+          osc4.start(startTime);
+
+          // stop all oscillators
+          osc1.stop(startTime + noteDuration);
+          osc2.stop(startTime + noteDuration);
+          osc3.stop(startTime + noteDuration);
+          osc4.stop(startTime + noteDuration);
+        };
+
+        createPianoNote(frequency, audioContext.currentTime + delay, duration);
       };
 
-      // Play a single key
-      const playKey = async (pc, octave) => {
+      // play a single key
+  const playKey = async (pc, octave) => {
         if (!audioContext) return;
         try {
           if (audioContext.state === 'suspended') await audioContext.resume();
@@ -141,11 +216,11 @@
         return base * Math.pow(2, (noteIndex / 12) + (octave - 4));
       };
 
-      const arrangeNotesAscending = (pcs) => {
+      const arrangeNotesAscending = (pcs, base = 3) => {
         if (!pcs || pcs.length === 0) return [];
         const sorted = [...pcs].sort((a,b) => a - b);
         const out = [];
-        let oct = 3;
+        let oct = base;
         for (let i = 0; i < sorted.length; i++) {
           if (i > 0 && sorted[i] < sorted[i-1]) oct++;
           out.push({ noteIndex: sorted[i], octave: oct, frequency: getFrequencyFromNote(sorted[i], oct) });
@@ -153,7 +228,7 @@
         return out;
       };
 
-      const arrangeNotesDescending = (pcs, startingOctave = 5, includeLowerSa = true) => {
+      const arrangeNotesDescending = (pcs, startingOctave = 5, includeLowerSa = true, baseLower = 3) => {
         if (!pcs || pcs.length === 0) return [];
         const uniqueDesc = Array.from(new Set(pcs)).sort((a,b) => b - a);
         const result = [];
@@ -162,20 +237,20 @@
         for (const pc of uniqueDesc) {
           if (pc === 0) continue;
           const o = Math.floor((prevAbs - 1 - pc) / 12);
-          const octave = Math.max(3, o);
+          const octave = Math.max(baseLower, o);
           const abs = octave * 12 + pc;
           prevAbs = abs;
           result.push({ noteIndex: pc, octave, frequency: getFrequencyFromNote(pc, octave) });
         }
         if (includeLowerSa) {
           const o = Math.floor((prevAbs - 1) / 12);
-          const octave = Math.max(3, o);
+          const octave = Math.max(baseLower, o);
           result.push({ noteIndex: 0, octave, frequency: getFrequencyFromNote(0, octave) });
         }
         return result;
       };
 
-      const playAarohAvroh = async (raga) => {
+    const playAarohAvroh = async (raga) => {
         if (!audioContext || !raga || !raga.aarohPattern || !raga.avrohPattern || isPlaying) return;
         setIsPlaying(true);
         try {
@@ -183,11 +258,11 @@
           const toPcs = (pattern) => pattern.map((p,i)=>p?i:null).filter(v=>v!==null);
           const aarohPcs = toPcs(raga.aarohPattern);
           const avrohPcs = toPcs(raga.avrohPattern);
-          const up = arrangeNotesAscending(aarohPcs);
+      const up = arrangeNotesAscending(aarohPcs, baseOctave);
           const highSaOct = (up.length ? Math.max(...up.map(n=>n.octave)) : 4) + 1;
           const highSa = { noteIndex: 0, octave: highSaOct, frequency: getFrequencyFromNote(0, highSaOct) };
           const aarohSeq = [...up, highSa];
-          const avrohSeq = arrangeNotesDescending(avrohPcs, highSaOct, true);
+      const avrohSeq = arrangeNotesDescending(avrohPcs, highSaOct, true, baseOctave);
           aarohSeq.forEach((n,i)=> playNote(n.frequency, 0.6, i*0.4));
           const aarohTime = aarohSeq.length * 0.4;
           const gap = 0.3;
@@ -221,7 +296,44 @@
           const res = await fetch(`${API_BASE}/api/raga-search?${params.toString()}`);
           if (!res.ok) throw new Error('Failed to query');
           const data = await res.json();
-          setResults(data);
+
+          // rank by edit distance (hamming on 12-bit patterns) when notes are selected
+          const toBool12 = (arr) => (arr || []).map(v => Boolean(v)).slice(0,12);
+          const hamming = (a, b) => a.reduce((acc, ai, i) => acc + (ai !== (b[i] || false) ? 1 : 0), 0);
+
+          const hasUnifiedSel = !separateNoteSelection && selectedNotes.size > 0;
+          const hasSeparateSel = separateNoteSelection && (selectedAarohNotes.size > 0 || selectedAvrohNotes.size > 0);
+
+          let ranked = data;
+          if (hasUnifiedSel || hasSeparateSel) {
+            // build target patterns (always include Sa at index 0)
+            const targetAll = Array(12).fill(false); targetAll[0] = true;
+            if (hasUnifiedSel) {
+              selectedNotes.forEach(idx => { targetAll[idx] = true; });
+            }
+            const targetAar = Array(12).fill(false); targetAar[0] = true;
+            const targetAvr = Array(12).fill(false); targetAvr[0] = true;
+            if (hasSeparateSel) {
+              selectedAarohNotes.forEach(idx => { targetAar[idx] = true; });
+              selectedAvrohNotes.forEach(idx => { targetAvr[idx] = true; });
+            }
+
+            const scoreRaga = (r) => {
+              const np = toBool12(r.notePattern);
+              const ap = toBool12(r.aarohPattern && r.aarohPattern.length ? r.aarohPattern : np);
+              const vp = toBool12(r.avrohPattern && r.avrohPattern.length ? r.avrohPattern : np);
+              if (hasUnifiedSel) {
+                return hamming(targetAll, np);
+              } else {
+                // sum distances for aaroh and avroh (treat missing as notePattern proxy)
+                return hamming(targetAar, ap) + hamming(targetAvr, vp);
+              }
+            };
+
+            ranked = [...data].sort((a, b) => scoreRaga(a) - scoreRaga(b));
+          }
+
+          setResults(ranked);
         } catch (e) {
           setLoadError(e.message || 'Query failed');
         } finally {
@@ -260,14 +372,20 @@
         <div className={`${darkMode ? 'dark-mode ' : ''}max-w-6xl mx-auto p-6 bg-white min-h-screen`}>
           <div className="mb-8">
             <h1 className="text-xl font-bold text-gray-600 mb-2">Raga Database Query Tool</h1>
-            {/* Collapsible Piano */}
+            {/* collapsible piano */}
             <div className="mt-4">
               <button onClick={() => setShowPiano(v => !v)} className="px-3 py-2 rounded-md text-sm font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 border">
                 show piano {showPiano ? '▲' : '▼'}
               </button>
+              <div className="inline-block ml-3">
+                <label className="block text-xs text-gray-600">Base Octave</label>
+                <select value={baseOctave} onChange={(e)=> setBaseOctave(parseInt(e.target.value,10))} className="px-2 py-1 border rounded text-sm">
+                  {[2,3,4,5].map(o => <option key={o} value={o}>Octave {o}</option>)}
+                </select>
+              </div>
               {showPiano && (
                 <div className="mt-3">
-                  <PianoKeyboardQuery onPlay={playKey} baseOctave={3} octaves={3} showLabels={false} />
+                  <PianoKeyboardQuery onPlay={playKey} baseOctave={baseOctave} octaves={3} showLabels={false} />
                 </div>
               )}
             </div>
@@ -464,20 +582,20 @@
   </script>
 
   <script>
-    // Helper to safely build URL with raga query
+    // helper to safely build url with raga query
     function linkToChordWithRaga(ragaName) {
       const url = new URL('/index.html', window.location.origin);
       url.searchParams.set('raga', ragaName);
       return url.toString();
     }
-    // Expose a small function to update the link if the selection changes dynamically
+    // expose a small function to update the link if the selection changes dynamically
     window.__setChordLinkForRaga = function(ragaName) {
       const anchor = document.querySelector('a[data-link="chord-tool"]');
       if (anchor) anchor.href = linkToChordWithRaga(ragaName);
     }
 
-    // If this page encodes the selected raga in a known element/select, update the link on load.
-    // Try common selectors; adjust if your page structure differs.
+    // if this page encodes the selected raga in a known element/select, update the link on load.
+    // try common selectors; adjust if your page structure differs.
     window.addEventListener('DOMContentLoaded', () => {
       const sel = document.querySelector('select[name="raga"], select#raga, select[data-role="raga-select"], select');
       const activeName = sel && sel.value ? sel.value : (window.__currentRagaName || null);
