@@ -8,6 +8,11 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- WebAudioFont for GM Instruments -->
+    <script src="https://cdn.jsdelivr.net/npm/webaudiofont@2.7.0/dist/WebAudioFontPlayer.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/webaudiofont@2.7.0/dist/webaudiofont.js"></script>
+    <!-- Load a default instrument font (Acoustic Grand Piano) -->
+    <script src="https://surikov.github.io/webaudiofontdata/sound/0000_SBLive_sf2.js"></script>
     <style>
         .chord-circle {
             filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.15));
@@ -154,6 +159,12 @@
             const [audioContext, setAudioContext] = useState(null);
             const [isPlaying, setIsPlaying] = useState(false);
             const [showKeyboard, setShowKeyboard] = useState(false);
+            // WebAudioFont state
+            const [useGmSynth, setUseGmSynth] = useState(false);
+            const [gmProgram, setGmProgram] = useState(0); // 0=Acoustic Grand Piano
+            const webAudioFontPlayerRef = useRef(null);
+            const audioInitializedRef = useRef(false);
+            const instrumentCacheRef = useRef({});
             
             // Custom scale mode
             const [customScaleMode, setCustomScaleMode] = useState(false);
@@ -241,18 +252,39 @@
                 }
             };
 
+            // Initialize audio context and WebAudioFont player on first user interaction
+            const initAudioSystem = () => {
+                if (audioInitializedRef.current) return;
+                try {
+                    console.log('Initializing audio system...');
+                    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    setAudioContext(ctx);
+                    
+                    const player = new window.WebAudioFontPlayer();
+                    webAudioFontPlayerRef.current = player;
+                    
+                    // Load the default instrument (piano)
+                    player.loader.decodeAfterLoading(ctx, '_tone_0000_SBLive_sf2');
+                    instrumentCacheRef.current[0] = window._tone_0000_SBLive_sf2;
+
+                    audioInitializedRef.current = true;
+                    console.log('Audio system initialized successfully.');
+                    
+                    // Remove the event listener after successful initialization
+                    document.removeEventListener('click', initAudioSystem);
+                } catch (error) {
+                    console.error('Failed to initialize audio system:', error);
+                }
+            };
+
             useEffect(() => {
-                loadInitialData();
-                // Initialize audio context
-                const initAudio = () => {
-                    try {
-                        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-                        setAudioContext(ctx);
-                    } catch (error) {
-                        console.error('Audio context not supported:', error);
-                    }
+                // Add a one-time event listener for the first user click
+                document.addEventListener('click', initAudioSystem, { once: true });
+
+                return () => {
+                    // Cleanup the listener if the component unmounts
+                    document.removeEventListener('click', initAudioSystem);
                 };
-                initAudio();
             }, []);
 
             // Load selected raga details when name changes
@@ -412,6 +444,61 @@
                 return baseC4 * Math.pow(2, (noteIndex / 12) + (octave - 4));
             };
 
+            // MIDI helpers
+            const midiFromPcOct = (pc, octave) => (octave + 1) * 12 + pc; // C4=60
+            
+            const getGmInstrument = async (program) => {
+                if (!webAudioFontPlayerRef.current || !audioContext) {
+                    console.warn('WebAudioFont player or audio context not ready.');
+                    return null;
+                }
+                
+                if (instrumentCacheRef.current[program]) {
+                    return instrumentCacheRef.current[program];
+                }
+
+                try {
+                    const programStr = String(program).padStart(3, '0');
+                    const varName = `_tone_${programStr}0_SBLive_sf2`;
+                    
+                    // Check if font is already loaded in window
+                    if (window[varName]) {
+                        webAudioFontPlayerRef.current.loader.decodeAfterLoading(audioContext, varName);
+                        instrumentCacheRef.current[program] = window[varName];
+                        return window[varName];
+                    }
+
+                    // If not, load it dynamically
+                    const url = `https://surikov.github.io/webaudiofontdata/sound/${programStr}0_SBLive_sf2.js`;
+                    await new Promise((resolve, reject) => {
+                        const script = document.createElement('script');
+                        script.src = url;
+                        script.onload = () => {
+                            if (window[varName]) {
+                                webAudioFontPlayerRef.current.loader.decodeAfterLoading(audioContext, varName);
+                                instrumentCacheRef.current[program] = window[varName];
+                                resolve();
+                            } else {
+                                reject(new Error(`Font variable ${varName} not found after loading script.`));
+                            }
+                        };
+                        script.onerror = reject;
+                        document.head.appendChild(script);
+                    });
+                    return instrumentCacheRef.current[program];
+                } catch (error) {
+                    console.error(`Failed to load GM instrument for program ${program}:`, error);
+                    return null;
+                }
+            };
+
+            // Preload instrument when GM toggled/program changed
+            useEffect(() => {
+                if (useGmSynth && audioInitializedRef.current) {
+                    getGmInstrument(gmProgram);
+                }
+            }, [useGmSynth, gmProgram, audioInitializedRef.current]);
+
             // Helper function to arrange notes in ascending order without octave jumps
             const arrangeNotesAscending = (noteIndices) => {
                 if (noteIndices.length === 0) return [];
@@ -486,69 +573,65 @@
                 return arranged;
             };
 
-            // Helper function to arrange chord notes to avoid register conflicts
-            const arrangeChordNotes = (noteIndices) => {
-                if (noteIndices.length === 0) return [];
-                
-                // Sort notes by their chromatic position
-                const sortedNotes = [...noteIndices].sort((a, b) => a - b);
-                const arrangedNotes = [];
-                let currentOctave = 3; // Start at octave 3 for lower pitch
-                
-                for (let i = 0; i < sortedNotes.length; i++) {
-                    const noteIndex = sortedNotes[i];
-                    
-                    // For chord notes, ensure each successive note is higher than the previous
-                    if (i > 0 && noteIndex <= sortedNotes[i - 1]) {
-                        currentOctave++;
-                    }
-                    
-                    arrangedNotes.push({
-                        noteIndex: noteIndex,
-                        octave: currentOctave,
-                        frequency: getFrequencyFromNote(noteIndex, currentOctave)
+            // Arrange chord notes preserving input order, raising octaves minimally to keep notes strictly ascending
+            const arrangeChordNotes = (noteIndices, baseOctave = 3) => {
+                if (!noteIndices || noteIndices.length === 0) return [];
+                const arranged = [];
+                // lastAbs is absolute semitone of previous note; start just below base octave so first fits in base
+                let lastAbs = baseOctave * 12 - 1;
+                for (const pc of noteIndices) {
+                    // Smallest octave such that abs(pc, octave) > lastAbs
+                    const minOct = Math.max(baseOctave, Math.floor((lastAbs - pc) / 12) + 1);
+                    const abs = minOct * 12 + pc;
+                    arranged.push({
+                        noteIndex: pc,
+                        octave: minOct,
+                        frequency: getFrequencyFromNote(pc, minOct)
                     });
+                    lastAbs = abs;
                 }
-                
-                return arrangedNotes;
+                return arranged;
             };
 
             const playScale = async (pattern, isAscending = true) => {
-                if (!audioContext || isPlaying) return;
+                if (!audioInitializedRef.current || isPlaying) return;
                 
                 setIsPlaying(true);
                 
                 try {
-                    // Resume audio context if suspended
-                    if (audioContext.state === 'suspended') {
-                        await audioContext.resume();
-                    }
-                    
                     const noteIndices = pattern.map((present, index) => present ? index : null)
                                               .filter(note => note !== null);
                     
                     let arrangedNotes;
                     if (isAscending) {
-                        // For ascending, add higher Sa at the end
                         const baseNotes = arrangeNotesAscending(noteIndices);
                         const higherSa = {
-                            noteIndex: 0, // Sa
+                            noteIndex: 0,
                             octave: Math.max(...baseNotes.map(n => n.octave)) + 1,
                             frequency: getFrequencyFromNote(0, Math.max(...baseNotes.map(n => n.octave)) + 1)
                         };
                         arrangedNotes = [...baseNotes, higherSa];
                     } else {
-                        // For descending, compute peak octave same as ascending's higher Sa and descend strictly
                         const baseNotes = arrangeNotesAscending(noteIndices);
                         const peakOctave = Math.max(...baseNotes.map(n => n.octave)) + 1;
                         arrangedNotes = arrangeNotesDescending(noteIndices, peakOctave, true);
                     }
                     
-                    arrangedNotes.forEach((note, i) => {
-                        playNote(note.frequency, 0.6, i * 0.4);
-                    });
+                    if (useGmSynth) {
+                        const instrument = await getGmInstrument(gmProgram);
+                        if (instrument) {
+                            arrangedNotes.forEach((note, i) => {
+                                const midi = midiFromPcOct(note.noteIndex, note.octave);
+                                webAudioFontPlayerRef.current.queueWaveTable(audioContext, audioContext.destination, instrument, audioContext.currentTime + i * 0.4, midi, 0.6);
+                            });
+                        } else {
+                            console.warn('GM instrument not available, falling back to sine waves');
+                            arrangedNotes.forEach((note, i) => playNote(note.frequency, 0.6, i * 0.4));
+                        }
+                    } else {
+                        arrangedNotes.forEach((note, i) => playNote(note.frequency, 0.6, i * 0.4));
+                    }
                     
-                    // Set playing state to false after all notes finish
                     setTimeout(() => setIsPlaying(false), arrangedNotes.length * 400 + 600);
                     
                 } catch (error) {
@@ -557,55 +640,50 @@
                 }
             };
 
-            // New function to play both Aaroh and Avroh sequentially
             const playAarohAvroh = async () => {
-                if (!audioContext || isPlaying) return;
+                if (!audioInitializedRef.current || isPlaying) return;
                 
                 setIsPlaying(true);
                 
                 try {
-                    // Resume audio context if suspended
-                    if (audioContext.state === 'suspended') {
-                        await audioContext.resume();
-                    }
+                    const aarohIndices = getCurrentPatterns().aaroh.map((p, i) => p ? i : null).filter(n => n !== null);
+                    const avrohIndices = getCurrentPatterns().avroh.map((p, i) => p ? i : null).filter(n => n !== null);
                     
-                    // Get Aaroh notes
-                    const aarohIndices = getCurrentPatterns().aaroh.map((present, index) => present ? index : null)
-                                                                  .filter(note => note !== null);
-                    
-                    // Get Avroh notes  
-                    const avrohIndices = getCurrentPatterns().avroh.map((present, index) => present ? index : null)
-                                                                  .filter(note => note !== null);
-                    
-                    // Arrange Aaroh (ascending) and add higher Sa at the end
                     const aarohNotesBase = arrangeNotesAscending(aarohIndices);
                     const higherSa = {
-                        noteIndex: 0, // Sa
+                        noteIndex: 0,
                         octave: Math.max(...aarohNotesBase.map(n => n.octave)) + 1,
                         frequency: getFrequencyFromNote(0, Math.max(...aarohNotesBase.map(n => n.octave)) + 1)
                     };
                     const aarohNotes = [...aarohNotesBase, higherSa];
-                    
-                    // Arrange Avroh starting from the same higher Sa octave and descend strictly to lower Sa
                     const avrohNotes = arrangeNotesDescending(avrohIndices, higherSa.octave, true);
                     
-                    // Play Aaroh first (including higher Sa at the end)
-                    aarohNotes.forEach((note, i) => {
-                        playNote(note.frequency, 0.6, i * 0.4);
-                    });
-                    
-                    // Calculate delay for Avroh to start after Aaroh finishes
+                    const pauseBetween = 0.3;
                     const aarohDuration = aarohNotes.length * 0.4;
-                    const pauseBetween = 0.3; // Short pause between Aaroh and Avroh
+                    const totalDuration = (aarohDuration + pauseBetween + avrohNotes.length * 0.4 + 0.6) * 1000;
+
+                    if (useGmSynth) {
+                        const instrument = await getGmInstrument(gmProgram);
+                        if (instrument) {
+                            aarohNotes.forEach((note, i) => {
+                                const midi = midiFromPcOct(note.noteIndex, note.octave);
+                                webAudioFontPlayerRef.current.queueWaveTable(audioContext, audioContext.destination, instrument, audioContext.currentTime + i * 0.4, midi, 0.6);
+                            });
+                            avrohNotes.forEach((note, i) => {
+                                const midi = midiFromPcOct(note.noteIndex, note.octave);
+                                webAudioFontPlayerRef.current.queueWaveTable(audioContext, audioContext.destination, instrument, audioContext.currentTime + aarohDuration + pauseBetween + i * 0.4, midi, 0.6);
+                            });
+                        } else {
+                            // Fallback for GM failure
+                            aarohNotes.forEach((note, i) => playNote(note.frequency, 0.6, i * 0.4));
+                            avrohNotes.forEach((note, i) => playNote(note.frequency, 0.6, aarohDuration + pauseBetween + i * 0.4));
+                        }
+                    } else {
+                        aarohNotes.forEach((note, i) => playNote(note.frequency, 0.6, i * 0.4));
+                        avrohNotes.forEach((note, i) => playNote(note.frequency, 0.6, aarohDuration + pauseBetween + i * 0.4));
+                    }
                     
-                    // Play Avroh after Aaroh completes
-                    avrohNotes.forEach((note, i) => {
-                        playNote(note.frequency, 0.6, aarohDuration + pauseBetween + (i * 0.4));
-                    });
-                    
-                    // Calculate total duration
-                    const totalDuration = aarohDuration + pauseBetween + (avrohNotes.length * 0.4) + 0.6;
-                    setTimeout(() => setIsPlaying(false), totalDuration * 1000);
+                    setTimeout(() => setIsPlaying(false), totalDuration);
                     
                 } catch (error) {
                     console.error('Audio playback error:', error);
@@ -614,31 +692,38 @@
             };
 
             const playChord = async (chordNotes, isUnison = true) => {
-                if (!audioContext || isPlaying) return;
+                if (!audioInitializedRef.current || isPlaying) return;
                 
                 setIsPlaying(true);
                 
                 try {
-                    // Resume audio context if suspended
-                    if (audioContext.state === 'suspended') {
-                        await audioContext.resume();
-                    }
-                    
                     const arrangedNotes = arrangeChordNotes(chordNotes);
-                    
-                    if (isUnison) {
-                        // Play all notes simultaneously with proper voicing
-                        arrangedNotes.forEach(note => {
-                            playNote(note.frequency, 2.0, 0);
-                        });
-                        setTimeout(() => setIsPlaying(false), 2000);
+                    const duration = isUnison ? 2.0 : 0.8;
+                    const totalDuration = isUnison ? 2000 : arrangedNotes.length * 300 + 800;
+
+                    if (useGmSynth) {
+                        const instrument = await getGmInstrument(gmProgram);
+                        if (instrument) {
+                            if (isUnison) {
+                                arrangedNotes.forEach(note => {
+                                    const midi = midiFromPcOct(note.noteIndex, note.octave);
+                                    webAudioFontPlayerRef.current.queueWaveTable(audioContext, audioContext.destination, instrument, 0, midi, duration);
+                                });
+                            } else {
+                                arrangedNotes.forEach((note, i) => {
+                                    const midi = midiFromPcOct(note.noteIndex, note.octave);
+                                    webAudioFontPlayerRef.current.queueWaveTable(audioContext, audioContext.destination, instrument, audioContext.currentTime + i * 0.3, midi, duration);
+                                });
+                            }
+                        } else {
+                            // Fallback for GM failure
+                            arrangedNotes.forEach((note, i) => playNote(note.frequency, duration, isUnison ? 0 : i * 0.3));
+                        }
                     } else {
-                        // Play notes in sequence (arpeggio) with proper voicing
-                        arrangedNotes.forEach((note, i) => {
-                            playNote(note.frequency, 0.8, i * 0.3);
-                        });
-                        setTimeout(() => setIsPlaying(false), arrangedNotes.length * 300 + 800);
+                        arrangedNotes.forEach((note, i) => playNote(note.frequency, duration, isUnison ? 0 : i * 0.3));
                     }
+                    
+                    setTimeout(() => setIsPlaying(false), totalDuration);
                     
                 } catch (error) {
                     console.error('Chord playback error:', error);
@@ -646,18 +731,34 @@
                 }
             };
 
-            // Play a single key (does not toggle global isPlaying)
-        const playKey = async (pc, octave) => {
-                if (!audioContext) return;
-                try {
-                    if (audioContext.state === 'suspended') {
-                        await audioContext.resume();
+            const playKey = async (pc, octave) => {
+                if (!audioInitializedRef.current) {
+                    console.warn('Audio system not initialized. Click anywhere to initialize.');
+                    // As a fallback, we can try to initialize it right now
+                    initAudioSystem();
+                    // It might not be ready immediately, so we might have to skip this first play
+                    if (!audioInitializedRef.current) return;
+                }
+
+                if (useGmSynth) {
+                    try {
+                        const instrument = await getGmInstrument(gmProgram);
+                        if (instrument) {
+                            const midiNote = midiFromPcOct(pc, octave);
+                            webAudioFontPlayerRef.current.queueWaveTable(audioContext, audioContext.destination, instrument, 0, midiNote, 0.5);
+                        } else {
+                             console.warn('GM instrument not ready, falling back to sine wave.');
+                             const freq = getFrequencyFromNoteAbsolute(pc, octave);
+                             playNote(freq, 0.45, 0);
+                        }
+                    } catch (error) {
+                        console.error('Error playing GM note:', error);
+                        const freq = getFrequencyFromNoteAbsolute(pc, octave);
+                        playNote(freq, 0.45, 0);
                     }
-            // Use absolute mapping so the keyboard doesn't shift with selected tonic
-            const freq = getFrequencyFromNoteAbsolute(pc, octave);
+                } else {
+                    const freq = getFrequencyFromNoteAbsolute(pc, octave);
                     playNote(freq, 0.45, 0);
-                } catch (err) {
-                    console.error('Key playback error', err);
                 }
             };
 
@@ -988,6 +1089,45 @@
                                                 </span>
                                             </label>
                                         </div>
+                                    </div>
+
+                                    {/* Synth Engine */}
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Synth Engine:</label>
+                                        <div className="flex items-center gap-3 h-12">
+                                            <label className="inline-flex items-center">
+                                                <input type="checkbox" className="form-checkbox h-5 w-5 text-indigo-600 rounded focus:ring-indigo-500" checked={useGmSynth} onChange={e => setUseGmSynth(e.target.checked)} />
+                                                <span className="ml-2 text-sm text-gray-700">General MIDI</span>
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    {/* GM Instrument */}
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Instrument:</label>
+                                        <select
+                                            value={gmProgram}
+                                            onChange={e => setGmProgram(parseInt(e.target.value))}
+                                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                            disabled={!useGmSynth}
+                                        >
+                                            <option value={0}>Acoustic Grand Piano (0)</option>
+                                            <option value={24}>Nylon Guitar (24)</option>
+                                            <option value={25}>Steel Guitar (25)</option>
+                                            <option value={32}>Acoustic Bass (32)</option>
+                                            <option value={40}>Violin (40)</option>
+                                            <option value={41}>Viola (41)</option>
+                                            <option value={42}>Cello (42)</option>
+                                            <option value={46}>Harp (46)</option>
+                                            <option value={48}>String Ensemble (48)</option>
+                                            <option value={56}>Trumpet (56)</option>
+                                            <option value={60}>French Horn (60)</option>
+                                            <option value={64}>Soprano Sax (64)</option>
+                                            <option value={73}>Flute (73)</option>
+                                            <option value={80}>Square Lead (80)</option>
+                                            <option value={81}>Saw Lead (81)</option>
+                                            <option value={89}>Pad (89)</option>
+                                        </select>
                                     </div>
 
                                     {/* Note Filter */}
