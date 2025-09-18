@@ -107,6 +107,26 @@ function availableChordsForPattern(pattern, chordId, extend = false) {
   return result;
 }
 
+// like availableChordsForPattern, but allows a limited number of notes outside the given pattern
+// minOutside defaults to 1 so that results truly contain something outside; maxOutside caps the number allowed
+function availableChordsAllowingOutside(pattern, chordId, extend = false, minOutside = 1, maxOutside = 1, enforceRootInPattern = true) {
+  const result = [];
+  const types = chordId === 'all' || !chordId ? chordTypes : chordTypes.filter(c => c.id === chordId);
+  types.forEach(ct => {
+    for (let root = 0; root < 12; root++) {
+      if (enforceRootInPattern && !pattern[root]) continue;
+      const intervals = getExtendedIntervals(ct.intervals, extend);
+      const notes = intervals.map(x => (root + x) % 12);
+  const outsideCount = notes.reduce((acc, n) => acc + (pattern[n] ? 0 : 1), 0);
+  const chordMaxOutside = Math.max(0, Math.min(maxOutside, notes.length - 1));
+  if (outsideCount >= minOutside && outsideCount <= chordMaxOutside) {
+        result.push({ root, rootName: swarNames[root], notes, type: ct, isExtended: extend && intervals.length > ct.intervals.length, outsideCount });
+      }
+    }
+  });
+  return result;
+}
+
 function filterChordsByNote(chords, selectedNote, mode) {
   if (selectedNote === undefined || selectedNote === null) return chords;
   if (mode === 'any') return chords.filter(c => c.notes.includes(selectedNote));
@@ -193,9 +213,14 @@ export async function handler(event) {
     const selectedNote = searchParams.get('selectedNote');
     const filterMode = searchParams.get('filterMode') || 'root';
     const tonic = searchParams.get('tonic');
+    const outside = (searchParams.get('outside') || 'false').toLowerCase() === 'true';
+    const maxOutside = parseInt(searchParams.get('maxOutside') || '1', 10);
+    const minOutside = 1;
 
     const pattern = part === 'aaroh' ? (patternAar || patternAll) : part === 'avroh' ? (patternAvr || patternAll) : patternAll;
-    let chords = availableChordsForPattern(pattern, chordType, extendBool);
+    let chords = outside
+      ? availableChordsAllowingOutside(pattern, chordType, extendBool, minOutside, Number.isNaN(maxOutside) ? 1 : Math.max(0, maxOutside), true)
+      : availableChordsForPattern(pattern, chordType, extendBool);
     const sel = selectedNote !== null && selectedNote !== undefined ? parseInt(selectedNote, 10) : null;
     const tnx = tonic !== null && tonic !== undefined ? parseInt(tonic, 10) : null;
     if (!Number.isNaN(sel) && sel !== null) chords = filterChordsByNote(chords, sel, filterMode);
@@ -307,9 +332,14 @@ export async function handler(event) {
     const selectedNote = searchParams.get('selectedNote');
     const filterMode = searchParams.get('filterMode') || 'root';
     const tonic = searchParams.get('tonic');
+    const outside = (searchParams.get('outside') || 'false').toLowerCase() === 'true';
+    const maxOutside = parseInt(searchParams.get('maxOutside') || '1', 10);
+    const minOutside = 1;
 
     const pattern = part === 'aaroh' ? raga.aarohPattern : part === 'avroh' ? raga.avrohPattern : raga.notePattern;
-    let chords = availableChordsForPattern(pattern, chordType, extendBool);
+    let chords = outside
+      ? availableChordsAllowingOutside(pattern, chordType, extendBool, minOutside, Number.isNaN(maxOutside) ? 1 : Math.max(0, maxOutside), true)
+      : availableChordsForPattern(pattern, chordType, extendBool);
     const sel = selectedNote !== null && selectedNote !== undefined ? parseInt(selectedNote, 10) : null;
     const tnx = tonic !== null && tonic !== undefined ? parseInt(tonic, 10) : null;
     if (!Number.isNaN(sel) && sel !== null) chords = filterChordsByNote(chords, sel, filterMode);
