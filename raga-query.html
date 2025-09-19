@@ -61,6 +61,10 @@
       const [isLoading, setIsLoading] = useState(false);
       const [loadError, setLoadError] = useState('');
 
+      // Music system state
+      const [isCarnaticMode, setIsCarnaticMode] = useState(false);
+      const [melakartaList, setMelakartaList] = useState([]);
+
       // audio state
       const [audioContext, setAudioContext] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -80,13 +84,54 @@
 
       const [results, setResults] = useState([]);
 
+      // Note labels for both systems
       const swarNames = ['Sa', 'Re♭', 'Re', 'Ga♭', 'Ga', 'Ma', 'Ma♯', 'Pa', 'Dha♭', 'Dha', 'Ni♭', 'Ni'];
-      const selectableSwarNames = swarNames.slice(1);
+      const carnaticLabels = ['S','R1','R2','G1','R3','G2','G3','M1','M2','P','D1','D2','N1','D3','N2','N3'];
+      
+      // Dynamic label selection and selectable notes
+      const displaySwarNames = isCarnaticMode ? carnaticLabels : swarNames;
+      const selectableSwarNames = displaySwarNames.slice(1);
+
+      // Mapping from Carnatic button index to 12-TET pitch class
+      const carnaticTo12TET = {
+        0: 0,   // S
+        1: 1,   // R1
+        2: 2,   // R2
+        3: 2,   // G1 (same as R2)
+        4: 3,   // R3
+        5: 3,   // G2 (same as R3)
+        6: 4,   // G3
+        7: 5,   // M1
+        8: 6,   // M2
+        9: 7,   // P
+        10: 8,  // D1
+        11: 9,  // D2
+        12: 9,  // N1 (same as D2)
+        13: 10, // D3
+        14: 10, // N2 (same as D3)
+        15: 11  // N3
+      };
+
+      // Reverse mapping from 12-TET to Carnatic indices
+      const tet12ToCarnatic = {
+        0: [0],        // S
+        1: [1],        // R1
+        2: [2, 3],     // R2, G1
+        3: [4, 5],     // R3, G2
+        4: [6],        // G3
+        5: [7],        // M1
+        6: [8],        // M2
+        7: [9],        // P
+        8: [10],       // D1
+        9: [11, 12],   // D2, N1
+        10: [13, 14],  // D3, N2
+        11: [15]       // N3
+      };
 
   // piano state and labels
       const [showPiano, setShowPiano] = useState(false);
       const westernNotes = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-      const noteLabel = (pc) => `${westernNotes[pc]}/${swarNames[pc]}`;
+      const noteLabel = (pc) => `${westernNotes[pc]}/${displaySwarNames[pc]}`;
   // for 3-octave layout
   const whitePcs = [0,2,4,5,7,9,11];
   const blackPcs = [1,3,6,8,10];
@@ -96,6 +141,87 @@
         else document.body.classList.remove('dark-mode');
         return () => document.body.classList.remove('dark-mode');
       }, [darkMode]);
+
+      // Load melakarta data on mount
+      useEffect(() => {
+        const loadMelakartaData = async () => {
+          try {
+            const response = await fetch('./melakarta_72.csv');
+            const csvText = await response.text();
+            setMelakartaList(parseMelakartaCSV(csvText));
+          } catch (e) {
+            console.warn('Failed to load melakarta data:', e);
+            setMelakartaList([]);
+          }
+        };
+        loadMelakartaData();
+      }, []);
+
+      // Carnatic parsing functions
+      const parseMelakartaSwaras = (swarasString) => {
+        const present = new Array(12).fill(0);
+        const tokens = swarasString.trim().split(/\s+/);
+        const add = (pc) => { if (pc >= 0) present[((pc % 12) + 12) % 12] = 1; };
+        for (const t of tokens) {
+          const norm = t.replace(/₁/g, '1').replace(/₂/g, '2').replace(/₃/g, '3');
+          if (norm === 'S') { add(0); continue; }
+          if (norm === 'P') { add(7); continue; }
+          if (norm === 'M1') { add(5); continue; }
+          if (norm === 'M2') { add(6); continue; }
+          if (norm.startsWith('R')) {
+            const v = norm.slice(1);
+            if (v === '1') add(1);
+            else if (v === '2') add(2);
+            else if (v === '3') add(3);
+            continue;
+          }
+          if (norm.startsWith('G')) {
+            const v = norm.slice(1);
+            if (v === '1') add(2);
+            else if (v === '2') add(3);
+            else if (v === '3') add(4);
+            continue;
+          }
+          if (norm.startsWith('D')) {
+            const v = norm.slice(1);
+            if (v === '1') add(8);
+            else if (v === '2') add(9);
+            else if (v === '3') add(10);
+            continue;
+          }
+          if (norm.startsWith('N')) {
+            const v = norm.slice(1);
+            if (v === '1') add(9);
+            else if (v === '2') add(10);
+            else if (v === '3') add(11);
+            continue;
+          }
+        }
+        present[0] = 1; // Ensure Sa is present
+        return present;
+      };
+
+      const parseMelakartaCSV = (csvText) => {
+        const lines = csvText.split(/\r?\n/).filter(Boolean);
+        const out = [];
+        for (let i = 1; i < lines.length; i++) {
+          const parts = lines[i].split(',');
+          if (parts.length < 3) continue;
+          const number = parseInt(parts[0]);
+          const name = parts[1]?.trim();
+          const swaras = parts.slice(2).join(',').trim();
+          if (!name || !swaras) continue;
+          const notePattern = parseMelakartaSwaras(swaras);
+          out.push({
+            number,
+            name,
+            notePattern,
+            aarohPattern: notePattern,
+            avrohPattern: notePattern
+          });
+        }
+        return out;
+      };
 
       // initialize audio context once
       useEffect(() => {
@@ -279,23 +405,137 @@
         setIsLoading(true);
         setLoadError('');
         try {
-          const params = new URLSearchParams();
-          if (searchQuery) params.set('search', searchQuery);
-          params.set('scaleType', scaleType);
-          params.set('searchMode', searchMode);
-          params.set('separate', String(separateNoteSelection));
-          if (!separateNoteSelection) {
-            if (selectedNotes.size > 0) params.set('selectedNotes', Array.from(selectedNotes).join(','));
-            if (excludedNotes.size > 0) params.set('excludedNotes', Array.from(excludedNotes).join(','));
+          let data;
+          
+          if (isCarnaticMode) {
+            // Use local melakarta data for Carnatic mode
+            data = melakartaList.filter(raga => {
+              // Apply text search filter
+              if (searchQuery && !raga.name.toLowerCase().includes(searchQuery.toLowerCase())) {
+                return false;
+              }
+              
+              // Apply scale type filter
+              if (scaleType !== 'any') {
+                const noteCount = raga.notePattern.reduce((sum, present) => sum + (present ? 1 : 0), 0);
+                if (noteCount !== parseInt(scaleType)) {
+                  return false;
+                }
+              }
+              
+              // Apply note filters
+              if (!separateNoteSelection) {
+                // Unified note selection
+                if (selectedNotes.size > 0) {
+                  if (isCarnaticMode) {
+                    // Convert Carnatic button indices to 12-TET and check
+                    const requiredPitchClasses = new Set();
+                    selectedNotes.forEach(carnaticIndex => {
+                      const pitchClass = carnaticTo12TET[carnaticIndex];
+                      if (pitchClass !== undefined) requiredPitchClasses.add(pitchClass);
+                    });
+                    const hasAllSelected = Array.from(requiredPitchClasses).every(pc => raga.notePattern[pc]);
+                    if (searchMode === 'exact') {
+                      // Check if raga has exactly the selected notes + Sa
+                      const ragaNotes = raga.notePattern.map((p, i) => p ? i : null).filter(v => v !== null);
+                      const expectedNotes = new Set([0, ...Array.from(requiredPitchClasses)]);
+                      const actualNotes = new Set(ragaNotes);
+                      if (expectedNotes.size !== actualNotes.size || !Array.from(expectedNotes).every(n => actualNotes.has(n))) {
+                        return false;
+                      }
+                    } else if (!hasAllSelected) {
+                      return false;
+                    }
+                  } else {
+                    // Hindustani mode - direct 12-TET mapping
+                    const hasAllSelected = Array.from(selectedNotes).every(idx => raga.notePattern[idx]);
+                    if (searchMode === 'exact') {
+                      const ragaNotes = raga.notePattern.map((p, i) => p ? i : null).filter(v => v !== null);
+                      const expectedNotes = new Set([0, ...Array.from(selectedNotes)]);
+                      const actualNotes = new Set(ragaNotes);
+                      if (expectedNotes.size !== actualNotes.size || !Array.from(expectedNotes).every(n => actualNotes.has(n))) {
+                        return false;
+                      }
+                    } else if (!hasAllSelected) {
+                      return false;
+                    }
+                  }
+                }
+                if (excludedNotes.size > 0) {
+                  if (isCarnaticMode) {
+                    // Convert Carnatic button indices to 12-TET and check
+                    const excludedPitchClasses = new Set();
+                    excludedNotes.forEach(carnaticIndex => {
+                      const pitchClass = carnaticTo12TET[carnaticIndex];
+                      if (pitchClass !== undefined) excludedPitchClasses.add(pitchClass);
+                    });
+                    const hasAnyExcluded = Array.from(excludedPitchClasses).some(pc => raga.notePattern[pc]);
+                    if (hasAnyExcluded) return false;
+                  } else {
+                    const hasAnyExcluded = Array.from(excludedNotes).some(idx => raga.notePattern[idx]);
+                    if (hasAnyExcluded) return false;
+                  }
+                }
+              } else {
+                // Separate Aaroh/Avroh note selection
+                const checkPattern = (selectedSet, excludedSet, pattern) => {
+                  if (selectedSet.size > 0) {
+                    if (isCarnaticMode) {
+                      const requiredPitchClasses = new Set();
+                      selectedSet.forEach(carnaticIndex => {
+                        const pitchClass = carnaticTo12TET[carnaticIndex];
+                        if (pitchClass !== undefined) requiredPitchClasses.add(pitchClass);
+                      });
+                      const hasAll = Array.from(requiredPitchClasses).every(pc => pattern[pc]);
+                      if (!hasAll) return false;
+                    } else {
+                      const hasAll = Array.from(selectedSet).every(idx => pattern[idx]);
+                      if (!hasAll) return false;
+                    }
+                  }
+                  if (excludedSet.size > 0) {
+                    if (isCarnaticMode) {
+                      const excludedPitchClasses = new Set();
+                      excludedSet.forEach(carnaticIndex => {
+                        const pitchClass = carnaticTo12TET[carnaticIndex];
+                        if (pitchClass !== undefined) excludedPitchClasses.add(pitchClass);
+                      });
+                      const hasAnyExcluded = Array.from(excludedPitchClasses).some(pc => pattern[pc]);
+                      if (hasAnyExcluded) return false;
+                    } else {
+                      const hasAnyExcluded = Array.from(excludedSet).some(idx => pattern[idx]);
+                      if (hasAnyExcluded) return false;
+                    }
+                  }
+                  return true;
+                };
+                
+                if (!checkPattern(selectedAarohNotes, excludedAarohNotes, raga.aarohPattern)) return false;
+                if (!checkPattern(selectedAvrohNotes, excludedAvrohNotes, raga.avrohPattern)) return false;
+              }
+              
+              return true;
+            });
           } else {
-            if (selectedAarohNotes.size > 0) params.set('selectedAarohNotes', Array.from(selectedAarohNotes).join(','));
-            if (excludedAarohNotes.size > 0) params.set('excludedAarohNotes', Array.from(excludedAarohNotes).join(','));
-            if (selectedAvrohNotes.size > 0) params.set('selectedAvrohNotes', Array.from(selectedAvrohNotes).join(','));
-            if (excludedAvrohNotes.size > 0) params.set('excludedAvrohNotes', Array.from(excludedAvrohNotes).join(','));
+            // Use API for Hindustani mode
+            const params = new URLSearchParams();
+            if (searchQuery) params.set('search', searchQuery);
+            params.set('scaleType', scaleType);
+            params.set('searchMode', searchMode);
+            params.set('separate', String(separateNoteSelection));
+            if (!separateNoteSelection) {
+              if (selectedNotes.size > 0) params.set('selectedNotes', Array.from(selectedNotes).join(','));
+              if (excludedNotes.size > 0) params.set('excludedNotes', Array.from(excludedNotes).join(','));
+            } else {
+              if (selectedAarohNotes.size > 0) params.set('selectedAarohNotes', Array.from(selectedAarohNotes).join(','));
+              if (excludedAarohNotes.size > 0) params.set('excludedAarohNotes', Array.from(excludedAarohNotes).join(','));
+              if (selectedAvrohNotes.size > 0) params.set('selectedAvrohNotes', Array.from(selectedAvrohNotes).join(','));
+              if (excludedAvrohNotes.size > 0) params.set('excludedAvrohNotes', Array.from(excludedAvrohNotes).join(','));
+            }
+            const res = await fetch(`${API_BASE}/api/raga-search?${params.toString()}`);
+            if (!res.ok) throw new Error('Failed to query');
+            data = await res.json();
           }
-          const res = await fetch(`${API_BASE}/api/raga-search?${params.toString()}`);
-          if (!res.ok) throw new Error('Failed to query');
-          const data = await res.json();
 
           // rank by edit distance (hamming on 12-bit patterns) when notes are selected
           const toBool12 = (arr) => (arr || []).map(v => Boolean(v)).slice(0,12);
@@ -309,13 +549,33 @@
             // build target patterns (always include Sa at index 0)
             const targetAll = Array(12).fill(false); targetAll[0] = true;
             if (hasUnifiedSel) {
-              selectedNotes.forEach(idx => { targetAll[idx] = true; });
+              if (isCarnaticMode) {
+                // Convert Carnatic indices to 12-TET
+                selectedNotes.forEach(carnaticIndex => {
+                  const pitchClass = carnaticTo12TET[carnaticIndex];
+                  if (pitchClass !== undefined) targetAll[pitchClass] = true;
+                });
+              } else {
+                selectedNotes.forEach(idx => { targetAll[idx] = true; });
+              }
             }
             const targetAar = Array(12).fill(false); targetAar[0] = true;
             const targetAvr = Array(12).fill(false); targetAvr[0] = true;
             if (hasSeparateSel) {
-              selectedAarohNotes.forEach(idx => { targetAar[idx] = true; });
-              selectedAvrohNotes.forEach(idx => { targetAvr[idx] = true; });
+              if (isCarnaticMode) {
+                // Convert Carnatic indices to 12-TET
+                selectedAarohNotes.forEach(carnaticIndex => {
+                  const pitchClass = carnaticTo12TET[carnaticIndex];
+                  if (pitchClass !== undefined) targetAar[pitchClass] = true;
+                });
+                selectedAvrohNotes.forEach(carnaticIndex => {
+                  const pitchClass = carnaticTo12TET[carnaticIndex];
+                  if (pitchClass !== undefined) targetAvr[pitchClass] = true;
+                });
+              } else {
+                selectedAarohNotes.forEach(idx => { targetAar[idx] = true; });
+                selectedAvrohNotes.forEach(idx => { targetAvr[idx] = true; });
+              }
             }
 
             const scoreRaga = (r) => {
@@ -343,10 +603,18 @@
 
       useEffect(() => {
         fetchResults();
-      }, [searchQuery, scaleType, searchMode, separateNoteSelection, selectedNotes, excludedNotes, selectedAarohNotes, excludedAarohNotes, selectedAvrohNotes, excludedAvrohNotes]);
+      }, [searchQuery, scaleType, searchMode, separateNoteSelection, selectedNotes, excludedNotes, selectedAarohNotes, excludedAarohNotes, selectedAvrohNotes, excludedAvrohNotes, isCarnaticMode, JSON.stringify(melakartaList)]);
 
       const toggleTriState = (setSelected, setExcluded, selected, excluded, displayIndex) => {
-        const actualIndex = displayIndex + 1;
+        let actualIndex;
+        if (isCarnaticMode) {
+          // In Carnatic mode, displayIndex directly corresponds to the Carnatic swara index
+          actualIndex = displayIndex + 1; // +1 because we skip Sa (index 0)
+        } else {
+          // In Hindustani mode, convert to 12-TET index
+          actualIndex = displayIndex + 1;
+        }
+        
         const newSel = new Set(selected);
         const newExc = new Set(excluded);
         if (excluded.has(actualIndex)) newExc.delete(actualIndex);
@@ -372,20 +640,42 @@
         <div className={`${darkMode ? 'dark-mode ' : ''}max-w-6xl mx-auto p-6 bg-white min-h-screen`}>
           <div className="mb-8">
             <h1 className="text-xl font-bold text-gray-600 mb-2">Raga Database Query Tool</h1>
+            
+            {/* Music System Toggle moved inline with piano controls */}
+
             {/* collapsible piano */}
             <div className="mt-4">
-              <button onClick={() => setShowPiano(v => !v)} className="px-3 py-2 rounded-md text-sm font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 border">
-                show piano {showPiano ? '▲' : '▼'}
-              </button>
-              <div className="inline-block ml-3">
-                <label className="block text-xs text-gray-600">Base Octave</label>
-                <select value={baseOctave} onChange={(e)=> setBaseOctave(parseInt(e.target.value,10))} className="px-2 py-1 border rounded text-sm">
-                  {[2,3,4,5].map(o => <option key={o} value={o}>Octave {o}</option>)}
-                </select>
+              <div className="flex items-center gap-3">
+                <button onClick={() => setShowPiano(v => !v)} className="px-3 py-2 rounded-md text-sm font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 border">
+                  show piano {showPiano ? '▲' : '▼'}
+                </button>
+                <div className="inline-block">
+                  <select value={baseOctave} onChange={(e)=> setBaseOctave(parseInt(e.target.value,10))} className="px-2 py-1 border rounded text-sm">
+                    {[2,3,4,5].map(o => <option key={o} value={o}>Octave {o}</option>)}
+                  </select>
+                </div>
+                {/* Music System Toggle (moved here) */}
+                <div className="inline-block ml-2">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-sm ${!isCarnaticMode ? 'font-semibold text-blue-600' : 'text-gray-600'}`}>Hindustani</span>
+                    <button
+                      onClick={() => {
+                        setIsCarnaticMode(v => !v);
+                        // Clear filters when switching modes
+                        clearFilters();
+                      }}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isCarnaticMode ? 'bg-blue-600' : 'bg-gray-300'}`}
+                      title="Toggle between Hindustani and Carnatic"
+                    >
+                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isCarnaticMode ? 'translate-x-6' : 'translate-x-1'}`}/>
+                    </button>
+                    <span className={`text-sm ${isCarnaticMode ? 'font-semibold text-blue-600' : 'text-gray-600'}`}>Carnatic</span>
+                  </div>
+                </div>
               </div>
               {showPiano && (
                 <div className="mt-3">
-                  <PianoKeyboardQuery onPlay={playKey} baseOctave={baseOctave} octaves={3} showLabels={false} />
+                  <PianoKeyboardQuery onPlay={playKey} baseOctave={baseOctave} octaves={3} showLabels={false} swarLabels={displaySwarNames} />
                 </div>
               )}
             </div>
@@ -394,16 +684,26 @@
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Search by Raga Name:</label>
-                <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Enter raga name..." className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
+                <label className="block text-sm font-medium text-gray-700 mb-2">Search by {isCarnaticMode ? 'Melakarta' : 'Raga'} Name:</label>
+                <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder={`Enter ${isCarnaticMode ? 'melakarta' : 'raga'} name...`} className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Scale Type:</label>
                 <select value={scaleType} onChange={(e) => setScaleType(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
                   <option value="any">Any Scale Type</option>
-                  <option value="5">Audav (Pentatonic - 5 notes)</option>
-                  <option value="6">Shadav (Hexatonic - 6 notes)</option>
-                  <option value="7">Sampoorna (Heptatonic - 7 notes)</option>
+                  {isCarnaticMode ? (
+                    <>
+                      <option value="7">Melakarta (Heptatonic - 7 notes)</option>
+                      <option value="5">Audav (Pentatonic - 5 notes)</option>
+                      <option value="6">Shadav (Hexatonic - 6 notes)</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="5">Audav (Pentatonic - 5 notes)</option>
+                      <option value="6">Shadav (Hexatonic - 6 notes)</option>
+                      <option value="7">Sampoorna (Heptatonic - 7 notes)</option>
+                    </>
+                  )}
                 </select>
               </div>
               <div>
@@ -425,18 +725,18 @@
               {separateNoteSelection ? (
                 <div className="flex flex-col gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Select Aaroh Notes (Swaras):</label>
-                    <div className="text-xs text-gray-500 mb-1">Sa is always included in the search.</div>
-                    <div className="grid grid-cols-3 gap-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Select Aaroh Notes ({isCarnaticMode ? 'Swaras' : 'Swaras'}):</label>
+                    <div className="text-xs text-gray-500 mb-1">{isCarnaticMode ? 'S' : 'Sa'} is always included in the search.</div>
+                    <div className={`grid ${isCarnaticMode ? 'grid-cols-5' : 'grid-cols-3'} gap-2`}>
                       {selectableSwarNames.map((s, displayIndex) => (
                         <button key={displayIndex} onClick={() => toggleTriState(setSelectedAarohNotes, setExcludedAarohNotes, selectedAarohNotes, excludedAarohNotes, displayIndex)} className={`p-2 rounded-md text-sm font-medium transition-colors ${excludedAarohNotes.has(displayIndex+1) ? 'bg-red-600 text-white' : selectedAarohNotes.has(displayIndex+1) ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>{s}</button>
                       ))}
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Select Avroh Notes (Swaras):</label>
-                    <div className="text-xs text-gray-500 mb-1">Sa is always included in the search.</div>
-                    <div className="grid grid-cols-3 gap-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Select Avroh Notes ({isCarnaticMode ? 'Swaras' : 'Swaras'}):</label>
+                    <div className="text-xs text-gray-500 mb-1">{isCarnaticMode ? 'S' : 'Sa'} is always included in the search.</div>
+                    <div className={`grid ${isCarnaticMode ? 'grid-cols-5' : 'grid-cols-3'} gap-2`}>
                       {selectableSwarNames.map((s, displayIndex) => (
                         <button key={displayIndex} onClick={() => toggleTriState(setSelectedAvrohNotes, setExcludedAvrohNotes, selectedAvrohNotes, excludedAvrohNotes, displayIndex)} className={`p-2 rounded-md text-sm font-medium transition-colors ${excludedAvrohNotes.has(displayIndex+1) ? 'bg-red-600 text-white' : selectedAvrohNotes.has(displayIndex+1) ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>{s}</button>
                       ))}
@@ -445,9 +745,9 @@
                 </div>
               ) : (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Select Notes (Swaras):</label>
-                  <div className="text-xs text-gray-500 mb-1">Sa is always included in the search. Click once to include, twice to exclude, thrice to reset.</div>
-                  <div className="grid grid-cols-3 gap-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Select Notes ({isCarnaticMode ? 'Swaras' : 'Swaras'}):</label>
+                  <div className="text-xs text-gray-500 mb-1">{isCarnaticMode ? 'S' : 'Sa'} is always included in the search. Click once to include, twice to exclude, thrice to reset.</div>
+                  <div className={`grid ${isCarnaticMode ? 'grid-cols-5' : 'grid-cols-3'} gap-2`}>
                     {selectableSwarNames.map((s, displayIndex) => (
                       <button key={displayIndex} onClick={() => toggleTriState(setSelectedNotes, setExcludedNotes, selectedNotes, excludedNotes, displayIndex)} className={`p-2 rounded-md text-sm font-medium transition-colors ${excludedNotes.has(displayIndex+1) ? 'bg-red-600 text-white' : selectedNotes.has(displayIndex+1) ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>{s}</button>
                     ))}
@@ -466,7 +766,7 @@
 
           <div className="bg-white border border-gray-200 rounded-lg">
             <div className="p-4 bg-gray-50 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between">
-              <h2 className="text-xl font-semibold text-gray-800">Results {isLoading ? '(loading...)' : `(${results.length} ragas found)`}</h2>
+              <h2 className="text-xl font-semibold text-gray-800">Results {isLoading ? '(loading...)' : `(${results.length} ${isCarnaticMode ? 'melakarta ragas' : 'ragas'} found)`}</h2>
               <label className="inline-flex items-center mt-2 sm:mt-0">
                 <input type="checkbox" checked={darkMode} onChange={e => setDarkMode(e.target.checked)} className="form-checkbox h-4 w-4 text-indigo-600" />
                 <span className="ml-2 text-sm text-gray-700">Dark mode</span>
@@ -484,7 +784,7 @@
                     <div key={idx} className="p-4">
                       <div className="flex justify-between items-start mb-2">
                         <div>
-                          <h3 className="font-semibold text-gray-800">{raga.name}</h3>
+                          <h3 className="font-semibold text-gray-800">{isCarnaticMode && raga.number ? `${raga.number}. ${raga.name}` : raga.name}</h3>
                           {raga.aarohJati && raga.avrohJati && (
                             <div className="text-sm text-gray-600">{raga.aarohJati.replace(/ \(.*/, '')} - {raga.avrohJati.replace(/ \(.*/, '')}</div>
                           )}
@@ -495,18 +795,18 @@
                           className="px-3 py-1 rounded bg-indigo-600 text-white text-sm hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
                           title="Play Aaroh + Avroh"
                         >
-                          ▶ Full Raga
+                          ▶ Full {isCarnaticMode ? 'Melakarta' : 'Raga'}
                         </button>
                       </div>
                       <div className="flex flex-wrap gap-1 mt-2">
                         {raga.notePattern.map((present, noteIndex) => (
-                          <span key={noteIndex} className={`px-2 py-1 text-xs rounded ${present ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-gray-100 text-gray-400 border border-gray-200'}`}>{['Sa','Re♭','Re','Ga♭','Ga','Ma','Ma♯','Pa','Dha♭','Dha','Ni♭','Ni'][noteIndex]}</span>
+                          <span key={noteIndex} className={`px-2 py-1 text-xs rounded ${present ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-gray-100 text-gray-400 border border-gray-200'}`}>{displaySwarNames[noteIndex]}</span>
                         ))}
                       </div>
                       {raga.aarohPattern && raga.avrohPattern && (
                         <div className="mt-2 space-y-1">
-                          <div className="text-xs text-gray-600"><strong>Aaroh:</strong> {raga.aarohPattern.map((p,i)=>p? ['Sa','Re♭','Re','Ga♭','Ga','Ma','Ma♯','Pa','Dha♭','Dha','Ni♭','Ni'][i]:null).filter(Boolean).join(' - ')}</div>
-                          <div className="text-xs text-gray-600"><strong>Avroh:</strong> {raga.avrohPattern.map((p,i)=>p? ['Sa','Re♭','Re','Ga♭','Ga','Ma','Ma♯','Pa','Dha♭','Dha','Ni♭','Ni'][i]:null).filter(Boolean).reverse().join(' - ')}</div>
+                          <div className="text-xs text-gray-600"><strong>Aaroh:</strong> {raga.aarohPattern.map((p,i)=>p? displaySwarNames[i]:null).filter(Boolean).join(' - ')}</div>
+                          <div className="text-xs text-gray-600"><strong>Avroh:</strong> {raga.avrohPattern.map((p,i)=>p? displaySwarNames[i]:null).filter(Boolean).reverse().join(' - ')}</div>
                         </div>
                       )}
                     </div>
@@ -520,7 +820,7 @@
     };
 
     // 3-octave compact keyboard component for Query page
-    function PianoKeyboardQuery({ onPlay, baseOctave = 3, octaves = 3, showLabels = false }) {
+    function PianoKeyboardQuery({ onPlay, baseOctave = 3, octaves = 3, showLabels = false, swarLabels = ['Sa', 'Re♭', 'Re', 'Ga♭', 'Ga', 'Ma', 'Ma♯', 'Pa', 'Dha♭', 'Dha', 'Ni♭', 'Ni'] }) {
       const wrapRef = useRef(null);
       useEffect(() => {
         const el = wrapRef.current;
