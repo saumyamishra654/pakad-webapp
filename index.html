@@ -1584,160 +1584,70 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                 if (!selectedRaga || !selectedRagaName) return;
                 try {
                     const myVersion = ++chordsFetchVersionRef.current;
-                    const params = new URLSearchParams();
-                    params.set('chordType', selectedChordType || 'all');
-                    params.set('extend', String(extendChords));
-                    if (selectedNote !== null && noteFilterMode !== 'none') {
-                        params.set('selectedNote', String(selectedNote));
-                        params.set('filterMode', noteFilterMode);
-                    }
-                    if (selectedTonic !== null) {
-                        params.set('tonic', String(selectedTonic));
-                    }
 
                     const current = getCurrentPatterns();
-                    // Local generation for Carnatic mode
-                    if (isCarnaticMode && !customScaleMode) {
-                        const ctId = selectedChordType || 'all';
-                        const extend = !!extendChords;
-                        const selNote = (selectedNote !== null && noteFilterMode !== 'none') ? selectedNote : null;
-                        const tonic = selectedTonic;
+                    const ctId = selectedChordType || 'all';
+                    const extend = !!extendChords;
+                    const selNote = (selectedNote !== null && noteFilterMode !== 'none') ? selectedNote : null;
+                    const tonic = selectedTonic;
 
-                        if (!separateAarohAvroh) {
-                            let chords = availableChordsForPatternLocal(current.all, ctId, extend);
-                            chords = filterChordsByNoteLocal(chords, selNote, noteFilterMode);
-                            chords = attachWesternNamesLocal(chords, tonic);
+                    if (!separateAarohAvroh) {
+                        let chords = availableChordsForPatternLocal(current.all, ctId, extend);
+                        chords = filterChordsByNoteLocal(chords, selNote, noteFilterMode);
+                        chords = attachWesternNamesLocal(chords, tonic);
+                        if (chordsFetchVersionRef.current !== myVersion) return;
+                        setChordsAll(chords);
+                        setChordsAaroh([]);
+                        setChordsAvroh([]);
+
+                        if (showChordsOutsideRaga && !customScaleMode) {
+                            const minOut = Math.max(1, Math.min(3, Number(outsideMinAllowed) || 1));
+                            const maxOut = Math.max(1, Math.min(3, Number(outsideMaxAllowed) || 1));
+                            let outside = availableChordsAllowingOutsideLocal(current.all, ctId, extend, minOut, maxOut, true);
+                            outside = filterChordsByNoteLocal(outside, selNote, noteFilterMode);
+                            outside = attachWesternNamesLocal(outside, tonic);
                             if (chordsFetchVersionRef.current !== myVersion) return;
-                            setChordsAll(chords);
-                            setChordsAaroh([]);
-                            setChordsAvroh([]);
-
-                            if (showChordsOutsideRaga) {
-                                const minOut = Math.max(1, Math.min(3, Number(outsideMinAllowed) || 1));
-                                const maxOut = Math.max(1, Math.min(3, Number(outsideMaxAllowed) || 1));
-                                let outside = availableChordsAllowingOutsideLocal(current.all, ctId, extend, minOut, maxOut, true);
-                                outside = filterChordsByNoteLocal(outside, selNote, noteFilterMode);
-                                outside = attachWesternNamesLocal(outside, tonic);
-                                if (chordsFetchVersionRef.current !== myVersion) return;
-                                setChordsOutsideAll(outside);
-                                setChordsOutsideAaroh([]);
-                                setChordsOutsideAvroh([]);
-                            } else {
-                                setChordsOutsideAll([]);
-                                setChordsOutsideAaroh([]);
-                                setChordsOutsideAvroh([]);
-                            }
+                            setChordsOutsideAll(outside);
+                            setChordsOutsideAaroh([]);
+                            setChordsOutsideAvroh([]);
                         } else {
-                            let aar = availableChordsForPatternLocal(current.aaroh, ctId, extend);
-                            let avr = availableChordsForPatternLocal(current.avroh, ctId, extend);
-                            aar = filterChordsByNoteLocal(aar, selNote, noteFilterMode);
-                            avr = filterChordsByNoteLocal(avr, selNote, noteFilterMode);
-                            aar = attachWesternNamesLocal(aar, tonic);
-                            avr = attachWesternNamesLocal(avr, tonic);
-                            if (chordsFetchVersionRef.current !== myVersion) return;
-                            setChordsAaroh(aar);
-                            setChordsAvroh(avr);
-                            setChordsAll([]);
-
-                            if (showChordsOutsideRaga) {
-                                const minOut = Math.max(1, Math.min(3, Number(outsideMinAllowed) || 1));
-                                const maxOut = Math.max(1, Math.min(3, Number(outsideMaxAllowed) || 1));
-                                let oAar = availableChordsAllowingOutsideLocal(current.aaroh, ctId, extend, minOut, maxOut, true);
-                                let oAvr = availableChordsAllowingOutsideLocal(current.avroh, ctId, extend, minOut, maxOut, true);
-                                oAar = filterChordsByNoteLocal(oAar, selNote, noteFilterMode);
-                                oAvr = filterChordsByNoteLocal(oAvr, selNote, noteFilterMode);
-                                oAar = attachWesternNamesLocal(oAar, tonic);
-                                oAvr = attachWesternNamesLocal(oAvr, tonic);
-                                if (chordsFetchVersionRef.current !== myVersion) return;
-                                setChordsOutsideAaroh(oAar);
-                                setChordsOutsideAvroh(oAvr);
-                                setChordsOutsideAll([]);
-                            } else {
-                                setChordsOutsideAll([]);
-                                setChordsOutsideAaroh([]);
-                                setChordsOutsideAvroh([]);
-                            }
-                        }
-                        return; // handled locally
-                    }
-                    if (customScaleMode) {
-                        if (!separateAarohAvroh) {
-                            const res = await fetch(`${API_BASE}/api/custom-scale/chords?${params.toString()}&part=all`, {
-                                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ notePattern: current.all })
-                            });
-                            const data = await res.json();
-                            if (chordsFetchVersionRef.current !== myVersion) return;
-                            setChordsAll(data); setChordsAaroh([]); setChordsAvroh([]);
-                            setChordsOutsideAll([]); setChordsOutsideAaroh([]); setChordsOutsideAvroh([]);
-                        } else {
-                            const [ra, rv] = await Promise.all([
-                                fetch(`${API_BASE}/api/custom-scale/chords?${params.toString()}&part=aaroh`, {
-                                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ aarohPattern: current.aaroh, avrohPattern: current.avroh })
-                                }),
-                                fetch(`${API_BASE}/api/custom-scale/chords?${params.toString()}&part=avroh`, {
-                                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ aarohPattern: current.aaroh, avrohPattern: current.avroh })
-                                })
-                            ]);
-                            const [da, dv] = await Promise.all([ra.json(), rv.json()]);
-                            if (chordsFetchVersionRef.current !== myVersion) return;
-                            setChordsAaroh(da); setChordsAvroh(dv); setChordsAll([]);
-                            setChordsOutsideAll([]); setChordsOutsideAaroh([]); setChordsOutsideAvroh([]);
-                        }
-                    } else if (!separateAarohAvroh) {
-                            const res = await fetch(`${API_BASE}/api/ragas/${encodeURIComponent(selectedRagaName)}/chords?${params.toString()}&part=all`);
-                            const data = await res.json();
-                            if (chordsFetchVersionRef.current !== myVersion) return; // stale
-                            setChordsAll(data);
-                            setChordsAaroh([]);
-                            setChordsAvroh([]);
                             setChordsOutsideAll([]);
                             setChordsOutsideAaroh([]);
                             setChordsOutsideAvroh([]);
+                        }
                     } else {
-                        const [ra, rv] = await Promise.all([
-                            fetch(`${API_BASE}/api/ragas/${encodeURIComponent(selectedRagaName)}/chords?${params.toString()}&part=aaroh`),
-                            fetch(`${API_BASE}/api/ragas/${encodeURIComponent(selectedRagaName)}/chords?${params.toString()}&part=avroh`)
-                        ]);
-                        const [da, dv] = await Promise.all([ra.json(), rv.json()]);
-                        if (chordsFetchVersionRef.current !== myVersion) return; // stale
-                        setChordsAaroh(da);
-                        setChordsAvroh(dv);
+                        let aar = availableChordsForPatternLocal(current.aaroh, ctId, extend);
+                        let avr = availableChordsForPatternLocal(current.avroh, ctId, extend);
+                        aar = filterChordsByNoteLocal(aar, selNote, noteFilterMode);
+                        avr = filterChordsByNoteLocal(avr, selNote, noteFilterMode);
+                        aar = attachWesternNamesLocal(aar, tonic);
+                        avr = attachWesternNamesLocal(avr, tonic);
+                        if (chordsFetchVersionRef.current !== myVersion) return;
+                        setChordsAaroh(aar);
+                        setChordsAvroh(avr);
                         setChordsAll([]);
-                        setChordsOutsideAll([]);
-                        setChordsOutsideAaroh([]);
-                        setChordsOutsideAvroh([]);
-                    }
 
-                    // fetch outside-raga chords if enabled
-                    if (showChordsOutsideRaga && !customScaleMode) {
-                        const outsideParams = new URLSearchParams(params);
-                        outsideParams.set('outside', 'true');
-                        const outsideMinCap = Math.max(1, Math.min(3, Number(outsideMinAllowed) || 1));
-                        const outsideMaxCap = Math.max(1, Math.min(3, Number(outsideMaxAllowed) || 1));
-                        outsideParams.set('minOutside', String(outsideMinCap));
-                        outsideParams.set('maxOutside', String(outsideMaxCap));
-                        
-                        if (!separateAarohAvroh) {
-                            const outsideRes = await fetch(`${API_BASE}/api/ragas/${encodeURIComponent(selectedRagaName)}/chords?${outsideParams.toString()}&part=all`);
-                            const outsideData = await outsideRes.json();
+                        if (showChordsOutsideRaga && !customScaleMode) {
+                            const minOut = Math.max(1, Math.min(3, Number(outsideMinAllowed) || 1));
+                            const maxOut = Math.max(1, Math.min(3, Number(outsideMaxAllowed) || 1));
+                            let oAar = availableChordsAllowingOutsideLocal(current.aaroh, ctId, extend, minOut, maxOut, true);
+                            let oAvr = availableChordsAllowingOutsideLocal(current.avroh, ctId, extend, minOut, maxOut, true);
+                            oAar = filterChordsByNoteLocal(oAar, selNote, noteFilterMode);
+                            oAvr = filterChordsByNoteLocal(oAvr, selNote, noteFilterMode);
+                            oAar = attachWesternNamesLocal(oAar, tonic);
+                            oAvr = attachWesternNamesLocal(oAvr, tonic);
                             if (chordsFetchVersionRef.current !== myVersion) return;
-                            setChordsOutsideAll(outsideData);
+                            setChordsOutsideAaroh(oAar);
+                            setChordsOutsideAvroh(oAvr);
+                            setChordsOutsideAll([]);
                         } else {
-                            const [outsideRa, outsideRv] = await Promise.all([
-                                fetch(`${API_BASE}/api/ragas/${encodeURIComponent(selectedRagaName)}/chords?${outsideParams.toString()}&part=aaroh`),
-                                fetch(`${API_BASE}/api/ragas/${encodeURIComponent(selectedRagaName)}/chords?${outsideParams.toString()}&part=avroh`)
-                            ]);
-                            const [outsideDa, outsideDv] = await Promise.all([outsideRa.json(), outsideRv.json()]);
-                            if (chordsFetchVersionRef.current !== myVersion) return;
-                            setChordsOutsideAaroh(outsideDa);
-                            setChordsOutsideAvroh(outsideDv);
+                            setChordsOutsideAll([]);
+                            setChordsOutsideAaroh([]);
+                            setChordsOutsideAvroh([]);
                         }
                     }
                 } catch (e) {
-                    console.error('Failed to load chords', e);
+                    console.error('Failed to compute chords locally', e);
                 }
             };
 
@@ -1758,27 +1668,37 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
             const customValidAaroh = selectedRaga ? customNotesAll.every(i => selectedRaga.aarohPattern[i]) : false;
             const customValidAvroh = selectedRaga ? customNotesAll.every(i => selectedRaga.avrohPattern[i]) : false;
 
-            // custom matches via backend
+            // custom matches locally
             const [customMatches, setCustomMatches] = useState({ aaroh: [], avroh: [], all: [] });
             useEffect(() => {
-                const doFetch = async () => {
-                    if (!customMode || !selectedRagaName) return;
-                    try {
-                        const res = await fetch(`${API_BASE}/api/ragas/${encodeURIComponent(selectedRagaName)}/custom-matches`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ intervalsAbs: customIntervalsAbs })
-                        });
-                        if (!res.ok) throw new Error('custom matches failed');
-                        const data = await res.json();
-                        setCustomMatches(data);
-                    } catch (e) {
-                        console.error(e);
-                        setCustomMatches({ aaroh: [], avroh: [], all: [] });
+                if (!customMode || !selectedRaga) { setCustomMatches({ aaroh: [], avroh: [], all: [] }); return; }
+                try {
+                    const patterns = getCurrentPatterns();
+                    const collectMatches = (pattern) => {
+                        const matches = [];
+                        for (let root = 0; root < 12; root++) {
+                            // if root must be in raga when filtering by root
+                            const notes = customIntervalsAbs.map(iv => (root + (iv % 12 + 12) % 12) % 12);
+                            const ok = notes.every(n => pattern[n]);
+                            if (!ok) continue;
+                            if (selectedNote !== null && noteFilterMode !== 'none') {
+                                if (noteFilterMode === 'any' && !notes.includes(selectedNote)) continue;
+                                if (noteFilterMode !== 'any' && root !== selectedNote) continue;
+                            }
+                            matches.push({ root, rootName: (isCarnaticMode ? carnaticLabels[root] : swarNames[root]), notes });
+                        }
+                        return matches;
+                    };
+                    if (!separateAarohAvroh) {
+                        setCustomMatches({ aaroh: [], avroh: [], all: collectMatches(patterns.all) });
+                    } else {
+                        setCustomMatches({ aaroh: collectMatches(patterns.aaroh), avroh: collectMatches(patterns.avroh), all: [] });
                     }
-                };
-                doFetch();
-            }, [customMode, customIntervalsAbs, selectedRagaName]);
+                } catch (e) {
+                    console.error('custom matches local error', e);
+                    setCustomMatches({ aaroh: [], avroh: [], all: [] });
+                }
+            }, [customMode, customIntervalsAbs, selectedRaga, selectedNote, noteFilterMode, separateAarohAvroh]);
 
             // aggregated counts from backend or local (Carnatic)
             const [aggregatedBasic, setAggregatedBasic] = useState(0);
@@ -1812,84 +1732,13 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                     }
                 };
 
-                const fetchAggServer = async () => {
-                    if (!selectedRagaName) return;
-                    try {
-                        const params = new URLSearchParams();
-                        params.set('separate', String(separateAarohAvroh));
-                        params.set('extend', String(extendChords));
-                        const res = await fetch(`${API_BASE}/api/ragas/${encodeURIComponent(selectedRagaName)}/aggregates?${params.toString()}`);
-                        const data = await res.json();
-                        setAggregatedBasic(data.basic || 0);
-                        setAggregatedExtended(data.extended || 0);
-                    } catch (e) {
-                        console.error('Failed to load aggregates', e);
-                    }
-                };
-
-                if (isCarnaticMode) computeAggLocal(); else fetchAggServer();
+                // Always compute locally (offline-first)
+                computeAggLocal();
             }, [isCarnaticMode, selectedRagaName, separateAarohAvroh, extendChords, JSON.stringify(selectedRaga), JSON.stringify(serverChordTypes)]);
 
             // for counts per chord type in UI (server or local)
             const [countsByType, setCountsByType] = useState({});
             useEffect(() => {
-                const fetchCountsServer = async () => {
-                    if (!selectedRagaName || chordTypes.length === 0) return;
-                    const entries = await Promise.all(
-                        chordTypes.map(async (ct) => {
-                            const params = new URLSearchParams({ chordType: ct.id === 'all' ? 'all' : ct.id, extend: String(extendChords) });
-                            const current = getCurrentPatterns();
-                            if (!separateAarohAvroh) {
-                                if (selectedNote !== null && noteFilterMode !== 'none') {
-                                    params.set('selectedNote', String(selectedNote));
-                                    params.set('filterMode', noteFilterMode);
-                                }
-                                if (selectedTonic !== null) params.set('tonic', String(selectedTonic));
-                                if (customScaleMode) {
-                                    const res = await fetch(`${API_BASE}/api/custom-scale/chords?${params.toString()}&part=all`, {
-                                        method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ notePattern: current.all })
-                                    });
-                                    const data = await res.json();
-                                    return [ct.id, data.length];
-                                } else {
-                                    const res = await fetch(`${API_BASE}/api/ragas/${encodeURIComponent(selectedRagaName)}/chords?${params.toString()}&part=all`);
-                                    const data = await res.json();
-                                    return [ct.id, data.length];
-                                }
-                            } else {
-                                if (selectedNote !== null && noteFilterMode !== 'none') {
-                                    params.set('selectedNote', String(selectedNote));
-                                    params.set('filterMode', noteFilterMode);
-                                }
-                                if (selectedTonic !== null) params.set('tonic', String(selectedTonic));
-                                if (customScaleMode) {
-                                    const [ra, rv] = await Promise.all([
-                                        fetch(`${API_BASE}/api/custom-scale/chords?${params.toString()}&part=aaroh`, {
-                                            method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({ aarohPattern: current.aaroh, avrohPattern: current.avroh })
-                                        }),
-                                        fetch(`${API_BASE}/api/custom-scale/chords?${params.toString()}&part=avroh`, {
-                                            method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({ aarohPattern: current.aaroh, avrohPattern: current.avroh })
-                                        })
-                                    ]);
-                                    const [da, dv] = await Promise.all([ra.json(), rv.json()]);
-                                    return [ct.id, da.length + dv.length];
-                                } else {
-                                    const [ra, rv] = await Promise.all([
-                                        fetch(`${API_BASE}/api/ragas/${encodeURIComponent(selectedRagaName)}/chords?${params.toString()}&part=aaroh`),
-                                        fetch(`${API_BASE}/api/ragas/${encodeURIComponent(selectedRagaName)}/chords?${params.toString()}&part=avroh`)
-                                    ]);
-                                    const [da, dv] = await Promise.all([ra.json(), rv.json()]);
-                                    return [ct.id, da.length + dv.length];
-                                }
-                            }
-                        })
-                    );
-                    setCountsByType(Object.fromEntries(entries));
-                };
-
                 const computeCountsLocal = () => {
                     if (!selectedRaga || chordTypes.length === 0) { setCountsByType({}); return; }
                     const current = getCurrentPatterns();
@@ -1933,7 +1782,8 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                     }
                 };
 
-                if (isCarnaticMode) computeCountsLocal(); else fetchCountsServer();
+                // Always compute locally (offline-first)
+                computeCountsLocal();
             // eslint-disable-next-line react-hooks/exhaustive-deps
             }, [isCarnaticMode, selectedRagaName, separateAarohAvroh, extendChords, selectedNote, noteFilterMode, serverChordTypes, customScaleMode, JSON.stringify(customNotePattern), JSON.stringify(customAarohPattern), JSON.stringify(customAvrohPattern), JSON.stringify(selectedRaga), JSON.stringify(chordTypes)]);
 
