@@ -44,10 +44,86 @@
   <!-- button to go home-->
   <div style="position: fixed; top: 10px; right: 10px; z-index: 1000; display: flex; gap: 8px;">
     <a data-link="chord-tool" href="/index.html" aria-label="Back to Chord Tool" style="padding: 6px 10px; background: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-size: 13px;">Chord Tool</a>
+    <a href="/raga-insights.html" style="padding: 6px 10px; background: #059669; color: white; text-decoration: none; border-radius: 6px; font-size: 13px;">Insights</a>
   </div>
 
   <script type="text/babel">
   const { useState, useEffect, useRef } = React;
+
+  // Hardcoded data for faster loading
+  const MELAKARTA_CSV_DATA = `number,name,swaras
+1,Kanakangi,S R₁ G₁ M₁ P D₁ N₁ S
+2,Ratnangi,S R₁ G₁ M₁ P D₁ N₂ S
+3,Ganamurti,S R₁ G₁ M₁ P D₁ N₃ S
+4,Vanaspati,S R₁ G₁ M₁ P D₂ N₂ S
+5,Manavati,S R₁ G₁ M₁ P D₂ N₃ S
+6,Tanarupi,S R₁ G₁ M₁ P D₃ N₃ S
+7,Senavati,S R₁ G₂ M₁ P D₁ N₁ S
+8,Hanumatodi,S R₁ G₂ M₁ P D₁ N₂ S
+9,Dhenuka,S R₁ G₂ M₁ P D₁ N₃ S
+10,Natakapriya,S R₁ G₂ M₁ P D₂ N₂ S
+11,Kokilapriya,S R₁ G₂ M₁ P D₂ N₃ S
+12,Rupavati,S R₁ G₂ M₁ P D₃ N₃ S
+13,Gayakapriya,S R₁ G₃ M₁ P D₁ N₁ S
+14,Vakulabharanam,S R₁ G₃ M₁ P D₁ N₂ S
+15,Mayamalavagaula,S R₁ G₃ M₁ P D₁ N₃ S
+16,Chakravakam,S R₁ G₃ M₁ P D₂ N₂ S
+17,Suryakantam,S R₁ G₃ M₁ P D₂ N₃ S
+18,Hatakambari,S R₁ G₃ M₁ P D₃ N₃ S
+19,Jhankaradhvani,S R₂ G₂ M₁ P D₁ N₁ S
+20,Natabhairavi,S R₂ G₂ M₁ P D₁ N₂ S
+21,Keeravani,S R₂ G₂ M₁ P D₁ N₃ S
+22,Kharaharapriya,S R₂ G₂ M₁ P D₂ N₂ S
+23,Gaurimanohari,S R₂ G₂ M₁ P D₂ N₃ S
+24,Varunapriya,S R₂ G₂ M₁ P D₃ N₃ S
+25,Mararanjani,S R₂ G₃ M₁ P D₁ N₁ S
+26,Charukesi,S R₂ G₃ M₁ P D₁ N₂ S
+27,Sarasangi,S R₂ G₃ M₁ P D₁ N₃ S
+28,Harikambhoji,S R₂ G₃ M₁ P D₂ N₂ S
+29,Dheerasankarabharanam,S R₂ G₃ M₁ P D₂ N₃ S
+30,Naganandini,S R₂ G₃ M₁ P D₃ N₃ S
+31,Yagapriya,S R₃ G₃ M₁ P D₁ N₁ S
+32,Ragavardhini,S R₃ G₃ M₁ P D₁ N₂ S
+33,Gangeyabhushini,S R₃ G₃ M₁ P D₁ N₃ S
+34,Vagadhishvari,S R₃ G₃ M₁ P D₂ N₂ S
+35,Shulini,S R₃ G₃ M₁ P D₂ N₃ S
+36,Chalanata,S R₃ G₃ M₁ P D₃ N₃ S
+37,Salagam,S R₁ G₁ M₂ P D₁ N₁ S
+38,Jalarnavam,S R₁ G₁ M₂ P D₁ N₂ S
+39,Jhalavarali,S R₁ G₁ M₂ P D₁ N₃ S
+40,Navaneetam,S R₁ G₁ M₂ P D₂ N₂ S
+41,Pavani,S R₁ G₁ M₂ P D₂ N₃ S
+42,Raghupriya,S R₁ G₁ M₂ P D₃ N₃ S
+43,Gavambodhi,S R₁ G₂ M₂ P D₁ N₁ S
+44,Bhavapriya,S R₁ G₂ M₂ P D₁ N₂ S
+45,Shubhapantuvarali,S R₁ G₂ M₂ P D₁ N₃ S
+46,Shadvidhamargini,S R₁ G₂ M₂ P D₂ N₂ S
+47,Suvarnangi,S R₁ G₂ M₂ P D₂ N₃ S
+48,Divyamani,S R₁ G₂ M₂ P D₃ N₃ S
+49,Dhavalambari,S R₁ G₃ M₂ P D₁ N₁ S
+50,Namanarayani,S R₁ G₃ M₂ P D₁ N₂ S
+51,Kamavardhini,S R₁ G₃ M₂ P D₁ N₃ S
+52,Ramapriya,S R₁ G₃ M₂ P D₂ N₂ S
+53,Gamanashrama,S R₁ G₃ M₂ P D₂ N₃ S
+54,Vishvambhari,S R₁ G₃ M₂ P D₃ N₃ S
+55,Shyamalangi,S R₂ G₂ M₂ P D₁ N₁ S
+56,Shanmukhapriya,S R₂ G₂ M₂ P D₁ N₂ S
+57,Simhendramadhyamam,S R₂ G₂ M₂ P D₁ N₃ S
+58,Hemavati,S R₂ G₂ M₂ P D₂ N₂ S
+59,Dharmavati,S R₂ G₂ M₂ P D₂ N₃ S
+60,Neetimati,S R₂ G₂ M₂ P D₃ N₃ S
+61,Kantamani,S R₂ G₃ M₂ P D₁ N₁ S
+62,Rishabhapriya,S R₂ G₃ M₂ P D₁ N₂ S
+63,Latangi,S R₂ G₃ M₂ P D₁ N₃ S
+64,Vachaspati,S R₂ G₃ M₂ P D₂ N₂ S
+65,Mechakalyani,S R₂ G₃ M₂ P D₂ N₃ S
+66,Chitrambari,S R₂ G₃ M₂ P D₃ N₃ S
+67,Sucharitra,S R₃ G₃ M₂ P D₁ N₁ S
+68,Jyotiragam,S R₃ G₃ M₂ P D₁ N₂ S
+69,Dhatuvardhani,S R₃ G₃ M₂ P D₁ N₃ S
+70,Nasikabhushani,S R₃ G₃ M₂ P D₂ N₂ S
+71,Kosalam,S R₃ G₃ M₂ P D₂ N₃ S
+72,Rasikapriya,S R₃ G₃ M₂ P D₃ N₃ S`;
 
     const Filter = () => (
       <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -146,11 +222,11 @@
       useEffect(() => {
         const loadMelakartaData = async () => {
           try {
-            const response = await fetch('./melakarta_72.csv');
-            const csvText = await response.text();
+            // Use hardcoded data instead of fetch
+            const csvText = MELAKARTA_CSV_DATA;
             setMelakartaList(parseMelakartaCSV(csvText));
           } catch (e) {
-            console.warn('Failed to load melakarta data:', e);
+            console.warn('Failed to parse melakarta data:', e);
             setMelakartaList([]);
           }
         };

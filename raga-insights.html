@@ -1,0 +1,1245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Raga Insights - Musical Relationships</title>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+  .dark-mode { background-color: #0b1220; color: #e5e7eb; }
+  .dark-mode .bg-white, .dark-mode.bg-white { background-color: #071126 !important; }
+  .dark-mode .bg-gray-50, .dark-mode.bg-gray-50 { background-color: #071126 !important; }
+  .dark-mode .bg-gray-100, .dark-mode.bg-gray-100 { background-color: #0b1226 !important; color: #e5e7eb !important; }
+  .dark-mode .bg-blue-50, .dark-mode.bg-blue-50 { background-color: #06202a !important; color: #9bd3ff !important; }
+  .dark-mode .bg-green-50, .dark-mode.bg-green-50 { background-color: #07301c !important; color: #bbf7d0 !important; }
+  .dark-mode .bg-purple-50, .dark-mode.bg-purple-50 { background-color: #2a0b3e !important; color: #d8b4fe !important; }
+  .dark-mode .bg-orange-50, .dark-mode.bg-orange-50 { background-color: #431407 !important; color: #fed7aa !important; }
+  .dark-mode .text-gray-800, .dark-mode.text-gray-800 { color: #e5e7eb !important; }
+  .dark-mode .text-gray-600, .dark-mode.text-gray-600 { color: #cbd5e1 !important; }
+  .dark-mode .text-gray-700, .dark-mode.text-gray-700 { color: #cbd5e1 !important; }
+  .dark-mode .border-gray-200, .dark-mode.border-gray-200 { border-color: #1f2937 !important; }
+  .dark-mode input, .dark-mode select, .dark-mode textarea { background-color: #071126 !important; color: #e5e7eb !important; border-color: #374151 !important; }
+  .dark-mode button, .dark-mode .hover\:bg-gray-200:hover { border-color: #374151 !important; }
+  .dark-mode .hover\:bg-gray-200:hover { background-color: #1f2937 !important; }
+  .relationship-card { transition: all 0.3s ease; cursor: pointer; }
+  .relationship-card:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1); }
+  .dark-mode .relationship-card:hover { box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3); }
+  .note-badge { display: inline-block; padding: 2px 6px; margin: 1px; border-radius: 4px; font-size: 10px; font-weight: 500; }
+  .murchanna-diagram { background: linear-gradient(135deg, #f3f4f6, #e5e7eb); border-radius: 8px; padding: 12px; margin: 8px 0; }
+  .dark-mode .murchanna-diagram { background: linear-gradient(135deg, #1f2937, #374151); }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- navigation buttons -->
+  <div style="position: fixed; top: 10px; right: 10px; z-index: 1000; display: flex; gap: 8px;">
+    <a href="/index.html" style="padding: 6px 10px; background: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-size: 13px;">Chord Tool</a>
+    <a href="/raga-query.html" style="padding: 6px 10px; background: #059669; color: white; text-decoration: none; border-radius: 6px; font-size: 13px;">Raga DB</a>
+  </div>
+
+  <script type="text/babel">
+  const { useState, useEffect, useRef } = React;
+
+  // Hardcoded data for faster loading
+  const MELAKARTA_CSV_DATA = `number,name,swaras
+1,Kanakangi,S R₁ G₁ M₁ P D₁ N₁ S
+2,Ratnangi,S R₁ G₁ M₁ P D₁ N₂ S
+3,Ganamurti,S R₁ G₁ M₁ P D₁ N₃ S
+4,Vanaspati,S R₁ G₁ M₁ P D₂ N₂ S
+5,Manavati,S R₁ G₁ M₁ P D₂ N₃ S
+6,Tanarupi,S R₁ G₁ M₁ P D₃ N₃ S
+7,Senavati,S R₁ G₂ M₁ P D₁ N₁ S
+8,Hanumatodi,S R₁ G₂ M₁ P D₁ N₂ S
+9,Dhenuka,S R₁ G₂ M₁ P D₁ N₃ S
+10,Natakapriya,S R₁ G₂ M₁ P D₂ N₂ S
+11,Kokilapriya,S R₁ G₂ M₁ P D₂ N₃ S
+12,Rupavati,S R₁ G₂ M₁ P D₃ N₃ S
+13,Gayakapriya,S R₁ G₃ M₁ P D₁ N₁ S
+14,Vakulabharanam,S R₁ G₃ M₁ P D₁ N₂ S
+15,Mayamalavagaula,S R₁ G₃ M₁ P D₁ N₃ S
+16,Chakravakam,S R₁ G₃ M₁ P D₂ N₂ S
+17,Suryakantam,S R₁ G₃ M₁ P D₂ N₃ S
+18,Hatakambari,S R₁ G₃ M₁ P D₃ N₃ S
+19,Jhankaradhvani,S R₂ G₂ M₁ P D₁ N₁ S
+20,Natabhairavi,S R₂ G₂ M₁ P D₁ N₂ S
+21,Keeravani,S R₂ G₂ M₁ P D₁ N₃ S
+22,Kharaharapriya,S R₂ G₂ M₁ P D₂ N₂ S
+23,Gaurimanohari,S R₂ G₂ M₁ P D₂ N₃ S
+24,Varunapriya,S R₂ G₂ M₁ P D₃ N₃ S
+25,Mararanjani,S R₂ G₃ M₁ P D₁ N₁ S
+26,Charukesi,S R₂ G₃ M₁ P D₁ N₂ S
+27,Sarasangi,S R₂ G₃ M₁ P D₁ N₃ S
+28,Harikambhoji,S R₂ G₃ M₁ P D₂ N₂ S
+29,Dheerasankarabharanam,S R₂ G₃ M₁ P D₂ N₃ S
+30,Naganandini,S R₂ G₃ M₁ P D₃ N₃ S
+31,Yagapriya,S R₃ G₃ M₁ P D₁ N₁ S
+32,Ragavardhini,S R₃ G₃ M₁ P D₁ N₂ S
+33,Gangeyabhushini,S R₃ G₃ M₁ P D₁ N₃ S
+34,Vagadhishvari,S R₃ G₃ M₁ P D₂ N₂ S
+35,Shulini,S R₃ G₃ M₁ P D₂ N₃ S
+36,Chalanata,S R₃ G₃ M₁ P D₃ N₃ S
+37,Salagam,S R₁ G₁ M₂ P D₁ N₁ S
+38,Jalarnavam,S R₁ G₁ M₂ P D₁ N₂ S
+39,Jhalavarali,S R₁ G₁ M₂ P D₁ N₃ S
+40,Navaneetam,S R₁ G₁ M₂ P D₂ N₂ S
+41,Pavani,S R₁ G₁ M₂ P D₂ N₃ S
+42,Raghupriya,S R₁ G₁ M₂ P D₃ N₃ S
+43,Gavambodhi,S R₁ G₂ M₂ P D₁ N₁ S
+44,Bhavapriya,S R₁ G₂ M₂ P D₁ N₂ S
+45,Shubhapantuvarali,S R₁ G₂ M₂ P D₁ N₃ S
+46,Shadvidhamargini,S R₁ G₂ M₂ P D₂ N₂ S
+47,Suvarnangi,S R₁ G₂ M₂ P D₂ N₃ S
+48,Divyamani,S R₁ G₂ M₂ P D₃ N₃ S
+49,Dhavalambari,S R₁ G₃ M₂ P D₁ N₁ S
+50,Namanarayani,S R₁ G₃ M₂ P D₁ N₂ S
+51,Kamavardhini,S R₁ G₃ M₂ P D₁ N₃ S
+52,Ramapriya,S R₁ G₃ M₂ P D₂ N₂ S
+53,Gamanashrama,S R₁ G₃ M₂ P D₂ N₃ S
+54,Vishvambhari,S R₁ G₃ M₂ P D₃ N₃ S
+55,Shyamalangi,S R₂ G₂ M₂ P D₁ N₁ S
+56,Shanmukhapriya,S R₂ G₂ M₂ P D₁ N₂ S
+57,Simhendramadhyamam,S R₂ G₂ M₂ P D₁ N₃ S
+58,Hemavati,S R₂ G₂ M₂ P D₂ N₂ S
+59,Dharmavati,S R₂ G₂ M₂ P D₂ N₃ S
+60,Neetimati,S R₂ G₂ M₂ P D₃ N₃ S
+61,Kantamani,S R₂ G₃ M₂ P D₁ N₁ S
+62,Rishabhapriya,S R₂ G₃ M₂ P D₁ N₂ S
+63,Latangi,S R₂ G₃ M₂ P D₁ N₃ S
+64,Vachaspati,S R₂ G₃ M₂ P D₂ N₂ S
+65,Mechakalyani,S R₂ G₃ M₂ P D₂ N₃ S
+66,Chitrambari,S R₂ G₃ M₂ P D₃ N₃ S
+67,Sucharitra,S R₃ G₃ M₂ P D₁ N₁ S
+68,Jyotiragam,S R₃ G₃ M₂ P D₁ N₂ S
+69,Dhatuvardhani,S R₃ G₃ M₂ P D₁ N₃ S
+70,Nasikabhushani,S R₃ G₃ M₂ P D₂ N₂ S
+71,Kosalam,S R₃ G₃ M₂ P D₂ N₃ S
+72,Rasikapriya,S R₃ G₃ M₂ P D₃ N₃ S`;
+
+  const HINDUSTANI_RAGAS_CSV = `RAGATABLE,Aroha,Avroh
+Abheri Todi,S-R-G-m-P-d-n-S,S-n-d-P-m-Gg-Rr-S
+Abhogi,S-R-g-m-D-S,S-D-m-g-R-S
+Adana,S-R-m-P-d-n-S,S-n-d-P-m-g-R-S
+Adbhut Kalyan,S-R-G-D-N-S,S-N-D-G-R-S
+Adi Basant,S-G-m-D-N-S,S-N-D-Mm-G-R-r-S
+Ahir Bhairav,S-r-G-m-P-D-n-S,S-n-D-P-m-G-r-S
+Ahir Lalit,S-r-G-mM-D-n-S,S-n-D-Mm-G-r-S
+Ahiri,S-r-g-m-P-D-n-S,S-n-D-P-m-g-r-S
+Ahiri Todi,S-R-g-m-P-nN-S,S-Nn-D-P-m-g-Rr-S
+Alhaiya Bilawal,S-R-G-P-D-N-S,S-n-D-P-m-G-R-S
+Amirkhani Kauns,S-G-M-P-n-S,S-n-P-M-G-S
+Anjani Kalyan,S-R-g-M-P-D-N-S,S-N-D-P-M-g-R-S
+Annapurna,S-r-g-M-P-d-N-S,S-N-d-P-M-g-r-S
+Antardhwani,S-r-g-m-d-N-S,S-N-d-m-g-r-S
+Arun Malhar,S-R-G-m-P-D-nN-S,S-Nn-D-P-m-G-R-S
+Asa Bhairav,S-R-m-P-D-N-S,S-N-D-P-m-G-r-S
+Asavari,S-R-m-P-d-S,S-n-d-P-m-g-Rr-S
+Bageshri,S-R-g-m-D-n-S,S-n-D-P-m-g-R-S
+Bahar,S-R-g-m-P-D-N-S,S-n-P-m-g-R-S
+Bairagi,S-r-m-P-n-S,S-n-P-m-r-S
+Bairagi Todi,S-r-g-P-n-S,S-n-P-g-r-S
+Bangal Bhairav,S-r-G-m-P-d-S,S-d-P-m-G-r-S
+Basant,S-G-M-d-N-S,S-N-d-P-M-G-r-S
+Basant Mukhari,S-r-G-m-P-d-n-S,S-n-d-P-m-G-r-S
+Bhairav,S-r-G-m-P-d-N-S,S-N-d-P-m-G-r-S
+Bhairav Bahar,S-r-G-m-P-D-nN-S,S-n-D-P-m-G-r-S
+Bhairavi,S-r-g-m-P-d-n-S,S-n-d-P-m-g-r-S
+Bhatiyar,S-G-M-P-D-S,S-N-D-P-M-G-r-S
+Bhavani,S-R-m-D-S,S-D-m-R-S
+Bheem,S-G-m-P-n-S,S-n-D-P-m-G-R-S
+Bhimpalasi,S-g-m-P-n-S,S-n-D-P-m-g-R-S
+Bhinna Shadja,S-G-m-D-N-S,S-N-D-m-G-S
+Bhupali,S-R-G-P-D-S,S-D-P-G-R-S
+Bhupali Todi,S-r-g-P-d-S,S-d-P-g-r-S
+Bibhas,S-r-G-P-d-S,S-d-P-G-r-S
+Bihad Bhairav,S-r-m-P-d-n-S,S-Nn-d-P-m-Gg-r-S
+Bihag,S-G-m-P-N-S,S-N-D-P-Mm-G-R-S
+Bilaskhani Todi,S-r-g-P-d-S,S-n-d-P-m-g-r-S
+Champak,S-R-G-m-P-D-N-S,S-n-D-P-m-G-R-S
+Chandni Bihag,S-G-m-P-D-n-S,S-Nn-D-P-Mm-G-S
+Chandni Kedar,S-G-M-P-D-N-S,S-n-D-P-Mm-G-R-S
+Chandrakauns,S-g-m-d-N-S,S-N-d-m-g-S
+Chandrakaushiki,S-R-g-m-d-N-S,S-Nn-d-m-g-R-S
+Chandramadhu,S-g-M-P-n-S,S-n-P-M-g-S
+Chandranandan,S-g-m-d-n-S,S-Nn-d-P-m-g-R-S
+Charukeshi,S-R-G-m-P-d-n-S,S-n-d-P-m-G-R-S
+Chayanat,S-R-G-m-P-D-N-S,S-N-D-P-Mm-G-R-S
+Dagori,S-R-G-m-P-D-N-S,S-N-D-P-m-G-R-S
+Darbari,S-R-g-m-P-d-n-S,S-n-d-P-m-g-R-S
+Darjeeling,S-r-g-m-P-D-n-S,S-n-d-P-m-g-r-S
+Deen Todi,S-r-g-m-D-n-S,S-n-D-m-g-r-S
+Des Malhar,S-R-G-m-P-N-S,S-Nn-D-P-m-G-R-S
+Desh,S-R-m-P-D-n-S,S-Nn-D-P-m-G-R-S
+Deshkar,S-R-G-P-D-S,S-D-P-G-R-S
+Desi,S-R-m-P-D-n-S,S-n-D-P-m-g-R-S
+Dev Gandhar,S-R-gG-m-P-d-n-S,S-n-d-P-m-Gg-R-S
+Devata Bhairav,S-r-G-m-P-d-N-S,S-N-d-P-m-g-r-S
+Devgandhari Todi,S-R-G-m-P-d-n-S,S-n-D-P-m-g-Rr-S
+Devgiri Bilawal,S-R-G-P-D-N-S,S-Nn-D-P-m-G-R-S
+Devranjani,S-m-P-d-N-S,S-N-d-P-m-S
+Devshri,S-R-M-P-n-S,S-n-P-M-R-S
+Dhani,S-g-m-P-n-S,S-n-P-m-g-S
+Din ki Puriya,S-r-G-M-d-N-S,S-N-d-M-G-r-S
+Durga,S-R-m-P-D-S,S-D-P-m-R-S
+Durgawati,S-R-m-P-D-S,S-n-D-P-m-R-S
+Enayetkhani Kanada,S-R-gG-m-P-d-nN-S,S-n-d-P-m-g-R-S
+Gandhari,S-R-g-m-P-d-n-S,S-n-d-P-m-g-r-S
+Gangeshwari,S-G-m-P-d-n-S,S-n-d-P-m-G-S
+Gaoti,S-G-m-P-n-S,S-n-D-P-m-G-R-S
+Gaud Malhar,S-R-G-m-P-D-N-S,S-N-D-P-m-G-R-S
+Gaud Sarang,S-R-G-m-P-D-N-S,S-N-D-P-Mm-G-R-S
+Gauri,S-r-G-m-P-d-N-S,S-N-d-P-m-G-r-S
+Gopika Basant,S-g-m-P-d-n-S,S-n-d-P-m-g-S
+Gorakh Kalyan,S-R-m-D-n-S,S-n-D-P-m-R-S
+Gujiri Todi,S-r-g-M-d-N-S,S-N-d-M-g-r-S
+Gunakri,S-r-m-P-d-S,S-d-P-m-r-S
+Gunkali,S-r-m-P-d-S,S-d-P-m-r-S
+Hameer,S-G-m-P-D-N-S,S-N-D-P-Mm-G-R-S
+Hansa Narayani,S-r-G-M-P-N-S,S-N-P-M-G-r-S
+Hansadhwani,S-R-G-P-N-S,S-N-P-G-R-S
+Hanskinkini,S-G-m-P-N-S,S-n-D-P-m-Gg-R-S
+Harikauns,S-g-M-D-n-S,S-n-D-M-g-S
+Hem Bihag,S-R-G-m-P-N-S,S-N-D-P-m-G-R-S
+Hemant,S-G-m-D-N-S,S-N-D-P-m-G-R-S
+Hemshri,S-g-m-P-N-S,S-n-P-m-g-S
+Hindol,S-G-M-D-N-S,S-N-D-M-G-S
+Hussaini Kanada,S-R-g-m-P-D-n-S,S-n-D-P-m-g-R-S
+Imratkauns,S-R-G-m-d-n-S,S-n-d-m-G-R-S
+Jaijaiwanti,S-R-gG-m-P-N-S,S-Nn-D-P-m-Gg-R-S
+Jait,S-R-G-P-D-S,S-D-P-G-Rr-S
+Jait Kalyan,S-R-G-P-D-S,S-D-P-G-R-S
+Jaitashree,S-G-P-N-S,S-N-d-P-M-G-r-S
+Jaiwanti Todi,S-r-g-m-P-D-n-S,S-D-P-m-g-r-S
+Jaldhar Kedar,S-R-m-P-D-S,S-D-P-m-R-S
+Jansammohini,S-G-P-D-n-S,S-n-D-P-G-R-S
+Jaunpuri,S-R-m-P-d-n-S,S-n-d-P-m-g-R-S
+Jhinjhoti,S-R-m-P-D-S,S-n-D-P-m-G-R-S
+Jog,S-G-m-P-n-S,S-n-P-m-Gg-S
+Jogeshwari,S-G-m-D-n-S,S-n-D-m-Gg-S
+Jogeshwari Pancham,S-G-m-P-D-n-S,S-n-D-P-m-Gg-S
+Jogiya,S-r-m-P-d-S,S-N-d-P-m-r-S
+Jogkauns,S-G-m-d-N-S,S-N-d-P-m-Gg-S
+Kafi,S-R-g-m-P-D-n-S,S-n-D-P-m-g-R-S
+Kalashri,S-G-P-D-n-S,S-n-D-P-m-G-R-S
+Kalavati,S-G-P-D-n-S,S-n-D-P-G-S
+Kalingada,S-r-G-m-P-d-N-S,S-N-d-P-m-G-r-S
+Kambhoji,S-R-G-P-D-n-S,S-n-D-P-m-G-R-S
+Kameshwari,S-R-M-P-D-n-S,S-n-D-P-M-R-S
+Kamod,S-R-G-m-P-D-N-S,S-N-D-P-Mm-G-R-S
+Kaunsi Kanada,S-g-m-d-n-S,S-n-d-P-m-g-R-S
+Kaushik Dhwani,S-G-m-D-N-S,S-N-D-m-G-S
+Kedar,S-M-P-D-N-S,S-N-D-P-Mm-R-S
+Khamaj,S-G-m-P-D-N-S,S-n-D-P-m-G-R-S
+Khambavati,S-R-m-P-D-S,S-n-D-P-m-G-R-S
+Khat,S-R-g-m-P-d-n-S,S-n-D-P-m-g-R-S
+Khem Kalyan,S-G-P-N-S,S-N-D-P-Mm-G-R-S
+Kirwani,S-R-g-m-P-d-N-S,S-N-d-P-m-g-R-S
+Lakshmi Todi,S-rR-gG-m-P-D-n-S,S-n-Dd-P-m-g-Rr-S
+Lalit,S-r-G-M-d-N-S,S-N-d-Mm-G-r-S
+Lanka Dahan Sarang,S-R-m-P-N-S,S-n-D-P-m-g-R-S
+Madhukauns,S-g-M-P-n-S,S-n-P-M-g-S
+Madhumad Sarang,S-R-m-P-n-S,S-n-P-m-R-S
+Madhuradhwani,S-G-m-D-N-S,S-n-D-m-G-S
+Madhuranjani,S-g-m-P-N-S,S-N-P-m-g-S
+Madhuvanti,S-g-M-P-N-S,S-N-D-P-M-g-R-S
+Malashree,S-G-P-S,S-P-G-S
+Malavi,S-r-G-P-D-S,S-D-P-M-G-r-S
+Malay Marutam,S-r-G-P-D-n-S,S-n-D-P-G-r-S
+Malgunji,S-R-G-m-D-n-S,S-n-D-P-m-Gg-R-S
+Malkauns,S-g-m-d-n-S,S-n-d-m-g-S
+Mand,S-R-G-m-P-D-N-S,S-N-D-P-m-Gg-R-S
+Mangal Bhairav,S-r-G-m-P-D-N-S,S-N-D-P-m-G-r-S
+Mangal Gujari,S-r-g-M-d-n-S,S-n-d-M-g-r-S
+Manjari Bihag,S-R-G-m-P-D-N-S,S-N-D-P-m-G-R-S
+Maru Bihag,S-G-mM-P-N-S,S-N-D-P-M-G-R-S
+Marwa,S-r-G-M-D-N-S,S-N-D-M-G-r-S
+Megh,S-R-m-P-n-S,S-n-P-m-R-S
+Meghranjani,S-r-G-mM-N-S,S-N-Mm-G-r-S
+Miyan ki Malhar,S-R-m-P-D-nN-S,S-Nn-D-P-m-g-R-S
+Mohankauns,S-G-m-d-n-S,S-n-d-m-G-R-S
+Multani,S-g-M-P-N-S,S-N-d-P-M-g-r-S
+Nand,S-R-G-m-P-D-N-S,S-N-D-P-Mm-G-R-S
+Nandkauns,S-G-m-d-n-S,S-n-d-P-m-Gg-S
+Narayani,S-R-m-P-D-S,S-n-D-P-m-R-S
+Nat Bhairav,S-R-G-m-d-N-S,S-N-d-P-m-G-R-S
+Nat Bihag,S-R-G-m-P-D-nN-S,S-Nn-D-P-Mm-G-R-S
+Nayaki Kanada,S-R-g-m-P-n-S,S-n-P-m-g-R-S
+Niranjani Todi,S-r-g-M-P-D-nN-S,S-n-D-P-M-g-r-S
+Pahadi,S-R-G-P-D-S,S-D-P-G-R-S
+Paraj,S-G-M-d-N-S,S-N-d-P-Mm-G-r-S
+Parameshwari,S-r-g-m-D-n-S,S-n-D-m-g-r-S
+Pat Bihag,S-R-G-m-P-D-N-S,S-D-P-m-G-R-S
+Patdeep,S-R-g-m-P-D-N-S,S-N-D-P-m-g-R-S
+Pilu,S-g-m-P-N-S,S-Nn-D-P-m-Gg-R-S
+Poorvi,S-r-G-M-P-d-N-S,S-N-d-P-Mm-G-r-S
+Prabhakali,S-r-m-P-d-S,S-n-d-P-m-G-r-S
+Prabhateshwari,S-r-g-m-D-n-S,S-n-D-P-m-g-r-S
+Puriya,S-r-G-M-D-N-S,S-N-D-M-G-r-S
+Puriya Dhanashree,S-r-G-M-P-d-N-S,S-N-d-P-M-G-r-S
+Puriya Kalyan,S-r-G-M-P-D-N-S,S-N-D-P-M-G-r-S
+Rageshri,S-G-m-D-n-S,S-n-D-m-G-R-S
+Raj Kalyan,S-R-G-M-D-N-S,S-N-D-M-G-R-S
+Rajeshwari,S-g-m-D-N-S,S-N-D-m-g-S
+Ramdasi Malhar,S-R-G-m-P-D-N-S,S-n-D-P-m-Gg-R-S
+Ramkali,S-r-G-m-P-d-N-S,S-N-d-P-Mm-G-r-S
+Rangeshwari,S-R-g-m-P-N-S,S-N-P-m-g-R-S
+Rasaranjani,S-R-m-D-N-S,S-N-D-m-R-S
+Rati Bhairav,S-r-G-m-P-dD-S,S-Dd-P-m-G-r-S
+Reva,S-r-G-P-d-S,S-d-P-G-r-S
+Salagavarali,S-r-g-P-D-n-S,S-n-D-P-g-r-S
+Sampurna Malkauns,S-g-m-d-n-S,S-n-d-P-m-g-R-S
+Sarang,S-R-m-P-N-S,S-n-P-m-R-S
+Saraswati,S-R-M-P-D-S,S-n-D-P-M-R-S
+Saraswati Kedar,S-R-G-M-P-D-S,S-n-D-P-Mm-R-S
+Sehera,S-R-G-M-d-n-S,S-n-d-M-G-R-S
+Shahana,S-R-g-m-P-D-n-S,S-n-D-P-m-g-R-S
+Shankara,S-G-P-D-N-S,S-N-D-P-G-R-S
+Shivranjani,S-R-g-P-D-S,S-D-P-g-R-S
+Shobhawari,S-R-m-P-d-S,S-d-P-m-R-S
+Shree,S-r-M-P-N-S,S-N-d-P-M-G-r-S
+Shuddha Basant,S-G-M-D-N-S,S-N-D-P-M-G-r-S
+Shuddha Kalyan,S-R-G-P-D-S,S-N-D-P-M-G-R-S
+Shuddha Malhar,S-R-m-P-D-S,S-D-P-m-R-S
+Shuddha Sarang,S-R-M-P-N-S,S-N-D-P-Mm-R-S
+Shyam Kalyan,S-R-M-P-N-S,S-N-D-P-Mm-G-R-S
+Simhendra Madhyamam,S-R-g-M-P-d-N-S,S-N-d-P-M-g-R-S
+Sindhura,S-R-m-P-D-S,S-n-D-P-m-g-R-S
+Sohini,S-G-M-D-N-S,S-N-D-M-G-r-S
+Sundarkali,S-r-G-P-n-S,S-n-P-G-r-S
+Sundarkauns,S-g-m-D-n-S,S-n-D-m-g-S
+Surdasi Malhar,S-R-m-P-N-S,S-n-D-P-m-R-S
+Tilak Kamod,S-R-G-m-P-D-N-S,S-N-D-P-m-G-R-S
+Tilang,S-G-m-P-N-S,S-n-P-m-G-S
+Tilang Bahar,S-R-G-m-P-D-nN-S,S-n-P-m-g-R-S
+Todi,S-r-g-M-P-d-N-S,S-N-d-P-M-g-r-S
+Triveni,S-r-G-P-d-N-S,S-N-d-P-G-r-S
+Vachaspati,S-R-G-M-P-D-n-S,S-n-D-P-M-G-R-S
+Vijayanagari,S-R-g-M-P-D-S,S-D-P-M-g-R-S
+Viyogavarali,S-r-g-m-d-N-S,S-N-d-m-g-r-S
+Yaman,S-R-G-M-P-D-N-S,S-N-D-P-M-G-R-S
+Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
+
+    const RagaInsights = () => {
+      const [darkMode, setDarkMode] = useState(true);
+      const [isLoading, setIsLoading] = useState(true);
+      const [loadError, setLoadError] = useState('');
+      const [activeTab, setActiveTab] = useState('same-notes');
+      
+      // Data state
+      const [hindustaniRagas, setHindustaniRagas] = useState([]);
+      const [carnaticRagas, setCarnaticRagas] = useState([]);
+      
+      // Analysis results
+      const [sameNotesGroups, setSameNotesGroups] = useState([]);
+      const [murchannaGroups, setMurchannaGroups] = useState([]);
+      const [subsetRelations, setSubsetRelations] = useState([]);
+      
+      // Filter states
+      const [searchQuery, setSearchQuery] = useState('');
+      const [systemFilter, setSystemFilter] = useState('all'); // 'all', 'hindustani', 'carnatic', 'cross-system'
+      const [scaleTypeFilter, setScaleTypeFilter] = useState('all'); // 'all', '5', '6', '7', '8+'
+      const [showOnlyMatches, setShowOnlyMatches] = useState(false); // for same-notes: only show cross-system matches
+      
+      // Filtered results
+      const [filteredSameNotes, setFilteredSameNotes] = useState([]);
+      const [filteredMurchanna, setFilteredMurchanna] = useState([]);
+      const [filteredSubsets, setFilteredSubsets] = useState([]);
+      
+      // Expanded state for subset relationships
+      const [expandedSubsets, setExpandedSubsets] = useState(new Set());
+      
+      const swarNames = ['Sa', 'Re♭', 'Re', 'Ga♭', 'Ga', 'Ma', 'Ma♯', 'Pa', 'Dha♭', 'Dha', 'Ni♭', 'Ni'];
+      const carnaticLabels = ['S','R1','R2/G1','R3/G2','G3','M1','M2','P','D1','D2/N1','D3/N2','N3'];
+
+      useEffect(() => {
+        if (darkMode) document.body.classList.add('dark-mode');
+        else document.body.classList.remove('dark-mode');
+        return () => document.body.classList.remove('dark-mode');
+      }, [darkMode]);
+
+      // Load data from both sources
+      useEffect(() => {
+        const loadData = async () => {
+          setIsLoading(true);
+          setLoadError('');
+          try {
+            // Use hardcoded data instead of fetch calls
+            const hindustaniCSV = HINDUSTANI_RAGAS_CSV;
+            const hindustaniData = parseHindustaniCSV(hindustaniCSV);
+
+            // Use hardcoded Carnatic data
+            const carnaticCSV = MELAKARTA_CSV_DATA;
+            const carnaticData = parseMelakartaCSV(carnaticCSV);
+
+            setHindustaniRagas(hindustaniData);
+            setCarnaticRagas(carnaticData);
+
+            // Analyze relationships
+            analyzeSameNotes(hindustaniData, carnaticData);
+            analyzeMurchanna(hindustaniData, carnaticData);
+            analyzeSubsets(hindustaniData, carnaticData);
+          } catch (e) {
+            console.error('Failed to parse data:', e);
+            setLoadError('Failed to parse raga data');
+            // Since we're using hardcoded data, just set empty arrays
+            setHindustaniRagas([]);
+            setCarnaticRagas([]);
+          } finally {
+            setIsLoading(false);
+          }
+        };
+        loadData();
+      }, []);
+
+      // Carnatic parsing functions (same as raga-query.html)
+      const parseMelakartaSwaras = (swarasString) => {
+        const present = new Array(12).fill(0);
+        const carnaticSwaras = new Array(16).fill(false);
+        const tokens = swarasString.trim().split(/\s+/);
+        const add = (pc) => { if (pc >= 0) present[((pc % 12) + 12) % 12] = 1; };
+        
+        for (const t of tokens) {
+          const norm = t.replace(/₁/g, '1').replace(/₂/g, '2').replace(/₃/g, '3');
+          if (norm === 'S') { add(0); carnaticSwaras[0] = true; continue; }
+          if (norm === 'P') { add(7); carnaticSwaras[9] = true; continue; }
+          if (norm === 'M1') { add(5); carnaticSwaras[7] = true; continue; }
+          if (norm === 'M2') { add(6); carnaticSwaras[8] = true; continue; }
+          if (norm.startsWith('R')) {
+            const v = norm.slice(1);
+            if (v === '1') { add(1); carnaticSwaras[1] = true; }
+            else if (v === '2') { add(2); carnaticSwaras[2] = true; }
+            else if (v === '3') { add(3); carnaticSwaras[4] = true; }
+            continue;
+          }
+          if (norm.startsWith('G')) {
+            const v = norm.slice(1);
+            if (v === '1') { add(2); carnaticSwaras[3] = true; }
+            else if (v === '2') { add(3); carnaticSwaras[5] = true; }
+            else if (v === '3') { add(4); carnaticSwaras[6] = true; }
+            continue;
+          }
+          if (norm.startsWith('D')) {
+            const v = norm.slice(1);
+            if (v === '1') { add(8); carnaticSwaras[10] = true; }
+            else if (v === '2') { add(9); carnaticSwaras[11] = true; }
+            else if (v === '3') { add(10); carnaticSwaras[13] = true; }
+            continue;
+          }
+          if (norm.startsWith('N')) {
+            const v = norm.slice(1);
+            if (v === '1') { add(9); carnaticSwaras[12] = true; }
+            else if (v === '2') { add(10); carnaticSwaras[14] = true; }
+            else if (v === '3') { add(11); carnaticSwaras[15] = true; }
+            continue;
+          }
+        }
+        present[0] = 1;
+        carnaticSwaras[0] = true;
+        return { notePattern: present, carnaticSwaras };
+      };
+
+      const parseMelakartaCSV = (csvText) => {
+        const lines = csvText.split(/\r?\n/).filter(Boolean);
+        const out = [];
+        for (let i = 1; i < lines.length; i++) {
+          const parts = lines[i].split(',');
+          if (parts.length < 3) continue;
+          const number = parseInt(parts[0]);
+          const name = parts[1]?.trim();
+          const swaras = parts.slice(2).join(',').trim();
+          if (!name || !swaras) continue;
+          const parseResult = parseMelakartaSwaras(swaras);
+          out.push({
+            number,
+            name,
+            notePattern: parseResult.notePattern,
+            carnaticSwaras: parseResult.carnaticSwaras,
+            type: 'carnatic'
+          });
+        }
+        return out;
+      };
+
+      // Hindustani CSV parsing (aarohavroh.csv)
+      const parseHindustaniCSV = (csvText) => {
+        const lines = csvText.split(/\r?\n/).filter(Boolean);
+        const out = [];
+        
+        for (let i = 1; i < lines.length; i++) {
+          const parts = lines[i].split(',');
+          if (parts.length < 3) continue;
+          
+          const name = parts[0]?.trim();
+          const aarohStr = parts[1]?.trim();
+          const avrohStr = parts[2]?.trim();
+          
+          if (!name || !aarohStr || !avrohStr) continue;
+          
+          // Parse note patterns from aaroh/avroh strings
+          const aarohPattern = parseHindustaniSwaras(aarohStr);
+          const avrohPattern = parseHindustaniSwaras(avrohStr);
+          
+          // Combine for overall note pattern
+          const notePattern = new Array(12).fill(0);
+          for (let j = 0; j < 12; j++) {
+            notePattern[j] = aarohPattern[j] || avrohPattern[j] ? 1 : 0;
+          }
+          
+          out.push({
+            name,
+            notePattern,
+            aarohPattern,
+            avrohPattern,
+            type: 'hindustani'
+          });
+        }
+        
+        return out;
+      };
+      
+      const parseHindustaniSwaras = (swaraStr) => {
+        const pattern = new Array(12).fill(0);
+        pattern[0] = 1; // Sa is always present
+        
+        // Map swara symbols to pitch classes
+        const swaraMap = {
+          'S': 0, 'r': 1, 'R': 2, 'g': 3, 'G': 4, 'm': 5, 'M': 6, 
+          'P': 7, 'd': 8, 'D': 9, 'n': 10, 'N': 11
+        };
+        
+        // Parse each character in the string
+        for (const char of swaraStr) {
+          if (swaraMap.hasOwnProperty(char)) {
+            pattern[swaraMap[char]] = 1;
+          }
+        }
+        
+        return pattern;
+      };
+
+      // Analysis functions
+      const patternToString = (pattern) => pattern.map(p => p ? '1' : '0').join('');
+      
+      const analyzeSameNotes = (hindustani, carnatic) => {
+        const groups = new Map();
+        
+        // Group by note pattern
+        [...hindustani.map(r => ({...r, type: 'hindustani'})), ...carnatic].forEach(raga => {
+          const key = patternToString(raga.notePattern);
+          if (!groups.has(key)) {
+            groups.set(key, { pattern: raga.notePattern, ragas: [] });
+          }
+          groups.get(key).ragas.push(raga);
+        });
+        
+        // Filter to groups with both systems or multiple ragas
+        const results = Array.from(groups.values())
+          .filter(group => {
+            const hasHindustani = group.ragas.some(r => r.type === 'hindustani');
+            const hasCarnatic = group.ragas.some(r => r.type === 'carnatic');
+            return (hasHindustani && hasCarnatic) || group.ragas.length > 1;
+          })
+          .sort((a, b) => b.ragas.length - a.ragas.length);
+        
+        setSameNotesGroups(results);
+      };
+      
+      const rotateBinary = (pattern, steps) => {
+        const result = new Array(12).fill(0);
+        for (let i = 0; i < 12; i++) {
+          result[(i + steps) % 12] = pattern[i];
+        }
+        return result;
+      };
+      
+      const analyzeMurchanna = (hindustani, carnatic) => {
+        const allRagas = [...hindustani.map(r => ({...r, type: 'hindustani'})), ...carnatic];
+        const groups = new Map();
+        
+        allRagas.forEach(raga => {
+          const basePattern = patternToString(raga.notePattern);
+          if (groups.has(basePattern)) return; // Already processed this pattern
+          
+          const murchannaGroup = {
+            baseRaga: raga,
+            basePattern: raga.notePattern,
+            murchannas: []
+          };
+          
+          // Find all rotations of this pattern
+          for (let rotation = 1; rotation < 12; rotation++) {
+            const rotatedPattern = rotateBinary(raga.notePattern, rotation);
+            const rotatedKey = patternToString(rotatedPattern);
+            
+            const matchingRagas = allRagas.filter(r => 
+              patternToString(r.notePattern) === rotatedKey
+            );
+            
+            if (matchingRagas.length > 0) {
+              murchannaGroup.murchannas.push({
+                rotation,
+                pattern: rotatedPattern,
+                ragas: matchingRagas
+              });
+            }
+          }
+          
+          // Only include if there are actual murchanna relationships
+          if (murchannaGroup.murchannas.length > 0) {
+            groups.set(basePattern, murchannaGroup);
+          }
+        });
+        
+        const results = Array.from(groups.values())
+          .sort((a, b) => b.murchannas.length - a.murchannas.length);
+        
+        setMurchannaGroups(results);
+      };
+      
+      const isSubset = (subset, superset) => {
+        for (let i = 0; i < 12; i++) {
+          if (subset[i] && !superset[i]) return false;
+        }
+        return true;
+      };
+      
+      const analyzeSubsets = (hindustani, carnatic) => {
+        const allRagas = [...hindustani.map(r => ({...r, type: 'hindustani'})), ...carnatic];
+        const relations = [];
+        
+        for (let i = 0; i < allRagas.length; i++) {
+          for (let j = 0; j < allRagas.length; j++) {
+            if (i === j) continue;
+            
+            const raga1 = allRagas[i];
+            const raga2 = allRagas[j];
+            
+            // Check if raga1 is a subset of raga2
+            if (isSubset(raga1.notePattern, raga2.notePattern)) {
+              const count1 = raga1.notePattern.reduce((sum, p) => sum + (p ? 1 : 0), 0);
+              const count2 = raga2.notePattern.reduce((sum, p) => sum + (p ? 1 : 0), 0);
+              
+              // Only include if subset has fewer notes
+              if (count1 < count2) {
+                relations.push({
+                  subset: raga1,
+                  superset: raga2,
+                  subsetCount: count1,
+                  supersetCount: count2,
+                  difference: count2 - count1
+                });
+              }
+            }
+          }
+        }
+        
+        // Group by subset raga and sort by most relationships
+        const grouped = relations.reduce((acc, rel) => {
+          const key = `${rel.subset.name}_${rel.subset.type}`;
+          if (!acc[key]) {
+            acc[key] = { subset: rel.subset, supersets: [] };
+          }
+          acc[key].supersets.push(rel.superset);
+          return acc;
+        }, {});
+        
+        const results = Object.values(grouped)
+          .sort((a, b) => b.supersets.length - a.supersets.length);
+        
+        setSubsetRelations(results);
+      };
+      
+      // Filtering functions
+      const filterSameNotesGroups = () => {
+        let filtered = [...sameNotesGroups];
+        
+        // Search filter
+        if (searchQuery) {
+          filtered = filtered.filter(group => 
+            group.ragas.some(raga => 
+              raga.name.toLowerCase().includes(searchQuery.toLowerCase())
+            )
+          );
+        }
+        
+        // System filter
+        if (systemFilter === 'hindustani') {
+          filtered = filtered.filter(group => 
+            group.ragas.some(r => r.type === 'hindustani')
+          );
+        } else if (systemFilter === 'carnatic') {
+          filtered = filtered.filter(group => 
+            group.ragas.some(r => r.type === 'carnatic')
+          );
+        } else if (systemFilter === 'cross-system') {
+          filtered = filtered.filter(group => {
+            const hasHindustani = group.ragas.some(r => r.type === 'hindustani');
+            const hasCarnatic = group.ragas.some(r => r.type === 'carnatic');
+            return hasHindustani && hasCarnatic;
+          });
+        }
+        
+        // Scale type filter
+        if (scaleTypeFilter !== 'all') {
+          filtered = filtered.filter(group => {
+            const noteCount = group.pattern.reduce((sum, p) => sum + (p ? 1 : 0), 0);
+            if (scaleTypeFilter === '8+') return noteCount >= 8;
+            return noteCount === parseInt(scaleTypeFilter);
+          });
+        }
+        
+        // Show only matches filter
+        if (showOnlyMatches) {
+          filtered = filtered.filter(group => {
+            const hasHindustani = group.ragas.some(r => r.type === 'hindustani');
+            const hasCarnatic = group.ragas.some(r => r.type === 'carnatic');
+            return hasHindustani && hasCarnatic;
+          });
+        }
+        
+        setFilteredSameNotes(filtered);
+      };
+      
+      const filterMurchannaGroups = () => {
+        let filtered = [...murchannaGroups];
+        
+        // Search filter
+        if (searchQuery) {
+          filtered = filtered.filter(group => 
+            group.baseRaga.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            group.murchannas.some(m => 
+              m.ragas.some(raga => 
+                raga.name.toLowerCase().includes(searchQuery.toLowerCase())
+              )
+            )
+          );
+        }
+        
+        // System filter
+        if (systemFilter === 'hindustani') {
+          filtered = filtered.filter(group => 
+            group.baseRaga.type === 'hindustani' ||
+            group.murchannas.some(m => m.ragas.some(r => r.type === 'hindustani'))
+          );
+        } else if (systemFilter === 'carnatic') {
+          filtered = filtered.filter(group => 
+            group.baseRaga.type === 'carnatic' ||
+            group.murchannas.some(m => m.ragas.some(r => r.type === 'carnatic'))
+          );
+        } else if (systemFilter === 'cross-system') {
+          filtered = filtered.filter(group => {
+            const allRagas = [group.baseRaga, ...group.murchannas.flatMap(m => m.ragas)];
+            const hasHindustani = allRagas.some(r => r.type === 'hindustani');
+            const hasCarnatic = allRagas.some(r => r.type === 'carnatic');
+            return hasHindustani && hasCarnatic;
+          });
+        }
+        
+        // Scale type filter
+        if (scaleTypeFilter !== 'all') {
+          filtered = filtered.filter(group => {
+            const noteCount = group.basePattern.reduce((sum, p) => sum + (p ? 1 : 0), 0);
+            if (scaleTypeFilter === '8+') return noteCount >= 8;
+            return noteCount === parseInt(scaleTypeFilter);
+          });
+        }
+        
+        setFilteredMurchanna(filtered);
+      };
+      
+      const filterSubsetRelations = () => {
+        let filtered = [...subsetRelations];
+        
+        // Search filter
+        if (searchQuery) {
+          filtered = filtered.filter(relation => 
+            relation.subset.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            relation.supersets.some(superset => 
+              superset.name.toLowerCase().includes(searchQuery.toLowerCase())
+            )
+          );
+        }
+        
+        // System filter
+        if (systemFilter === 'hindustani') {
+          filtered = filtered.filter(relation => 
+            relation.subset.type === 'hindustani' ||
+            relation.supersets.some(s => s.type === 'hindustani')
+          );
+        } else if (systemFilter === 'carnatic') {
+          filtered = filtered.filter(relation => 
+            relation.subset.type === 'carnatic' ||
+            relation.supersets.some(s => s.type === 'carnatic')
+          );
+        } else if (systemFilter === 'cross-system') {
+          filtered = filtered.filter(relation => {
+            const allRagas = [relation.subset, ...relation.supersets];
+            const hasHindustani = allRagas.some(r => r.type === 'hindustani');
+            const hasCarnatic = allRagas.some(r => r.type === 'carnatic');
+            return hasHindustani && hasCarnatic;
+          });
+        }
+        
+        // Scale type filter
+        if (scaleTypeFilter !== 'all') {
+          filtered = filtered.filter(relation => {
+            const noteCount = relation.subset.notePattern.reduce((sum, p) => sum + (p ? 1 : 0), 0);
+            if (scaleTypeFilter === '8+') return noteCount >= 8;
+            return noteCount === parseInt(scaleTypeFilter);
+          });
+        }
+        
+        setFilteredSubsets(filtered);
+      };
+      
+      // Apply filters when data or filters change
+      useEffect(() => {
+        filterSameNotesGroups();
+      }, [sameNotesGroups, searchQuery, systemFilter, scaleTypeFilter, showOnlyMatches]);
+      
+      useEffect(() => {
+        filterMurchannaGroups();
+      }, [murchannaGroups, searchQuery, systemFilter, scaleTypeFilter]);
+      
+      useEffect(() => {
+        filterSubsetRelations();
+      }, [subsetRelations, searchQuery, systemFilter, scaleTypeFilter]);
+      
+      // Clear filters function
+      const clearFilters = () => {
+        setSearchQuery('');
+        setSystemFilter('all');
+        setScaleTypeFilter('all');
+        setShowOnlyMatches(false);
+      };
+      
+      const getNoteBadges = (pattern, isCarnatic = false) => {
+        const labels = isCarnatic ? carnaticLabels : swarNames;
+        return pattern.map((present, i) => (
+          <span 
+            key={i} 
+            className={`note-badge ${present ? 'bg-green-100 text-green-800 border border-green-300' : 'bg-gray-100 text-gray-400 border border-gray-300'}`}
+          >
+            {labels[i]}
+          </span>
+        ));
+      };
+      
+      const renderSameNotes = () => (
+        <div className="space-y-6">
+          <div className="text-center mb-6">
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Ragas with Identical Note Sets</h2>
+            <p className="text-gray-600"> Hindustani and Carnatic ragas that share the same collection of notes</p>
+            {filteredSameNotes.length !== sameNotesGroups.length && (
+              <p className="text-sm text-blue-600 mt-2">
+                Showing {filteredSameNotes.length} of {sameNotesGroups.length} groups
+              </p>
+            )}
+          </div>
+          
+          {filteredSameNotes.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-gray-500 text-lg mb-2">No matches found</div>
+              <p className="text-gray-400">Try adjusting your search criteria</p>
+            </div>
+          ) : (
+            filteredSameNotes.map((group, idx) => (
+            <div key={idx} className="relationship-card bg-white border border-gray-200 rounded-lg p-6">
+              <div className="mb-4">
+                <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                  Note Pattern ({group.ragas.length} ragas)
+                </h3>
+                <div className="flex flex-wrap gap-1 mb-3">
+                  {getNoteBadges(group.pattern)}
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {['hindustani', 'carnatic'].map(type => {
+                  const typeRagas = group.ragas.filter(r => r.type === type);
+                  if (typeRagas.length === 0) return null;
+                  
+                  return (
+                    <div key={type} className={`p-4 rounded-lg ${type === 'hindustani' ? 'bg-blue-50' : 'bg-purple-50'}`}>
+                      <h4 className="font-semibold text-gray-800 mb-2 capitalize">
+                        {type} ({typeRagas.length})
+                      </h4>
+                      <div className="space-y-1">
+                        {typeRagas.map((raga, i) => (
+                          <div key={i} className="text-sm text-gray-700">
+                            {raga.number ? `${raga.number}. ${raga.name}` : raga.name}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )))}
+        </div>
+      );
+      
+      const renderMurchanna = () => (
+        <div className="space-y-6">
+          <div className="text-center mb-6">
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Murchanna Relations</h2>
+            <p className="text-gray-600">Ragas that are rotational modes of each other</p>
+            {filteredMurchanna.length !== murchannaGroups.length && (
+              <p className="text-sm text-blue-600 mt-2">
+                Showing {filteredMurchanna.length} of {murchannaGroups.length} groups
+              </p>
+            )}
+          </div>
+          
+          {filteredMurchanna.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-gray-500 text-lg mb-2">No matches found</div>
+              <p className="text-gray-400">Try adjusting your search criteria</p>
+            </div>
+          ) : (
+          filteredMurchanna.map((group, idx) => (
+            <div key={idx} className="relationship-card bg-white border border-gray-200 rounded-lg p-6">
+              <div className="mb-4">
+                <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                  Base: {group.baseRaga.name} 
+                  <span className="text-sm font-normal text-gray-600">
+                    ({group.baseRaga.type})
+                  </span>
+                </h3>
+                <div className="flex flex-wrap gap-1 mb-3">
+                  {getNoteBadges(group.basePattern, group.baseRaga.type === 'carnatic')}
+                </div>
+              </div>
+              
+              <div className="space-y-3">
+                {group.murchannas.map((murchanna, i) => (
+                  <div key={i} className="murchanna-diagram">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-medium text-gray-800">
+                        Rotation +{murchanna.rotation} semitones
+                      </span>
+                      <span className="text-sm text-gray-600">
+                        {murchanna.ragas.length} raga(s)
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-1 mb-2">
+                      {getNoteBadges(murchanna.pattern)}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {murchanna.ragas.map((raga, j) => (
+                        <span key={j} className={`text-xs px-2 py-1 rounded ${raga.type === 'hindustani' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'}`}>
+                          {raga.name} ({raga.type})
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )))}
+        </div>
+      );
+      
+      const toggleSubset = (idx) => {
+        const newExpanded = new Set(expandedSubsets);
+        if (newExpanded.has(idx)) {
+          newExpanded.delete(idx);
+        } else {
+          newExpanded.add(idx);
+        }
+        setExpandedSubsets(newExpanded);
+      };
+
+      const renderSubsets = () => {
+        return (
+          <div className="space-y-6">
+            <div className="text-center mb-6">
+              <h2 className="text-2xl font-bold text-gray-800 mb-2">Subset Relationships</h2>
+              <p className="text-gray-600">Find ragas that are subsets of larger ragas (like Bhupali ⊂ Khamaj)</p>
+              {filteredSubsets.length !== subsetRelations.length && (
+                <p className="text-sm text-blue-600 mt-2">
+                  Showing {filteredSubsets.length} of {subsetRelations.length} relationships
+                </p>
+              )}
+            </div>
+            
+            {filteredSubsets.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="text-gray-500 text-lg mb-2">No matches found</div>
+                <p className="text-gray-400">Try adjusting your search criteria</p>
+              </div>
+            ) : (
+              filteredSubsets.map((relation, idx) => {
+                const isExpanded = expandedSubsets.has(idx);
+                return (
+                  <div key={idx} className="relationship-card bg-white border border-gray-200 rounded-lg overflow-hidden">
+                    <div 
+                      className="p-6 cursor-pointer hover:bg-gray-50 transition-colors"
+                      onClick={() => toggleSubset(idx)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                            {relation.subset.name} 
+                            <span className="text-sm font-normal text-gray-600">
+                              ({relation.subset.type})
+                            </span>
+                            <span className="text-sm text-gray-500 ml-2">
+                              is a subset of {relation.supersets.length} raga{relation.supersets.length !== 1 ? 's' : ''}
+                            </span>
+                          </h3>
+                          <div className="flex flex-wrap gap-1">
+                            {getNoteBadges(relation.subset.notePattern, relation.subset.type === 'carnatic')}
+                          </div>
+                        </div>
+                        <div className="ml-4 flex-shrink-0">
+                          <svg 
+                            className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} 
+                            fill="none" 
+                            stroke="currentColor" 
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {isExpanded && (
+                      <div className="px-6 pb-6 border-t border-gray-100">
+                        <div className="bg-orange-50 p-4 rounded-lg mt-4">
+                          <h4 className="font-semibold text-gray-800 mb-2">Found in these larger ragas:</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                            {relation.supersets.map((superset, i) => (
+                              <div key={i} className="bg-white p-3 rounded border">
+                                <div className="font-medium text-gray-800">
+                                  {superset.name}
+                                </div>
+                                <div className="text-xs text-gray-600">
+                                  {superset.type} • {superset.notePattern.reduce((sum, p) => sum + (p ? 1 : 0), 0)} notes
+                                </div>
+                                <div className="flex flex-wrap gap-1 mt-2">
+                                  {getNoteBadges(superset.notePattern, superset.type === 'carnatic').slice(0, 12)}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        );
+      };
+
+      if (isLoading) {
+        return (
+          <div className={`${darkMode ? 'dark-mode ' : ''}min-h-screen flex items-center justify-center bg-white`}>
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-600">Loading raga data and analyzing relationships...</p>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div className={`${darkMode ? 'dark-mode ' : ''}min-h-screen bg-gray-50`}>
+          <div className="max-w-7xl mx-auto px-4 py-8">
+            {/* Header */}
+            <div className="text-center mb-8">
+              <h1 className="text-4xl font-bold text-white-900 mb-4">Raga Insights</h1>
+              <p className="text-xl text-gray-600 mb-6">
+                Discover musical relationships between Hindustani and Carnatic ragas
+              </p>
+              
+              {loadError && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                  <p className="text-yellow-800">{loadError}</p>
+                  <p className="text-sm text-yellow-600 mt-1">Showing analysis with available data</p>
+                </div>
+              )}
+              
+              <div className="flex items-center justify-center gap-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-blue-600">{hindustaniRagas.length}</div>
+                  <div className="text-sm text-gray-600">Hindustani</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-purple-600">{carnaticRagas.length}</div>
+                  <div className="text-sm text-gray-600">Carnatic</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-600">{sameNotesGroups.length}</div>
+                  <div className="text-sm text-gray-600">Same Notes</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-orange-600">{murchannaGroups.length}</div>
+                  <div className="text-sm text-gray-600">Murchanna</div>
+                </div>
+              </div>
+              
+              <div className="flex items-center justify-center gap-4 mt-4">
+                <label className="inline-flex items-center">
+                  <input 
+                    type="checkbox" 
+                    checked={darkMode} 
+                    onChange={e => setDarkMode(e.target.checked)} 
+                    className="form-checkbox h-4 w-4 text-blue-600" 
+                  />
+                  <span className="ml-2 text-sm text-gray-700">Dark mode</span>
+                </label>
+              </div>
+            </div>
+
+            {/* Navigation Tabs */}
+            <div className="flex justify-center mb-6">
+              <div className="flex bg-white rounded-lg p-1 shadow-sm border border-gray-200">
+                {[
+                  { id: 'same-notes', label: 'Same Notes', count: filteredSameNotes.length },
+                  { id: 'murchanna', label: 'Murchanna', count: filteredMurchanna.length },
+                  { id: 'subsets', label: 'Subsets', count: filteredSubsets.length }
+                ].map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`px-6 py-3 rounded-md font-medium transition-colors ${
+                      activeTab === tab.id
+                        ? 'bg-blue-600 text-white'
+                        : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
+                    }`}
+                  >
+                    {tab.label}
+                    {tab.count > 0 && (
+                      <span className={`ml-2 text-xs px-2 py-1 rounded-full ${
+                        activeTab === tab.id
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-gray-200 text-gray-600'
+                      }`}>
+                        {tab.count}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Filter Controls */}
+            <div className="max-w-4xl mx-auto mb-8">
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                  {/* Search */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Search Ragas
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Enter raga name..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  
+                  {/* System Filter */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Music System
+                    </label>
+                    <select
+                      value={systemFilter}
+                      onChange={(e) => setSystemFilter(e.target.value)}
+                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="all">All Systems</option>
+                      <option value="hindustani">Hindustani Only</option>
+                      <option value="carnatic">Carnatic Only</option>
+                      <option value="cross-system">Cross-System Matches</option>
+                    </select>
+                  </div>
+                  
+                  {/* Scale Type */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Scale Type
+                    </label>
+                    <select
+                      value={scaleTypeFilter}
+                      onChange={(e) => setScaleTypeFilter(e.target.value)}
+                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="all">All Scales</option>
+                      <option value="5">Pentatonic (5 notes)</option>
+                      <option value="6">Hexatonic (6 notes)</option>
+                      <option value="7">Heptatonic (7 notes)</option>
+                      <option value="8+">Chromatic (8+ notes)</option>
+                    </select>
+                  </div>
+                  
+                  {/* Special Filters */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Special Filters
+                    </label>
+                    <div className="space-y-2">
+                      {activeTab === 'same-notes' && (
+                        <label className="inline-flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={showOnlyMatches}
+                            onChange={(e) => setShowOnlyMatches(e.target.checked)}
+                            className="form-checkbox h-4 w-4 text-blue-600"
+                          />
+                          <span className="ml-2 text-sm text-gray-700">
+                            Cross-system only
+                          </span>
+                        </label>
+                      )}
+                      <button
+                        onClick={clearFilters}
+                        className="block px-3 py-1 bg-gray-100 text-gray-700 rounded text-sm hover:bg-gray-200 transition-colors"
+                      >
+                        Clear All
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Filter Summary */}
+                <div className="text-sm text-gray-600 border-t border-gray-200 pt-4">
+                  <span className="font-medium">Active filters:</span>
+                  {searchQuery && <span className="ml-2 bg-blue-100 text-blue-800 px-2 py-1 rounded">"{searchQuery}"</span>}
+                  {systemFilter !== 'all' && <span className="ml-2 bg-green-100 text-green-800 px-2 py-1 rounded">{systemFilter}</span>}
+                  {scaleTypeFilter !== 'all' && <span className="ml-2 bg-purple-100 text-purple-800 px-2 py-1 rounded">{scaleTypeFilter === '8+' ? '8+ notes' : `${scaleTypeFilter} notes`}</span>}
+                  {showOnlyMatches && <span className="ml-2 bg-orange-100 text-orange-800 px-2 py-1 rounded">cross-system</span>}
+                  {!searchQuery && systemFilter === 'all' && scaleTypeFilter === 'all' && !showOnlyMatches && (
+                    <span className="ml-2 text-gray-500">None</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="max-w-6xl mx-auto">
+              {activeTab === 'same-notes' && renderSameNotes()}
+              {activeTab === 'murchanna' && renderMurchanna()}
+              {activeTab === 'subsets' && renderSubsets()}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<RagaInsights />);
+  </script>
+</body>
+</html>
