@@ -43,8 +43,8 @@
 
   <!-- button to go home-->
   <div style="position: fixed; top: 10px; right: 10px; z-index: 1000; display: flex; gap: 8px;">
-    <a data-link="chord-tool" href="/index.html" aria-label="Back to Chord Tool" style="padding: 6px 10px; background: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-size: 13px;">Chord Tool</a>
-    <a href="/raga-insights.html" style="padding: 6px 10px; background: #059669; color: white; text-decoration: none; border-radius: 6px; font-size: 13px;">Insights</a>
+    <a data-link="chord-tool" href="index.html" aria-label="Back to Chord Tool" style="padding: 6px 10px; background: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-size: 13px;">Chord Tool</a>
+    <a href="raga-insights.html" style="padding: 6px 10px; background: #059669; color: white; text-decoration: none; border-radius: 6px; font-size: 13px;">Insights</a>
   </div>
 
   <script type="text/babel">
@@ -1302,7 +1302,7 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
   <script>
     // helper to safely build url with raga query
     function linkToChordWithRaga(ragaName) {
-      const url = new URL('/index.html', window.location.origin);
+      const url = new URL('index.html', window.location.href);
       url.searchParams.set('raga', ragaName);
       return url.toString();
     }
