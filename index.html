@@ -903,42 +903,36 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                 const noteBuffers = pianoBuffersRef.current?.[targetIndex];
                 if (!noteBuffers) return;
 
-                const availableOctaves = Object.keys(noteBuffers).map(Number);
-                if (availableOctaves.length === 0) return;
-
-                const bestOctave = availableOctaves.reduce((best, candidate) => {
-                    if (best === null) return candidate;
-                    return Math.abs(candidate - targetOctave) < Math.abs(best - targetOctave) ? candidate : best;
-                }, null);
-
-                const buffer = noteBuffers[bestOctave];
-                const startTime = audioContext.currentTime + delay;
-
-                if (buffer) {
-                    const source = audioContext.createBufferSource();
-                    const gainNode = audioContext.createGain();
-
-                    source.buffer = buffer;
-                    source.connect(gainNode);
-                    gainNode.connect(audioContext.destination);
-
-                    const playbackRate = Math.pow(2, targetOctave - bestOctave);
-                    source.playbackRate.setValueAtTime(playbackRate, startTime);
-
-                    const bufferDuration = buffer.duration / Math.max(0.0001, playbackRate);
-                    const maxDuration = 2.0;
-                    const playDuration = Math.min(maxDuration, bufferDuration);
-                    const fadeOutStart = Math.max(0, playDuration - 0.03);
-
-                    gainNode.gain.setValueAtTime(0.0001, startTime);
-                    gainNode.gain.linearRampToValueAtTime(1, startTime + 0.01);
-                    gainNode.gain.setValueAtTime(1, startTime + fadeOutStart);
-                    gainNode.gain.linearRampToValueAtTime(0.0001, startTime + playDuration);
-
-                    source.start(startTime);
-                    source.stop(startTime + playDuration);
+                // Use exact pre-rendered octave buffer with no pitch shifting
+                const buffer = noteBuffers[targetOctave];
+                if (!buffer) {
+                    console.warn(`No pre-rendered buffer for note ${targetIndex} at octave ${targetOctave}`);
                     return;
                 }
+
+                const startTime = audioContext.currentTime + delay;
+                const source = audioContext.createBufferSource();
+                const gainNode = audioContext.createGain();
+
+                source.buffer = buffer;
+                source.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+
+                // No pitch shifting - use pre-rendered buffer as-is
+                source.playbackRate.setValueAtTime(1.0, startTime);
+
+                const bufferDuration = buffer.duration;
+                const maxDuration = 2.0;
+                const playDuration = Math.min(maxDuration, bufferDuration);
+                const fadeOutStart = Math.max(0, playDuration - 0.03);
+
+                gainNode.gain.setValueAtTime(0.0001, startTime);
+                gainNode.gain.linearRampToValueAtTime(1, startTime + 0.01);
+                gainNode.gain.setValueAtTime(1, startTime + fadeOutStart);
+                gainNode.gain.linearRampToValueAtTime(0.0001, startTime + playDuration);
+
+                source.start(startTime);
+                source.stop(startTime + playDuration);
             };
 
             const getFrequencyFromNote = (noteIndex, octave = 4) => {

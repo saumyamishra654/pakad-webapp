@@ -644,19 +644,13 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
         const noteBuffers = pianoBuffersRef.current?.[normalizedIndex];
         if (!noteBuffers) return;
 
-        const availableOctaves = Object.keys(noteBuffers).map(Number);
-        if (availableOctaves.length === 0) return;
+        // Use exact pre-rendered octave buffer with no pitch shifting
+        const buffer = noteBuffers[octave];
+        if (!buffer) {
+          console.warn(`No pre-rendered buffer for note ${normalizedIndex} at octave ${octave}`);
+          return;
+        }
 
-        const targetOctave = octave;
-        const bestOctave = availableOctaves.reduce((best, candidate) => {
-          if (best === null) return candidate;
-          return Math.abs(candidate - targetOctave) < Math.abs(best - targetOctave) ? candidate : best;
-        }, null);
-
-        const buffer = noteBuffers[bestOctave];
-        if (!buffer) return;
-
-        const playbackRate = Math.pow(2, targetOctave - bestOctave);
         const source = audioContext.createBufferSource();
         const gainNode = audioContext.createGain();
 
@@ -664,9 +658,10 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
         source.connect(gainNode);
         gainNode.connect(audioContext.destination);
 
-        source.playbackRate.setValueAtTime(playbackRate, startTime);
+        // No pitch shifting - use pre-rendered buffer as-is
+        source.playbackRate.setValueAtTime(1.0, startTime);
 
-        const bufferDuration = buffer.duration / Math.max(0.0001, playbackRate);
+        const bufferDuration = buffer.duration;
         const maxDuration = 2.0;
         const playDuration = Math.min(maxDuration, bufferDuration);
         const fadeOutStart = Math.max(0, playDuration - 0.03);
