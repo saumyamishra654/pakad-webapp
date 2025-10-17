@@ -173,6 +173,7 @@
             const [pianoSamplesReady, setPianoSamplesReady] = useState(false);
             const SAMPLE_NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
             const SAMPLE_BASE_OCTAVE = 5; // files represent octave 4
+            const PRECOMPUTED_OCTAVES = [0, 1, 2, 3, 4, 5, 6, 7];
 
             const fetchSampleBuffer = async (ctx, noteName) => {
                 const extensions = ['.mp3', '.wav', '.ogg'];
@@ -771,8 +772,27 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                         setPianoSamplesReady(false);
                         const buffers = {};
                         await Promise.all(SAMPLE_NOTE_NAMES.map(async (noteName, index) => {
-                            const buffer = await fetchSampleBuffer(audioContext, noteName);
-                            if (buffer) buffers[index] = buffer;
+                            const baseBuffer = await fetchSampleBuffer(audioContext, noteName);
+                            if (!baseBuffer) return;
+
+                            const noteBuffers = {};
+                            noteBuffers[SAMPLE_BASE_OCTAVE] = baseBuffer;
+
+                            await Promise.all(PRECOMPUTED_OCTAVES.filter(oct => oct !== SAMPLE_BASE_OCTAVE).map(async (oct) => {
+                                const playbackRate = Math.pow(2, oct - SAMPLE_BASE_OCTAVE);
+                                const duration = baseBuffer.duration / Math.max(0.0001, playbackRate);
+                                const frameCount = Math.max(1, Math.ceil(duration * audioContext.sampleRate));
+                                const offline = new OfflineAudioContext(baseBuffer.numberOfChannels, frameCount, audioContext.sampleRate);
+                                const source = offline.createBufferSource();
+                                source.buffer = baseBuffer;
+                                source.playbackRate.setValueAtTime(playbackRate, 0);
+                                source.connect(offline.destination);
+                                source.start(0);
+                                const rendered = await offline.startRendering();
+                                noteBuffers[oct] = rendered;
+                            }));
+
+                            buffers[index] = noteBuffers;
                         }));
                         if (!cancelled) {
                             pianoBuffersRef.current = buffers;
@@ -862,58 +882,8 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                 return map[((s % 12) + 12) % 12];
             };
 
-            // audio playback functions
-            const playFallbackNote = (frequency, duration = 0.5, delay = 0) => {
-                if (!audioContext) return;
-                const startTime = audioContext.currentTime + delay;
-
-                const osc1 = audioContext.createOscillator();
-                const gain1 = audioContext.createGain();
-                const osc2 = audioContext.createOscillator();
-                const gain2 = audioContext.createGain();
-                const osc3 = audioContext.createOscillator();
-                const gain3 = audioContext.createGain();
-                const osc4 = audioContext.createOscillator();
-                const gain4 = audioContext.createGain();
-                const masterGain = audioContext.createGain();
-
-                osc1.type = 'triangle';
-                osc2.type = 'triangle';
-                osc3.type = 'sine';
-                osc4.type = 'sine';
-
-                osc1.frequency.setValueAtTime(frequency, startTime);
-                osc2.frequency.setValueAtTime(frequency * 2, startTime);
-                osc3.frequency.setValueAtTime(frequency * 3, startTime);
-                osc4.frequency.setValueAtTime(frequency * 4, startTime);
-
-                osc1.connect(gain1); gain1.connect(masterGain);
-                osc2.connect(gain2); gain2.connect(masterGain);
-                osc3.connect(gain3); gain3.connect(masterGain);
-                osc4.connect(gain4); gain4.connect(masterGain);
-                masterGain.connect(audioContext.destination);
-
-                gain1.gain.setValueAtTime(1.0, startTime);
-                gain2.gain.setValueAtTime(0.3, startTime);
-                gain3.gain.setValueAtTime(0.15, startTime);
-                gain4.gain.setValueAtTime(0.05, startTime);
-
-                const attackTime = 0.02;
-                const decayTime = 0.3;
-                const sustainLevel = 0.3;
-                const noteDuration = Math.max(0.1, duration);
-
-                masterGain.gain.setValueAtTime(0, startTime);
-                masterGain.gain.linearRampToValueAtTime(0.4, startTime + attackTime);
-                masterGain.gain.exponentialRampToValueAtTime(sustainLevel, startTime + attackTime + decayTime);
-                masterGain.gain.exponentialRampToValueAtTime(0.01, startTime + noteDuration);
-
-                [osc1, osc2, osc3, osc4].forEach(osc => osc.start(startTime));
-                [osc1, osc2, osc3, osc4].forEach(osc => osc.stop(startTime + noteDuration));
-            };
-
             const playNote = (noteIndex, octave, duration = 0.5, delay = 0, options = {}) => {
-                if (!audioContext) return;
+                if (!audioContext || !pianoSamplesReady) return;
 
                 const { applyTonicOffset = true } = options;
                 let targetIndex = ((noteIndex % 12) + 12) % 12;
@@ -925,7 +895,10 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                     targetOctave = Math.floor(totalSemitones / 12);
                 }
 
-                const buffer = pianoBuffersRef.current?.[targetIndex];
+                const noteBuffers = pianoBuffersRef.current?.[targetIndex];
+                if (!noteBuffers) return;
+
+                const buffer = noteBuffers[targetOctave] || noteBuffers[SAMPLE_BASE_OCTAVE];
                 const startTime = audioContext.currentTime + delay;
 
                 if (buffer) {
@@ -936,12 +909,10 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                     source.connect(gainNode);
                     gainNode.connect(audioContext.destination);
 
-                    const octaveDiff = targetOctave - SAMPLE_BASE_OCTAVE;
-                    const playbackRate = Math.pow(2, octaveDiff);
-                    source.playbackRate.setValueAtTime(playbackRate, startTime);
+                    source.playbackRate.setValueAtTime(1, startTime);
 
-                    const bufferDuration = buffer.duration / Math.max(0.0001, playbackRate);
-                    const maxDuration = 6.0;
+                    const bufferDuration = buffer.duration;
+                    const maxDuration = 2.0;
                     const playDuration = Math.min(maxDuration, bufferDuration);
                     const fadeOutStart = Math.max(0, playDuration - 0.03);
 
@@ -954,9 +925,6 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                     source.stop(startTime + playDuration);
                     return;
                 }
-
-                const fallbackFrequency = getFrequencyFromNoteAbsolute(targetIndex, targetOctave);
-                playFallbackNote(fallbackFrequency, duration, delay);
             };
 
             const getFrequencyFromNote = (noteIndex, octave = 4) => {
