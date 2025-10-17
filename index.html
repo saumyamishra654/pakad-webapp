@@ -2216,9 +2216,9 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
 
                         {/* Tab Content */}
                         {activeTab === 'chords' && (
-                            <div className="flex gap-6">
+                            <div className="flex flex-col xl:flex-row gap-6">
                                 {/* Left sidebar - Chord type buttons */}
-                                <div className="w-80 flex-shrink-0">
+                                <div className="w-full xl:w-80 flex-shrink-0">
                                     <h2 className="text-lg font-semibold text-gray-800 mb-4">Chord Types</h2>
                                     <div className="space-y-1">
                                         {chordTypes.map(chord => {
@@ -2257,7 +2257,7 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                 </div>
 
                                 {/* Right main content area */}
-                                <div className="flex-1">
+                                <div className="flex-1 w-full">
                                     {separateAarohAvroh ? (
                                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                                             <CircleVisualization 
@@ -2346,9 +2346,9 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
 
                         {/* Custom Chord Tab */}
                         {activeTab === 'custom' && (
-                            <div className="flex gap-6">
+                            <div className="flex flex-col xl:flex-row gap-6">
                                 {/* Left sidebar - Custom Chord Builder */}
-                                <div className="w-80 flex-shrink-0">
+                                <div className="w-full xl:w-80 flex-shrink-0">
                                     <h2 className="text-lg font-semibold text-gray-800 mb-4">Custom Chord Builder</h2>
                                     <div className="space-y-4">
                                         <div>
@@ -2390,7 +2390,7 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                 </div>
 
                                 {/* Right main content area - Circle visualization for custom chords */}
-                                <div className="flex-1">
+                                <div className="flex-1 w-full">
                                     {separateAarohAvroh ? (
                                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                                             <CircleVisualization 
@@ -2478,7 +2478,7 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                 </div>
                                     {showMidiSettings && (
                                         <div className="mb-3 p-3 rounded border bg-white">
-                                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
                                                 <label className="text-xs text-gray-700">
                                                     Tempo (BPM)
                                                     <input type="number" min="1" max="400" step="1" value={midiTempo}
@@ -2805,7 +2805,7 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                             ) : (
                                 !separateAarohAvroh ? (
                                     <>
-                                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
                                             {(showMoreAvailable ? availableChordsAll : availableChordsAll.slice(0, 6)).map((chord, index) => (
                                                 <div 
                                                     key={index} 
@@ -2869,7 +2869,7 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                                         <div>
                                             <h3 className="text-lg font-medium text-gray-700 mb-3">Aaroh Chords</h3>
-                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                                                 {(showMoreAaroh ? availableChordsAaroh : availableChordsAaroh.slice(0, 6)).map((chord, index) => (
                                                     <div
                                                         key={index}
@@ -2930,7 +2930,7 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                         
                                         <div>
                                             <h3 className="text-lg font-medium text-gray-700 mb-3">Avroh Chords</h3>
-                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                                                 {(showMoreAvroh ? availableChordsAvroh : availableChordsAvroh.slice(0, 6)).map((chord, index) => (
                                                     <div
                                                         key={index}
@@ -3005,7 +3005,7 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                 
                                 {!separateAarohAvroh ? (
                                     <>
-                                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
                                             {(showMoreOutsideAll ? chordsOutsideAll : chordsOutsideAll.slice(0, 6)).map((chord, index) => (
                                                 <div 
                                                     key={index} 
@@ -3076,7 +3076,7 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                                         <div>
                                             <h3 className="text-lg font-medium text-gray-700 mb-3">Outside Aaroh Chords</h3>
-                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                                                 {(showMoreOutsideAaroh ? chordsOutsideAaroh : chordsOutsideAaroh.slice(0, 6)).map((chord, index) => (
                                                     <div
                                                         key={index}
@@ -3142,7 +3142,7 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                         
                                         <div>
                                             <h3 className="text-lg font-medium text-gray-700 mb-3">Outside Avroh Chords</h3>
-                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                                                 {(showMoreOutsideAvroh ? chordsOutsideAvroh : chordsOutsideAvroh.slice(0, 6)).map((chord, index) => (
                                                     <div
                                                         key={index}
