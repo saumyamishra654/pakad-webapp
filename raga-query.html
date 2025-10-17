@@ -349,10 +349,11 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
       const [audioContext, setAudioContext] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [baseOctave, setBaseOctave] = useState(4);
-    const pianoBuffersRef = useRef({});
-    const [pianoSamplesReady, setPianoSamplesReady] = useState(false);
-    const SAMPLE_NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-    const SAMPLE_BASE_OCTAVE = 5;
+  const pianoBuffersRef = useRef({});
+  const [pianoSamplesReady, setPianoSamplesReady] = useState(false);
+  const SAMPLE_NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+  const SAMPLE_BASE_OCTAVE = 5;
+  const PRECOMPUTED_OCTAVES = [0, 1, 2, 3, 4, 5, 6, 7];
 
       // filters
       const [searchQuery, setSearchQuery] = useState('');
@@ -588,12 +589,37 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
             setPianoSamplesReady(false);
             const buffers = {};
             await Promise.all(SAMPLE_NOTE_NAMES.map(async (noteName, index) => {
-              const buffer = await fetchSampleBuffer(audioContext, noteName);
-              if (buffer) buffers[index] = buffer;
+              const baseBuffer = await fetchSampleBuffer(audioContext, noteName);
+              if (!baseBuffer) return;
+
+              const noteBuffers = {};
+              noteBuffers[SAMPLE_BASE_OCTAVE] = baseBuffer;
+
+              await Promise.all(PRECOMPUTED_OCTAVES.filter(oct => oct !== SAMPLE_BASE_OCTAVE).map(async (oct) => {
+                const playbackRate = Math.pow(2, oct - SAMPLE_BASE_OCTAVE);
+                const duration = baseBuffer.duration / Math.max(0.0001, playbackRate);
+                const frameCount = Math.max(1, Math.ceil(duration * audioContext.sampleRate));
+                const offline = new OfflineAudioContext(baseBuffer.numberOfChannels, frameCount, audioContext.sampleRate);
+                const source = offline.createBufferSource();
+                source.buffer = baseBuffer;
+                source.playbackRate.setValueAtTime(playbackRate, 0);
+                source.connect(offline.destination);
+                source.start(0);
+                const rendered = await offline.startRendering();
+                noteBuffers[oct] = rendered;
+              }));
+
+              buffers[index] = noteBuffers;
             }));
+
             if (!cancelled) {
               pianoBuffersRef.current = buffers;
-              setPianoSamplesReady(Object.keys(buffers).length > 0);
+              const allOctavesReady = SAMPLE_NOTE_NAMES.every((_, noteIdx) => {
+                const noteMap = buffers[noteIdx];
+                if (!noteMap) return false;
+                return PRECOMPUTED_OCTAVES.every(oct => !!noteMap[oct]);
+              });
+              setPianoSamplesReady(allOctavesReady);
             }
           } catch (err) {
             if (!cancelled) {
@@ -611,85 +637,47 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
         };
       }, [audioContext]);
 
-      const playFallbackNote = (frequency, duration = 0.5, delay = 0) => {
-        if (!audioContext) return;
-        const startTime = audioContext.currentTime + delay;
-        const osc1 = audioContext.createOscillator();
-        const gain1 = audioContext.createGain();
-        const osc2 = audioContext.createOscillator();
-        const gain2 = audioContext.createGain();
-        const osc3 = audioContext.createOscillator();
-        const gain3 = audioContext.createGain();
-        const osc4 = audioContext.createOscillator();
-        const gain4 = audioContext.createGain();
-        const masterGain = audioContext.createGain();
-
-        osc1.type = 'triangle';
-        osc2.type = 'triangle';
-        osc3.type = 'sine';
-        osc4.type = 'sine';
-
-        osc1.frequency.setValueAtTime(frequency, startTime);
-        osc2.frequency.setValueAtTime(frequency * 2, startTime);
-        osc3.frequency.setValueAtTime(frequency * 3, startTime);
-        osc4.frequency.setValueAtTime(frequency * 4, startTime);
-
-        osc1.connect(gain1); gain1.connect(masterGain);
-        osc2.connect(gain2); gain2.connect(masterGain);
-        osc3.connect(gain3); gain3.connect(masterGain);
-        osc4.connect(gain4); gain4.connect(masterGain);
-        masterGain.connect(audioContext.destination);
-
-        gain1.gain.setValueAtTime(1.0, startTime);
-        gain2.gain.setValueAtTime(0.3, startTime);
-        gain3.gain.setValueAtTime(0.15, startTime);
-        gain4.gain.setValueAtTime(0.05, startTime);
-
-        const attackTime = 0.02;
-        const noteDuration = Math.max(0.1, duration);
-        masterGain.gain.setValueAtTime(0, startTime);
-        masterGain.gain.linearRampToValueAtTime(0.4, startTime + attackTime);
-        masterGain.gain.setValueAtTime(0.3, startTime + 0.2);
-        masterGain.gain.exponentialRampToValueAtTime(0.001, startTime + noteDuration);
-
-        [osc1, osc2, osc3, osc4].forEach(osc => osc.start(startTime));
-        [osc1, osc2, osc3, osc4].forEach(osc => osc.stop(startTime + noteDuration));
-      };
-
       const playNote = (noteIndex, octave = 4, duration = 0.5, delay = 0) => {
-        if (!audioContext) return;
+        if (!audioContext || !pianoSamplesReady) return;
         const startTime = audioContext.currentTime + delay;
         const normalizedIndex = ((noteIndex % 12) + 12) % 12;
-        const buffer = pianoBuffersRef.current?.[normalizedIndex];
+        const noteBuffers = pianoBuffersRef.current?.[normalizedIndex];
+        if (!noteBuffers) return;
+
+        const availableOctaves = Object.keys(noteBuffers).map(Number);
+        if (availableOctaves.length === 0) return;
+
         const targetOctave = octave;
+        const bestOctave = availableOctaves.reduce((best, candidate) => {
+          if (best === null) return candidate;
+          return Math.abs(candidate - targetOctave) < Math.abs(best - targetOctave) ? candidate : best;
+        }, null);
 
-        if (buffer) {
-          const source = audioContext.createBufferSource();
-          const gainNode = audioContext.createGain();
-          source.buffer = buffer;
-          source.connect(gainNode);
-          gainNode.connect(audioContext.destination);
+        const buffer = noteBuffers[bestOctave];
+        if (!buffer) return;
 
-          const playbackRate = Math.pow(2, targetOctave - SAMPLE_BASE_OCTAVE);
-          source.playbackRate.setValueAtTime(playbackRate, startTime);
+        const playbackRate = Math.pow(2, targetOctave - bestOctave);
+        const source = audioContext.createBufferSource();
+        const gainNode = audioContext.createGain();
 
-          const bufferDuration = buffer.duration / Math.max(0.0001, playbackRate);
-          const maxDuration = 2.0;
-          const playDuration = Math.min(maxDuration, bufferDuration);
-          const fadeOutStart = Math.max(0, playDuration - 0.03);
+        source.buffer = buffer;
+        source.connect(gainNode);
+        gainNode.connect(audioContext.destination);
 
-          gainNode.gain.setValueAtTime(0.0001, startTime);
-          gainNode.gain.linearRampToValueAtTime(1, startTime + 0.01);
-          gainNode.gain.setValueAtTime(1, startTime + fadeOutStart);
-          gainNode.gain.linearRampToValueAtTime(0.0001, startTime + playDuration);
+        source.playbackRate.setValueAtTime(playbackRate, startTime);
 
-          source.start(startTime);
-          source.stop(startTime + playDuration);
-          return;
-        }
+        const bufferDuration = buffer.duration / Math.max(0.0001, playbackRate);
+        const maxDuration = 2.0;
+        const playDuration = Math.min(maxDuration, bufferDuration);
+        const fadeOutStart = Math.max(0, playDuration - 0.03);
 
-        const fallbackFrequency = getFrequencyFromNote(normalizedIndex, targetOctave);
-        playFallbackNote(fallbackFrequency, duration, delay);
+        gainNode.gain.setValueAtTime(0.0001, startTime);
+        gainNode.gain.linearRampToValueAtTime(1, startTime + 0.01);
+        gainNode.gain.setValueAtTime(1, startTime + fadeOutStart);
+        gainNode.gain.linearRampToValueAtTime(0.0001, startTime + playDuration);
+
+        source.start(startTime);
+        source.stop(startTime + playDuration);
       };
 
       // play a single key

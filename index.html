@@ -796,7 +796,12 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                         }));
                         if (!cancelled) {
                             pianoBuffersRef.current = buffers;
-                            setPianoSamplesReady(Object.keys(buffers).length > 0);
+                            const allOctavesReady = SAMPLE_NOTE_NAMES.every((_, noteIdx) => {
+                                const noteMap = buffers[noteIdx];
+                                if (!noteMap) return false;
+                                return PRECOMPUTED_OCTAVES.every(oct => !!noteMap[oct]);
+                            });
+                            setPianoSamplesReady(allOctavesReady);
                         }
                     } catch (err) {
                         if (!cancelled) {
@@ -898,7 +903,15 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                 const noteBuffers = pianoBuffersRef.current?.[targetIndex];
                 if (!noteBuffers) return;
 
-                const buffer = noteBuffers[targetOctave] || noteBuffers[SAMPLE_BASE_OCTAVE];
+                const availableOctaves = Object.keys(noteBuffers).map(Number);
+                if (availableOctaves.length === 0) return;
+
+                const bestOctave = availableOctaves.reduce((best, candidate) => {
+                    if (best === null) return candidate;
+                    return Math.abs(candidate - targetOctave) < Math.abs(best - targetOctave) ? candidate : best;
+                }, null);
+
+                const buffer = noteBuffers[bestOctave];
                 const startTime = audioContext.currentTime + delay;
 
                 if (buffer) {
@@ -909,9 +922,10 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                     source.connect(gainNode);
                     gainNode.connect(audioContext.destination);
 
-                    source.playbackRate.setValueAtTime(1, startTime);
+                    const playbackRate = Math.pow(2, targetOctave - bestOctave);
+                    source.playbackRate.setValueAtTime(playbackRate, startTime);
 
-                    const bufferDuration = buffer.duration;
+                    const bufferDuration = buffer.duration / Math.max(0.0001, playbackRate);
                     const maxDuration = 2.0;
                     const playDuration = Math.min(maxDuration, bufferDuration);
                     const fadeOutStart = Math.max(0, playDuration - 0.03);
