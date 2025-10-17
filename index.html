@@ -1141,15 +1141,14 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
 
             // Play a sequence of notes (chalan) in exact order
             const playChalan = async (chalan, startingOctave = baseOctave) => {
-                if (!audioContext || !pianoSamplesReady || !chalan || chalan.length === 0) return;
+                if (!audioContext || isPlaying || !chalan || chalan.length === 0) return;
                 
-                // Don't block on isPlaying
                 setIsPlaying(true);
                 
                 try {
-                    // Resume audio context if suspended (non-blocking)
+                    // resume audio context if suspended
                     if (audioContext.state === 'suspended') {
-                        audioContext.resume();
+                        await audioContext.resume();
                     }
                     
                     const arrangedNotes = [];
@@ -1191,15 +1190,14 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
 
             // Backward compatible playScale function (for boolean patterns)
             const playScale = async (pattern, isAscending = true) => {
-                if (!audioContext || !pianoSamplesReady) return;
+                if (!audioContext || isPlaying) return;
                 
-                // Don't block on isPlaying
                 setIsPlaying(true);
                 
                 try {
-                    // Resume audio context if suspended (non-blocking)
+                    // resume audio context if suspended
                     if (audioContext.state === 'suspended') {
-                        audioContext.resume();
+                        await audioContext.resume();
                     }
                     
                     const noteIndices = pattern.map((present, index) => present ? index : null)
@@ -1237,15 +1235,14 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
 
             // Play both Aaroh and Avroh sequentially using chalan when available
             const playAarohAvroh = async () => {
-                if (!audioContext || !pianoSamplesReady) return;
+                if (!audioContext || isPlaying) return;
                 
-                // Don't block on isPlaying
                 setIsPlaying(true);
                 
                 try {
-                    // Resume audio context if suspended (non-blocking)
+                    // resume audio context if suspended
                     if (audioContext.state === 'suspended') {
-                        audioContext.resume();
+                        await audioContext.resume();
                     }
                     
                     // Check if we have chalan sequences available
@@ -1354,21 +1351,20 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
             };
 
             const playChord = async (chordNotes, isUnison = true) => {
-                if (!audioContext || !pianoSamplesReady) return;
+                if (!audioContext || isPlaying) return;
                 
-                // Don't block on isPlaying - allow overlapping playback
                 setIsPlaying(true);
                 
                 try {
-                    // Resume audio context if suspended (non-blocking after first call)
+                    // resume audio context if suspended
                     if (audioContext.state === 'suspended') {
-                        audioContext.resume();
+                        await audioContext.resume();
                     }
                     
                     const arrangedNotes = arrangeChordNotes(chordNotes, baseOctave);
                     
                     if (isUnison) {
-                        // play all notes simultaneously with proper voicing - no delay between notes
+                        // play all notes simultaneously with proper voicing
                         arrangedNotes.forEach(note => {
                             playNote(note.noteIndex, note.octave, 2.0, 0);
                         });
