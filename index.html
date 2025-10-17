@@ -168,6 +168,32 @@
             const [tanpuraAudio, setTanpuraAudio] = useState(null);
             const [isTanpuraPlaying, setIsTanpuraPlaying] = useState(false);
             const tanpuraRef = useRef(null);
+            // piano sample playback state
+            const pianoBuffersRef = useRef({});
+            const [pianoSamplesReady, setPianoSamplesReady] = useState(false);
+            const SAMPLE_NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+            const SAMPLE_BASE_OCTAVE = 4; // files represent octave 4
+
+            const fetchSampleBuffer = async (ctx, noteName) => {
+                const extensions = ['.mp3', '.wav', '.ogg'];
+                const candidates = [noteName, noteName.replace('#', 'sharp'), noteName.replace('#', 's')];
+                for (const nameVariant of candidates) {
+                    for (const ext of extensions) {
+                        const encoded = encodeURIComponent(nameVariant);
+                        const url = `./Piano/${encoded}${ext}`;
+                        try {
+                            const response = await fetch(url);
+                            if (!response.ok) continue;
+                            const arrayBuffer = await response.arrayBuffer();
+                            if (arrayBuffer.byteLength === 0) continue;
+                            return await ctx.decodeAudioData(arrayBuffer.slice(0));
+                        } catch (err) {
+                            /* no-op: try next variant */
+                        }
+                    }
+                }
+                return null;
+            };
             // midi settings state (tunable)
             const [midiTempo, setMidiTempo] = useState(120); // bpm
             const [midiProgram, setMidiProgram] = useState(0); // 0-127 (acoustic grand piano)
@@ -736,6 +762,38 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                 initAudio();
             }, []);
 
+            useEffect(() => {
+                if (!audioContext) return;
+                let cancelled = false;
+
+                const loadSamples = async () => {
+                    try {
+                        setPianoSamplesReady(false);
+                        const buffers = {};
+                        await Promise.all(SAMPLE_NOTE_NAMES.map(async (noteName, index) => {
+                            const buffer = await fetchSampleBuffer(audioContext, noteName);
+                            if (buffer) buffers[index] = buffer;
+                        }));
+                        if (!cancelled) {
+                            pianoBuffersRef.current = buffers;
+                            setPianoSamplesReady(Object.keys(buffers).length > 0);
+                        }
+                    } catch (err) {
+                        if (!cancelled) {
+                            console.warn('Piano samples failed to load:', err);
+                            pianoBuffersRef.current = {};
+                            setPianoSamplesReady(false);
+                        }
+                    }
+                };
+
+                loadSamples();
+
+                return () => {
+                    cancelled = true;
+                };
+            }, [audioContext]);
+
             // ensure a valid selection exists for current mode (auto-pick first when empty/invalid)
             useEffect(() => {
                 if (isCarnaticMode) {
@@ -805,99 +863,95 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
             };
 
             // audio playback functions
-            const playNote = (frequency, duration = 0.5, delay = 0) => {
+            const playFallbackNote = (frequency, duration = 0.5, delay = 0) => {
                 if (!audioContext) return;
-                
-                // create a more piano-like sound using multiple oscillators
-                const createPianoNote = (freq, startTime, noteDuration) => {
-                    // main oscillator (fundamental frequency)
-                    const osc1 = audioContext.createOscillator();
-                    const gain1 = audioContext.createGain();
-                    
-                    // second harmonic (octave)
-                    const osc2 = audioContext.createOscillator();
-                    const gain2 = audioContext.createGain();
-                    
-                    // third harmonic (perfect fifth above octave)
-                    const osc3 = audioContext.createOscillator();
-                    const gain3 = audioContext.createGain();
-                    
-                    // fourth harmonic (two octaves)
-                    const osc4 = audioContext.createOscillator();
-                    const gain4 = audioContext.createGain();
-                    
-                    // master gain for the note
-                    const masterGain = audioContext.createGain();
-                    
-                    // connect oscillators to their gains
-                    osc1.connect(gain1);
-                    osc2.connect(gain2);
-                    osc3.connect(gain3);
-                    osc4.connect(gain4);
-                    
-                    // connect gains to master gain
-                    gain1.connect(masterGain);
-                    gain2.connect(masterGain);
-                    gain3.connect(masterGain);
-                    gain4.connect(masterGain);
-                    
-                    // connect to destination
-                    masterGain.connect(audioContext.destination);
-                    
-                    // set frequencies (harmonics)
-                    osc1.frequency.setValueAtTime(freq, startTime);           // fundamental
-                    osc2.frequency.setValueAtTime(freq * 2, startTime);       // octave
-                    osc3.frequency.setValueAtTime(freq * 3, startTime);       // perfect fifth above octave
-                    osc4.frequency.setValueAtTime(freq * 4, startTime);       // two octaves
-                    
-                    // use triangle waves for warmer sound
-                    osc1.type = 'triangle';
-                    osc2.type = 'triangle';
-                    osc3.type = 'sine';
-                    osc4.type = 'sine';
-                    
-                    // set harmonic levels (piano-like balance)
-                    gain1.gain.setValueAtTime(1.0, startTime);     // fundamental (strongest)
-                    gain2.gain.setValueAtTime(0.3, startTime);     // second harmonic
-                    gain3.gain.setValueAtTime(0.15, startTime);    // third harmonic
-                    gain4.gain.setValueAtTime(0.05, startTime);    // fourth harmonic
-                    
-                    // piano-like envelope (quick attack, slower decay, sustain, release)
-                    const attackTime = 0.02;
-                    const decayTime = 0.3;
-                    const sustainLevel = 0.3;
-                    const releaseTime = 0.5;
-                    
-                    // master envelope
-                    masterGain.gain.setValueAtTime(0, startTime);
-                    
-                    // attack
-                    masterGain.gain.linearRampToValueAtTime(0.4, startTime + attackTime);
-                    
-                    // decay to sustain
-                    masterGain.gain.exponentialRampToValueAtTime(sustainLevel, startTime + attackTime + decayTime);
-                    
-                    // sustain
-                    const sustainTime = Math.max(0.1, noteDuration - attackTime - decayTime - releaseTime);
-                    masterGain.gain.setValueAtTime(sustainLevel, startTime + attackTime + decayTime + sustainTime);
-                    
-                    // release
-                    masterGain.gain.exponentialRampToValueAtTime(0.01, startTime + noteDuration);
-                    
-                    // start all oscillators
-                    osc1.start(startTime);
-                    osc2.start(startTime);
-                    osc3.start(startTime);
-                    osc4.start(startTime);
-                    
-                    // stop all oscillators
-                    osc1.stop(startTime + noteDuration);
-                    osc2.stop(startTime + noteDuration);
-                    osc3.stop(startTime + noteDuration);
-                    osc4.stop(startTime + noteDuration);
-                };
-                
-                createPianoNote(frequency, audioContext.currentTime + delay, duration);
+                const startTime = audioContext.currentTime + delay;
+
+                const osc1 = audioContext.createOscillator();
+                const gain1 = audioContext.createGain();
+                const osc2 = audioContext.createOscillator();
+                const gain2 = audioContext.createGain();
+                const osc3 = audioContext.createOscillator();
+                const gain3 = audioContext.createGain();
+                const osc4 = audioContext.createOscillator();
+                const gain4 = audioContext.createGain();
+                const masterGain = audioContext.createGain();
+
+                osc1.type = 'triangle';
+                osc2.type = 'triangle';
+                osc3.type = 'sine';
+                osc4.type = 'sine';
+
+                osc1.frequency.setValueAtTime(frequency, startTime);
+                osc2.frequency.setValueAtTime(frequency * 2, startTime);
+                osc3.frequency.setValueAtTime(frequency * 3, startTime);
+                osc4.frequency.setValueAtTime(frequency * 4, startTime);
+
+                osc1.connect(gain1); gain1.connect(masterGain);
+                osc2.connect(gain2); gain2.connect(masterGain);
+                osc3.connect(gain3); gain3.connect(masterGain);
+                osc4.connect(gain4); gain4.connect(masterGain);
+                masterGain.connect(audioContext.destination);
+
+                gain1.gain.setValueAtTime(1.0, startTime);
+                gain2.gain.setValueAtTime(0.3, startTime);
+                gain3.gain.setValueAtTime(0.15, startTime);
+                gain4.gain.setValueAtTime(0.05, startTime);
+
+                const attackTime = 0.02;
+                const decayTime = 0.3;
+                const sustainLevel = 0.3;
+                const noteDuration = Math.max(0.1, duration);
+
+                masterGain.gain.setValueAtTime(0, startTime);
+                masterGain.gain.linearRampToValueAtTime(0.4, startTime + attackTime);
+                masterGain.gain.exponentialRampToValueAtTime(sustainLevel, startTime + attackTime + decayTime);
+                masterGain.gain.exponentialRampToValueAtTime(0.01, startTime + noteDuration);
+
+                [osc1, osc2, osc3, osc4].forEach(osc => osc.start(startTime));
+                [osc1, osc2, osc3, osc4].forEach(osc => osc.stop(startTime + noteDuration));
+            };
+
+            const playNote = (noteIndex, octave, duration = 0.5, delay = 0, options = {}) => {
+                if (!audioContext) return;
+
+                const { applyTonicOffset = true } = options;
+                let targetIndex = ((noteIndex % 12) + 12) % 12;
+                let targetOctave = octave;
+
+                if (applyTonicOffset && selectedTonic !== null) {
+                    const totalSemitones = noteIndex + selectedTonic + octave * 12;
+                    targetIndex = ((totalSemitones % 12) + 12) % 12;
+                    targetOctave = Math.floor(totalSemitones / 12);
+                }
+
+                const buffer = pianoBuffersRef.current?.[targetIndex];
+                const startTime = audioContext.currentTime + delay;
+
+                if (buffer) {
+                    const source = audioContext.createBufferSource();
+                    const gainNode = audioContext.createGain();
+
+                    source.buffer = buffer;
+                    source.connect(gainNode);
+                    gainNode.connect(audioContext.destination);
+
+                    const octaveDiff = targetOctave - SAMPLE_BASE_OCTAVE;
+                    const playbackRate = Math.pow(2, octaveDiff);
+                    source.playbackRate.setValueAtTime(playbackRate, startTime);
+
+                    const noteDuration = Math.max(0.1, duration);
+                    gainNode.gain.setValueAtTime(0.0001, startTime);
+                    gainNode.gain.exponentialRampToValueAtTime(1, startTime + 0.02);
+                    gainNode.gain.exponentialRampToValueAtTime(0.0001, startTime + noteDuration);
+
+                    source.start(startTime);
+                    source.stop(startTime + noteDuration + 0.5);
+                    return;
+                }
+
+                const fallbackFrequency = getFrequencyFromNoteAbsolute(targetIndex, targetOctave);
+                playFallbackNote(fallbackFrequency, duration, delay);
             };
 
             const getFrequencyFromNote = (noteIndex, octave = 4) => {
@@ -1141,7 +1195,7 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                     });
                     
                     arrangedNotes.forEach((note, i) => {
-                        playNote(note.frequency, 0.6, i * 0.4);
+                        playNote(note.noteIndex, note.octave, 0.6, i * 0.4);
                     });
                     
                     // set playing state to false after all notes finish
@@ -1186,7 +1240,7 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                     }
                     
                     arrangedNotes.forEach((note, i) => {
-                        playNote(note.frequency, 0.6, i * 0.4);
+                        playNote(note.noteIndex, note.octave, 0.6, i * 0.4);
                     });
                     
                     // set playing state to false after all notes finish
@@ -1263,14 +1317,14 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                         
                         // Play sequences
                         aarohNotes.forEach((note, i) => {
-                            playNote(note.frequency, 0.6, i * 0.4);
+                            playNote(note.noteIndex, note.octave, 0.6, i * 0.4);
                         });
                         
                         const aarohDuration = aarohNotes.length * 0.4;
                         const pauseBetween = 0.3;
                         
                         avrohNotes.forEach((note, i) => {
-                            playNote(note.frequency, 0.6, aarohDuration + pauseBetween + (i * 0.4));
+                            playNote(note.noteIndex, note.octave, 0.6, aarohDuration + pauseBetween + (i * 0.4));
                         });
                         
                         const totalDuration = aarohDuration + pauseBetween + (avrohNotes.length * 0.4) + 0.6;
@@ -1295,14 +1349,14 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                         const avrohNotes = arrangeNotesDescending(avrohIndices, higherSa.octave, true, baseOctave);
                         
                         aarohNotes.forEach((note, i) => {
-                            playNote(note.frequency, 0.6, i * 0.4);
+                            playNote(note.noteIndex, note.octave, 0.6, i * 0.4);
                         });
                         
                         const aarohDuration = aarohNotes.length * 0.4;
                         const pauseBetween = 0.3;
                         
                         avrohNotes.forEach((note, i) => {
-                            playNote(note.frequency, 0.6, aarohDuration + pauseBetween + (i * 0.4));
+                            playNote(note.noteIndex, note.octave, 0.6, aarohDuration + pauseBetween + (i * 0.4));
                         });
                         
                         const totalDuration = aarohDuration + pauseBetween + (avrohNotes.length * 0.4) + 0.6;
@@ -1331,13 +1385,13 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                     if (isUnison) {
                         // play all notes simultaneously with proper voicing
                         arrangedNotes.forEach(note => {
-                            playNote(note.frequency, 2.0, 0);
+                            playNote(note.noteIndex, note.octave, 2.0, 0);
                         });
                         setTimeout(() => setIsPlaying(false), 2000);
                     } else {
                         // play notes in sequence (arpeggio) with proper voicing
                         arrangedNotes.forEach((note, i) => {
-                            playNote(note.frequency, 0.8, i * 0.3);
+                            playNote(note.noteIndex, note.octave, 0.8, i * 0.3);
                         });
                         setTimeout(() => setIsPlaying(false), arrangedNotes.length * 300 + 800);
                     }
@@ -1459,9 +1513,7 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                     if (audioContext.state === 'suspended') {
                         await audioContext.resume();
                     }
-            // use absolute mapping so the keyboard doesn't shift with selected tonic
-            const freq = getFrequencyFromNoteAbsolute(pc, octave);
-                    playNote(freq, 0.45, 0);
+                    playNote(pc, octave, 0.45, 0, { applyTonicOffset: false });
                 } catch (err) {
                     console.error('Key playback error', err);
                 }
@@ -2469,7 +2521,7 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                                 progression.forEach((item, idx) => {
                                                     const notes = item.chord.notes;
                                                     const arranged = arrangeChordNotes(notes, baseOctave);
-                                                    arranged.forEach(n => playNote(n.frequency, chordDur, (chordDur + gap) * idx));
+                                                    arranged.forEach(n => playNote(n.noteIndex, n.octave, chordDur, (chordDur + gap) * idx));
                                                 });
                                                 setTimeout(() => setIsPlaying(false), (total + 0.3) * 1000);
                                             } catch { setIsPlaying(false); }
