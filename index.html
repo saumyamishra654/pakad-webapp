@@ -172,7 +172,7 @@
             const pianoBuffersRef = useRef({});
             const [pianoSamplesReady, setPianoSamplesReady] = useState(false);
             const SAMPLE_NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-            const SAMPLE_BASE_OCTAVE = 4; // files represent octave 4
+            const SAMPLE_BASE_OCTAVE = 3; // files represent octave 4
 
             const fetchSampleBuffer = async (ctx, noteName) => {
                 const extensions = ['.mp3', '.wav', '.ogg'];
