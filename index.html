@@ -2090,7 +2090,7 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                             <div className="flex flex-col items-center">
                                 {showKeyboard && (
                                     <div className="w-full max-w-4xl">
-                                        <PianoKeyboard onPlay={playKey} />
+                                        <PianoKeyboard onPlay={playKey} octaveSequence={AVAILABLE_OCTAVES} />
                                     </div>
                                 )}
                             </div>
@@ -3267,7 +3267,7 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
         };
 
         // simple 3-octave piano keyboard, swara-based (Sa=0) with black/white layout
-        function PianoKeyboard({ onPlay }) {
+        function PianoKeyboard({ onPlay, octaveSequence = [3, 4, 5] }) {
             const wrapRef = React.useRef(null);
             React.useEffect(() => {
                 // center the scroll on mount (shows the middle octave initially)
@@ -3289,7 +3289,6 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                 WHITE_W * 5 - BLACK_W / 2,  // between 7-9
                 WHITE_W * 6 - BLACK_W / 2   // between 9-11
             ];
-            const octaveSequence = AVAILABLE_OCTAVES;
             const octaveCount = octaveSequence.length;
 
             return (
