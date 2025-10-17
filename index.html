@@ -172,15 +172,19 @@
             const pianoBuffersRef = useRef({});
             const [pianoSamplesReady, setPianoSamplesReady] = useState(false);
             const SAMPLE_NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-            const SAMPLE_BASE_OCTAVE = 5; // files represent octave 4
-            const PRECOMPUTED_OCTAVES = [0, 1, 2, 3, 4, 5, 6, 7];
+            const AVAILABLE_OCTAVES = [3, 4, 5];
+            const NOTE_SUFFIX_BY_OCTAVE = {
+                3: '_m12',
+                4: '',
+                5: '_p12'
+            };
 
-            const fetchSampleBuffer = async (ctx, noteName) => {
+            const fetchSampleBuffer = async (ctx, noteName, suffix = '') => {
                 const extensions = ['.mp3', '.wav', '.ogg'];
                 const candidates = [noteName, noteName.replace('#', 'sharp'), noteName.replace('#', 's')];
                 for (const nameVariant of candidates) {
                     for (const ext of extensions) {
-                        const encoded = encodeURIComponent(nameVariant);
+                        const encoded = encodeURIComponent(`${nameVariant}${suffix}`);
                         const url = `./Piano/${encoded}${ext}`;
                         try {
                             const response = await fetch(url);
@@ -772,34 +776,26 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                         setPianoSamplesReady(false);
                         const buffers = {};
                         await Promise.all(SAMPLE_NOTE_NAMES.map(async (noteName, index) => {
-                            const baseBuffer = await fetchSampleBuffer(audioContext, noteName);
-                            if (!baseBuffer) return;
-
                             const noteBuffers = {};
-                            noteBuffers[SAMPLE_BASE_OCTAVE] = baseBuffer;
-
-                            await Promise.all(PRECOMPUTED_OCTAVES.filter(oct => oct !== SAMPLE_BASE_OCTAVE).map(async (oct) => {
-                                const playbackRate = Math.pow(2, oct - SAMPLE_BASE_OCTAVE);
-                                const duration = baseBuffer.duration / Math.max(0.0001, playbackRate);
-                                const frameCount = Math.max(1, Math.ceil(duration * audioContext.sampleRate));
-                                const offline = new OfflineAudioContext(baseBuffer.numberOfChannels, frameCount, audioContext.sampleRate);
-                                const source = offline.createBufferSource();
-                                source.buffer = baseBuffer;
-                                source.playbackRate.setValueAtTime(playbackRate, 0);
-                                source.connect(offline.destination);
-                                source.start(0);
-                                const rendered = await offline.startRendering();
-                                noteBuffers[oct] = rendered;
+                            await Promise.all(AVAILABLE_OCTAVES.map(async (oct) => {
+                                const suffix = NOTE_SUFFIX_BY_OCTAVE[oct] || '';
+                                const buffer = await fetchSampleBuffer(audioContext, noteName, suffix);
+                                if (buffer) {
+                                    noteBuffers[oct] = buffer;
+                                }
                             }));
 
-                            buffers[index] = noteBuffers;
+                            if (Object.keys(noteBuffers).length > 0) {
+                                buffers[index] = noteBuffers;
+                            }
                         }));
+
                         if (!cancelled) {
                             pianoBuffersRef.current = buffers;
                             const allOctavesReady = SAMPLE_NOTE_NAMES.every((_, noteIdx) => {
                                 const noteMap = buffers[noteIdx];
                                 if (!noteMap) return false;
-                                return PRECOMPUTED_OCTAVES.every(oct => !!noteMap[oct]);
+                                return AVAILABLE_OCTAVES.every(oct => !!noteMap[oct]);
                             });
                             setPianoSamplesReady(allOctavesReady);
                         }
@@ -904,7 +900,14 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                 if (!noteBuffers) return;
 
                 // Use exact pre-rendered octave buffer with no pitch shifting
-                const buffer = noteBuffers[targetOctave];
+                let resolvedOctave = targetOctave;
+                if (!noteBuffers[resolvedOctave]) {
+                    const minAvail = Math.min(...AVAILABLE_OCTAVES);
+                    const maxAvail = Math.max(...AVAILABLE_OCTAVES);
+                    resolvedOctave = Math.min(Math.max(targetOctave, minAvail), maxAvail);
+                }
+
+                const buffer = noteBuffers[resolvedOctave];
                 if (!buffer) {
                     console.warn(`No pre-rendered buffer for note ${targetIndex} at octave ${targetOctave}`);
                     return;
@@ -1912,22 +1915,6 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
 
                                 {/* Note Filter Mode - Removed dropdown in favor of click toggle */}
 
-                                {/* Base Octave */}
-                                <div className="px-2">
-                                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                                        Base Octave:
-                                    </label>
-                                    <select 
-                                        value={baseOctave}
-                                        onChange={(e) => setBaseOctave(parseInt(e.target.value, 10))}
-                                        className="w-20 p-2 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    >
-                                        {[2,3,4,5].map(o => (
-                                            <option key={o} value={o}>{o}</option>
-                                        ))}
-                                    </select>
-                                </div>
-
                                 {/* Toggles & Custom Section */}
                                 <div className="lg:col-span-2 px-3 flex gap-6">
                                     <div>
@@ -2103,7 +2090,7 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                             <div className="flex flex-col items-center">
                                 {showKeyboard && (
                                     <div className="w-full max-w-4xl">
-                                        <PianoKeyboard onPlay={playKey} baseOctave={baseOctave} octaves={3} />
+                                        <PianoKeyboard onPlay={playKey} />
                                     </div>
                                 )}
                             </div>
@@ -3280,7 +3267,7 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
         };
 
         // simple 3-octave piano keyboard, swara-based (Sa=0) with black/white layout
-        function PianoKeyboard({ onPlay, baseOctave = 3, octaves = 3 }) {
+        function PianoKeyboard({ onPlay }) {
             const wrapRef = React.useRef(null);
             React.useEffect(() => {
                 // center the scroll on mount (shows the middle octave initially)
@@ -3302,13 +3289,15 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                 WHITE_W * 5 - BLACK_W / 2,  // between 7-9
                 WHITE_W * 6 - BLACK_W / 2   // between 9-11
             ];
+            const octaveSequence = AVAILABLE_OCTAVES;
+            const octaveCount = octaveSequence.length;
 
             return (
                 <div className="piano-wrap" ref={wrapRef}>
-                    <div className="piano" style={{ width: `${WHITE_W * 7 * octaves}px` }}>
-                        {Array.from({ length: octaves }).map((_, o) => (
+                    <div className="piano" style={{ width: `${WHITE_W * 7 * octaveCount}px` }}>
+                        {octaveSequence.map((octaveValue) => (
                             <div
-                                key={o}
+                                key={octaveValue}
                                 className="octave"
                                 style={{ width: `${WHITE_W * 7}px` }}
                             >
@@ -3317,10 +3306,10 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                         <div
                                             key={i}
                                             className="white-key"
-                                            onMouseDown={() => onPlay(pc, baseOctave + o)}
-                                            onTouchStart={() => onPlay(pc, baseOctave + o)}
+                                            onMouseDown={() => onPlay(pc, octaveValue)}
+                                            onTouchStart={() => onPlay(pc, octaveValue)}
                                             role="button"
-                                            aria-label={`Play ${pc} at octave ${baseOctave + o}`}
+                                            aria-label={`Play ${pc} at octave ${octaveValue}`}
                                         />
                                     ))}
                                 </div>
@@ -3329,10 +3318,10 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                         key={idx}
                                         className="black-key"
                                         style={{ left: `${blackLefts[idx]}px` }}
-                                        onMouseDown={() => onPlay(pc, baseOctave + o)}
-                                        onTouchStart={() => onPlay(pc, baseOctave + o)}
+                                        onMouseDown={() => onPlay(pc, octaveValue)}
+                                        onTouchStart={() => onPlay(pc, octaveValue)}
                                         role="button"
-                                        aria-label={`Play ${pc} at octave ${baseOctave + o}`}
+                                        aria-label={`Play ${pc} at octave ${octaveValue}`}
                                     />
                                 ))}
                             </div>
