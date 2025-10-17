@@ -940,13 +940,18 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                     const playbackRate = Math.pow(2, octaveDiff);
                     source.playbackRate.setValueAtTime(playbackRate, startTime);
 
-                    const noteDuration = Math.max(0.1, duration);
+                    const bufferDuration = buffer.duration / Math.max(0.0001, playbackRate);
+                    const maxDuration = 2.0;
+                    const playDuration = Math.min(maxDuration, bufferDuration);
+                    const fadeOutStart = Math.max(0, playDuration - 0.03);
+
                     gainNode.gain.setValueAtTime(0.0001, startTime);
-                    gainNode.gain.exponentialRampToValueAtTime(1, startTime + 0.02);
-                    gainNode.gain.exponentialRampToValueAtTime(0.0001, startTime + noteDuration);
+                    gainNode.gain.linearRampToValueAtTime(1, startTime + 0.01);
+                    gainNode.gain.setValueAtTime(1, startTime + fadeOutStart);
+                    gainNode.gain.linearRampToValueAtTime(0.0001, startTime + playDuration);
 
                     source.start(startTime);
-                    source.stop(startTime + noteDuration + 0.5);
+                    source.stop(startTime + playDuration);
                     return;
                 }
 
