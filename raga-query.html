@@ -349,6 +349,10 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
       const [audioContext, setAudioContext] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [baseOctave, setBaseOctave] = useState(4);
+    const pianoBuffersRef = useRef({});
+    const [pianoSamplesReady, setPianoSamplesReady] = useState(false);
+    const SAMPLE_NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    const SAMPLE_BASE_OCTAVE = 3;
 
       // filters
       const [searchQuery, setSearchQuery] = useState('');
@@ -544,6 +548,27 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
         return out;
       };
 
+      const fetchSampleBuffer = async (ctx, noteName) => {
+        const extensions = ['.mp3', '.wav', '.ogg'];
+        const variants = [noteName, noteName.replace('#', 'sharp'), noteName.replace('#', 's')];
+        for (const variant of variants) {
+          for (const ext of extensions) {
+            const encoded = encodeURIComponent(variant);
+            const url = `./Piano/${encoded}${ext}`;
+            try {
+              const response = await fetch(url);
+              if (!response.ok) continue;
+              const arrayBuffer = await response.arrayBuffer();
+              if (arrayBuffer.byteLength === 0) continue;
+              return await ctx.decodeAudioData(arrayBuffer.slice(0));
+            } catch (err) {
+              // ignore and try next variant/extension
+            }
+          }
+        }
+        return null;
+      };
+
       // initialize audio context once
       useEffect(() => {
         try {
@@ -554,99 +579,117 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
         }
       }, []);
 
-      // simple tone with ADSR
-      const playNote = (frequency, duration = 0.5, delay = 0) => {
+      useEffect(() => {
         if (!audioContext) return;
-        // create a more piano-like sound using multiple oscillators
-        const createPianoNote = (freq, startTime, noteDuration) => {
-          // main oscillator (fundamental frequency)
-          const osc1 = audioContext.createOscillator();
-          const gain1 = audioContext.createGain();
+        let cancelled = false;
 
-          // second harmonic (octave)
-          const osc2 = audioContext.createOscillator();
-          const gain2 = audioContext.createGain();
-
-          // third harmonic (perfect fifth above octave)
-          const osc3 = audioContext.createOscillator();
-          const gain3 = audioContext.createGain();
-
-          // fourth harmonic (two octaves)
-          const osc4 = audioContext.createOscillator();
-          const gain4 = audioContext.createGain();
-
-          // master gain for the note
-          const masterGain = audioContext.createGain();
-
-          // connect oscillators to their gains
-          osc1.connect(gain1);
-          osc2.connect(gain2);
-          osc3.connect(gain3);
-          osc4.connect(gain4);
-
-          // connect gains to master gain
-          gain1.connect(masterGain);
-          gain2.connect(masterGain);
-          gain3.connect(masterGain);
-          gain4.connect(masterGain);
-
-          // connect to destination
-          masterGain.connect(audioContext.destination);
-
-          // set frequencies (harmonics)
-          osc1.frequency.setValueAtTime(freq, startTime);           // fundamental
-          osc2.frequency.setValueAtTime(freq * 2, startTime);       // octave
-          osc3.frequency.setValueAtTime(freq * 3, startTime);       // perfect fifth above octave
-          osc4.frequency.setValueAtTime(freq * 4, startTime);       // two octaves
-
-          // use triangle waves for warmer sound
-          osc1.type = 'triangle';
-          osc2.type = 'triangle';
-          osc3.type = 'sine';
-          osc4.type = 'sine';
-
-          // set harmonic levels (piano-like balance)
-          gain1.gain.setValueAtTime(1.0, startTime);     // fundamental (strongest)
-          gain2.gain.setValueAtTime(0.3, startTime);     // second harmonic
-          gain3.gain.setValueAtTime(0.15, startTime);    // third harmonic
-          gain4.gain.setValueAtTime(0.05, startTime);    // fourth harmonic
-
-          // piano-like envelope (quick attack, slower decay, sustain, release)
-          const attackTime = 0.02;
-          const decayTime = 0.3;
-          const sustainLevel = 0.3;
-          const releaseTime = 0.5;
-
-          // master envelope
-          masterGain.gain.setValueAtTime(0, startTime);
-
-          // attack
-          masterGain.gain.linearRampToValueAtTime(0.4, startTime + attackTime);
-
-          // decay to sustain
-          masterGain.gain.exponentialRampToValueAtTime(sustainLevel, startTime + attackTime + decayTime);
-
-          // sustain
-          const sustainTime = Math.max(0.1, noteDuration - attackTime - decayTime - releaseTime);
-          masterGain.gain.setValueAtTime(sustainLevel, startTime + attackTime + decayTime + sustainTime);
-
-          // release
-          masterGain.gain.exponentialRampToValueAtTime(0.01, startTime + noteDuration);
-
-          // start all oscillators
-          osc1.start(startTime);
-          osc2.start(startTime);
-          osc3.start(startTime);
-          osc4.start(startTime);
-
-          // stop all oscillators
-          osc1.stop(startTime + noteDuration);
-          osc2.stop(startTime + noteDuration);
-          osc3.stop(startTime + noteDuration);
-          osc4.stop(startTime + noteDuration);
+        const loadSamples = async () => {
+          try {
+            setPianoSamplesReady(false);
+            const buffers = {};
+            await Promise.all(SAMPLE_NOTE_NAMES.map(async (noteName, index) => {
+              const buffer = await fetchSampleBuffer(audioContext, noteName);
+              if (buffer) buffers[index] = buffer;
+            }));
+            if (!cancelled) {
+              pianoBuffersRef.current = buffers;
+              setPianoSamplesReady(Object.keys(buffers).length > 0);
+            }
+          } catch (err) {
+            if (!cancelled) {
+              console.warn('Failed to load piano samples', err);
+              pianoBuffersRef.current = {};
+              setPianoSamplesReady(false);
+            }
+          }
         };
 
-        createPianoNote(frequency, audioContext.currentTime + delay, duration);
+        loadSamples();
+
+        return () => {
+          cancelled = true;
+        };
+      }, [audioContext]);
+
+      const playFallbackNote = (frequency, duration = 0.5, delay = 0) => {
+        if (!audioContext) return;
+        const startTime = audioContext.currentTime + delay;
+        const osc1 = audioContext.createOscillator();
+        const gain1 = audioContext.createGain();
+        const osc2 = audioContext.createOscillator();
+        const gain2 = audioContext.createGain();
+        const osc3 = audioContext.createOscillator();
+        const gain3 = audioContext.createGain();
+        const osc4 = audioContext.createOscillator();
+        const gain4 = audioContext.createGain();
+        const masterGain = audioContext.createGain();
+
+        osc1.type = 'triangle';
+        osc2.type = 'triangle';
+        osc3.type = 'sine';
+        osc4.type = 'sine';
+
+        osc1.frequency.setValueAtTime(frequency, startTime);
+        osc2.frequency.setValueAtTime(frequency * 2, startTime);
+        osc3.frequency.setValueAtTime(frequency * 3, startTime);
+        osc4.frequency.setValueAtTime(frequency * 4, startTime);
+
+        osc1.connect(gain1); gain1.connect(masterGain);
+        osc2.connect(gain2); gain2.connect(masterGain);
+        osc3.connect(gain3); gain3.connect(masterGain);
+        osc4.connect(gain4); gain4.connect(masterGain);
+        masterGain.connect(audioContext.destination);
+
+        gain1.gain.setValueAtTime(1.0, startTime);
+        gain2.gain.setValueAtTime(0.3, startTime);
+        gain3.gain.setValueAtTime(0.15, startTime);
+        gain4.gain.setValueAtTime(0.05, startTime);
+
+        const attackTime = 0.02;
+        const noteDuration = Math.max(0.1, duration);
+        masterGain.gain.setValueAtTime(0, startTime);
+        masterGain.gain.linearRampToValueAtTime(0.4, startTime + attackTime);
+        masterGain.gain.setValueAtTime(0.3, startTime + 0.2);
+        masterGain.gain.exponentialRampToValueAtTime(0.001, startTime + noteDuration);
+
+        [osc1, osc2, osc3, osc4].forEach(osc => osc.start(startTime));
+        [osc1, osc2, osc3, osc4].forEach(osc => osc.stop(startTime + noteDuration));
+      };
+
+      const playNote = (noteIndex, octave = 4, duration = 0.5, delay = 0) => {
+        if (!audioContext) return;
+        const startTime = audioContext.currentTime + delay;
+        const normalizedIndex = ((noteIndex % 12) + 12) % 12;
+        const buffer = pianoBuffersRef.current?.[normalizedIndex];
+        const targetOctave = octave;
+
+        if (buffer) {
+          const source = audioContext.createBufferSource();
+          const gainNode = audioContext.createGain();
+          source.buffer = buffer;
+          source.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+
+          const playbackRate = Math.pow(2, targetOctave - SAMPLE_BASE_OCTAVE);
+          source.playbackRate.setValueAtTime(playbackRate, startTime);
+
+          const bufferDuration = buffer.duration / Math.max(0.0001, playbackRate);
+          const maxDuration = 2.0;
+          const playDuration = Math.min(maxDuration, bufferDuration);
+          const fadeOutStart = Math.max(0, playDuration - 0.03);
+
+          gainNode.gain.setValueAtTime(0.0001, startTime);
+          gainNode.gain.linearRampToValueAtTime(1, startTime + 0.01);
+          gainNode.gain.setValueAtTime(1, startTime + fadeOutStart);
+          gainNode.gain.linearRampToValueAtTime(0.0001, startTime + playDuration);
+
+          source.start(startTime);
+          source.stop(startTime + playDuration);
+          return;
+        }
+
+        const fallbackFrequency = getFrequencyFromNote(normalizedIndex, targetOctave);
+        playFallbackNote(fallbackFrequency, duration, delay);
       };
 
       // play a single key
@@ -654,7 +697,7 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
         if (!audioContext) return;
         try {
           if (audioContext.state === 'suspended') await audioContext.resume();
-          playNote(getFrequencyFromNote(pc, octave), 0.45, 0);
+          playNote(pc, octave, 0.45, 0);
         } catch (e) { console.error('key play error', e); }
       };
 
@@ -710,10 +753,10 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
           const highSa = { noteIndex: 0, octave: highSaOct, frequency: getFrequencyFromNote(0, highSaOct) };
           const aarohSeq = [...up, highSa];
       const avrohSeq = arrangeNotesDescending(avrohPcs, highSaOct, true, baseOctave);
-          aarohSeq.forEach((n,i)=> playNote(n.frequency, 0.6, i*0.4));
+          aarohSeq.forEach((n,i)=> playNote(n.noteIndex, n.octave, 0.6, i*0.4));
           const aarohTime = aarohSeq.length * 0.4;
           const gap = 0.3;
-          avrohSeq.forEach((n,i)=> playNote(n.frequency, 0.6, aarohTime + gap + i*0.4));
+          avrohSeq.forEach((n,i)=> playNote(n.noteIndex, n.octave, 0.6, aarohTime + gap + i*0.4));
           const total = aarohTime + gap + avrohSeq.length * 0.4 + 0.6;
           setTimeout(()=> setIsPlaying(false), total*1000);
         } catch (e) {
