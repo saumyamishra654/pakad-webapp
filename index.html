@@ -2723,14 +2723,60 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                             )}
                             
                             {customMode ? (
-                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                customMatches.all.length > 0 ? (
+                                    // Render single column for combined aaroh/avroh
                                     <div>
-                                        <h3 className="text-lg font-medium text-gray-700 mb-3">Aaroh Custom Chords</h3>
+                                        <h3 className="text-lg font-medium text-gray-700 mb-3">Custom Chords</h3>
                                         <div className="space-y-3">
-                                            {customMatches.aaroh.length === 0 ? (
-                                                <div className="text-sm text-gray-600">No matches</div>
-                                            ) : (
-                                                customMatches.aaroh.map(({ root, rootName, notes }) => {
+                                            {customMatches.all.map(({ root, rootName, notes }) => {
+                                                const westernRootName = selectedTonic !== null ? westernNotes[(root + selectedTonic) % 12] : rootName;
+                                                const westernNoteNames = selectedTonic !== null ? 
+                                                    notes.map(noteIndex => westernNotes[(noteIndex + selectedTonic) % 12]) :
+                                                    notes.map(i => swarNames[i]);
+                                                const displayName = selectedTonic !== null ? `${westernRootName} Custom` : `${rootName} Custom`;
+                                                
+                                                return (
+                                                    <div 
+                                                        key={root} 
+                                                        className="p-3 rounded-lg border bg-purple-50 border-purple-200 cursor-move"
+                                                        draggable
+                                                        onDragStart={(e) => {
+                                                            const chordData = {
+                                                                rootName: westernRootName,
+                                                                notes,
+                                                                type: { name: 'Custom', color: '#a855f7' },
+                                                                westernName: displayName
+                                                            };
+                                                            e.dataTransfer.setData('application/json', JSON.stringify(chordData));
+                                                        }}
+                                                    >
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <div className="w-3 h-3 rounded-full bg-purple-500"></div>
+                                                            <span className="font-semibold">{displayName}</span>
+                                                        </div>
+                                                        <p className="text-sm text-gray-600">
+                                                            Notes: {westernNoteNames.join(' - ')}
+                                                            {selectedTonic !== null && (
+                                                                <span className="block mt-1 text-xs text-gray-500">
+                                                                    Indian: {notes.map(i => swarNames[i]).join(' - ')}
+                                                                </span>
+                                                            )}
+                                                        </p>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    // Render two columns for separate aaroh/avroh
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                        <div>
+                                            <h3 className="text-lg font-medium text-gray-700 mb-3">Aaroh Custom Chords</h3>
+                                            <div className="space-y-3">
+                                                {customMatches.aaroh.length === 0 ? (
+                                                    <div className="text-sm text-gray-600">No matches</div>
+                                                ) : (
+                                                    customMatches.aaroh.map(({ root, rootName, notes }) => {
                                                     // Convert to western notation if tonic is selected
                                                     const westernRootName = selectedTonic !== null ? westernNotes[(root + selectedTonic) % 12] : rootName;
                                                     const westernNoteNames = selectedTonic !== null ? 
@@ -2822,6 +2868,7 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                         </div>
                                     </div>
                                 </div>
+                                )
                             ) : (
                                 !separateAarohAvroh ? (
                                     <>
