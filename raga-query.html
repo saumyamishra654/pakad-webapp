@@ -352,9 +352,12 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
   const pianoBuffersRef = useRef({});
   const [pianoSamplesReady, setPianoSamplesReady] = useState(false);
   const SAMPLE_NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-  const SAMPLE_BASE_OCTAVE = 5;
-  const PRECOMPUTED_OCTAVES = [0, 1, 2, 3, 4, 5, 6, 7];
-
+    const AVAILABLE_OCTAVES = [3, 4, 5];
+    const NOTE_SUFFIX_BY_OCTAVE = {
+      3: '_m12',
+      4: '',
+      5: '_p12'
+    };
       // filters
       const [searchQuery, setSearchQuery] = useState('');
       const [scaleType, setScaleType] = useState('any');
@@ -549,12 +552,12 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
         return out;
       };
 
-      const fetchSampleBuffer = async (ctx, noteName) => {
+      const fetchSampleBuffer = async (ctx, noteName, suffix = '') => {
         const extensions = ['.mp3', '.wav', '.ogg'];
         const variants = [noteName, noteName.replace('#', 'sharp'), noteName.replace('#', 's')];
         for (const variant of variants) {
           for (const ext of extensions) {
-            const encoded = encodeURIComponent(variant);
+            const encoded = encodeURIComponent(`${variant}${suffix}`);
             const url = `./Piano/${encoded}${ext}`;
             try {
               const response = await fetch(url);
@@ -589,27 +592,18 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
             setPianoSamplesReady(false);
             const buffers = {};
             await Promise.all(SAMPLE_NOTE_NAMES.map(async (noteName, index) => {
-              const baseBuffer = await fetchSampleBuffer(audioContext, noteName);
-              if (!baseBuffer) return;
-
               const noteBuffers = {};
-              noteBuffers[SAMPLE_BASE_OCTAVE] = baseBuffer;
-
-              await Promise.all(PRECOMPUTED_OCTAVES.filter(oct => oct !== SAMPLE_BASE_OCTAVE).map(async (oct) => {
-                const playbackRate = Math.pow(2, oct - SAMPLE_BASE_OCTAVE);
-                const duration = baseBuffer.duration / Math.max(0.0001, playbackRate);
-                const frameCount = Math.max(1, Math.ceil(duration * audioContext.sampleRate));
-                const offline = new OfflineAudioContext(baseBuffer.numberOfChannels, frameCount, audioContext.sampleRate);
-                const source = offline.createBufferSource();
-                source.buffer = baseBuffer;
-                source.playbackRate.setValueAtTime(playbackRate, 0);
-                source.connect(offline.destination);
-                source.start(0);
-                const rendered = await offline.startRendering();
-                noteBuffers[oct] = rendered;
+              await Promise.all(AVAILABLE_OCTAVES.map(async (oct) => {
+                const suffix = NOTE_SUFFIX_BY_OCTAVE[oct] || '';
+                const buffer = await fetchSampleBuffer(audioContext, noteName, suffix);
+                if (buffer) {
+                  noteBuffers[oct] = buffer;
+                }
               }));
 
-              buffers[index] = noteBuffers;
+              if (Object.keys(noteBuffers).length > 0) {
+                buffers[index] = noteBuffers;
+              }
             }));
 
             if (!cancelled) {
@@ -617,7 +611,7 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
               const allOctavesReady = SAMPLE_NOTE_NAMES.every((_, noteIdx) => {
                 const noteMap = buffers[noteIdx];
                 if (!noteMap) return false;
-                return PRECOMPUTED_OCTAVES.every(oct => !!noteMap[oct]);
+                return AVAILABLE_OCTAVES.every(oct => !!noteMap[oct]);
               });
               setPianoSamplesReady(allOctavesReady);
             }
@@ -645,7 +639,14 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
         if (!noteBuffers) return;
 
         // Use exact pre-rendered octave buffer with no pitch shifting
-        const buffer = noteBuffers[octave];
+        let resolvedOctave = octave;
+        if (!noteBuffers[resolvedOctave]) {
+          const minAvail = Math.min(...AVAILABLE_OCTAVES);
+          const maxAvail = Math.max(...AVAILABLE_OCTAVES);
+          resolvedOctave = Math.min(Math.max(octave, minAvail), maxAvail);
+        }
+
+        const buffer = noteBuffers[resolvedOctave];
         if (!buffer) {
           console.warn(`No pre-rendered buffer for note ${normalizedIndex} at octave ${octave}`);
           return;
@@ -1119,7 +1120,7 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
               </div>
               {showPiano && (
                 <div className="mt-3">
-                  <PianoKeyboardQuery onPlay={playKey} baseOctave={baseOctave} octaves={3} showLabels={false} swarLabels={displaySwarNames} />
+                  <PianoKeyboardQuery onPlay={playKey} octaveSequence={AVAILABLE_OCTAVES} showLabels={false} swarLabels={displaySwarNames} />
                 </div>
               )}
             </div>
@@ -1264,7 +1265,7 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
     };
 
     // 3-octave compact keyboard component for Query page
-    function PianoKeyboardQuery({ onPlay, baseOctave = 3, octaves = 3, showLabels = false, swarLabels = ['Sa', 'Re♭', 'Re', 'Ga♭', 'Ga', 'Ma', 'Ma♯', 'Pa', 'Dha♭', 'Dha', 'Ni♭', 'Ni'] }) {
+  function PianoKeyboardQuery({ onPlay, octaveSequence = [3, 4, 5], showLabels = false, swarLabels = ['Sa', 'Re♭', 'Re', 'Ga♭', 'Ga', 'Ma', 'Ma♯', 'Pa', 'Dha♭', 'Dha', 'Ni♭', 'Ni'] }) {
       const wrapRef = useRef(null);
       useEffect(() => {
         const el = wrapRef.current;
@@ -1285,20 +1286,22 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
         WHITE_W * 6 - BLACK_W / 2   // between 9-11
       ];
 
+      const octaveCount = octaveSequence.length;
+
       return (
         <div className="rq-piano-wrap" ref={wrapRef}>
-          <div className="rq-piano" style={{ width: `${WHITE_W * 7 * octaves}px` }}>
-            {Array.from({ length: octaves }).map((_, o) => (
-              <div key={o} className="rq-octave" style={{ width: `${WHITE_W * 7}px` }}>
+          <div className="rq-piano" style={{ width: `${WHITE_W * 7 * octaveCount}px` }}>
+            {octaveSequence.map((octaveValue) => (
+              <div key={octaveValue} className="rq-octave" style={{ width: `${WHITE_W * 7}px` }}>
                 <div className="rq-white-keys">
                   {whitePC.map((pc, i) => (
                     <div
                       key={i}
                       className="rq-white-key"
-                      onMouseDown={() => onPlay(pc, baseOctave + o)}
-                      onTouchStart={() => onPlay(pc, baseOctave + o)}
+                      onMouseDown={() => onPlay(pc, octaveValue)}
+                      onTouchStart={() => onPlay(pc, octaveValue)}
                       role="button"
-                      aria-label={`Play ${pc} at octave ${baseOctave + o}`}
+                      aria-label={`Play ${pc} at octave ${octaveValue}`}
                       title={showLabels ? `${pc}` : undefined}
                     />
                   ))}
@@ -1308,10 +1311,10 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                     key={idx}
                     className="rq-black-key"
                     style={{ left: `${blackLefts[idx]}px` }}
-                    onMouseDown={() => onPlay(pc, baseOctave + o)}
-                    onTouchStart={() => onPlay(pc, baseOctave + o)}
+                    onMouseDown={() => onPlay(pc, octaveValue)}
+                    onTouchStart={() => onPlay(pc, octaveValue)}
                     role="button"
-                    aria-label={`Play ${pc} at octave ${baseOctave + o}`}
+                    aria-label={`Play ${pc} at octave ${octaveValue}`}
                   />
                 ))}
               </div>
