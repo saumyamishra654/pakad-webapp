@@ -92,8 +92,10 @@
             box-sizing: border-box;
     }
         .white-key:active { background: #bfdbfe; }
+        .white-key.highlighted { background: #ddd6fe; border-color: #a78bfa; }
         .dark-mode .white-key { background: #e5e7eb; border-color: #94a3b8; }
         .dark-mode .white-key:active { background: #93c5fd; }
+        .dark-mode .white-key.highlighted { background: #c4b5fd; border-color: #8b5cf6; }
         .black-key {
             position: absolute;
             top: 0;
@@ -106,8 +108,10 @@
             z-index: 5;
         }
         .black-key:active { background: #2563eb; }
+        .black-key.highlighted { background: #7c3aed; border-color: #6d28d9; }
         .dark-mode .black-key { background: #0b1220; border-color: #111827; }
         .dark-mode .black-key:active { background: #1d4ed8; }
+        .dark-mode .black-key.highlighted { background: #6d28d9; border-color: #5b21b6; }
     .white-key, .black-key { cursor: pointer; }
     </style>
 </head>
@@ -212,6 +216,7 @@
             const [customScaleMode, setCustomScaleMode] = useState(false);
             // guitar and piano visualization state
             const [showPianoChords, setShowPianoChords] = useState(false);
+            const [showRagaNotesOnKeyboard, setShowRagaNotesOnKeyboard] = useState(false);
             const [customNotePattern, setCustomNotePattern] = useState(Array.from({length:12}, (_,i) => i === 0));
             const [customAarohPattern, setCustomAarohPattern] = useState(Array.from({length:12}, (_,i) => i === 0));
             const [customAvrohPattern, setCustomAvrohPattern] = useState(Array.from({length:12}, (_,i) => i === 0));
@@ -1947,6 +1952,17 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                                     Show Chords Outside Raga
                                                 </span>
                                             </label>
+                                            <label className="inline-flex items-center w-full">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={showRagaNotesOnKeyboard}
+                                                    onChange={e => setShowRagaNotesOnKeyboard(e.target.checked)}
+                                                    className="form-checkbox h-4 w-4 text-purple-600 rounded focus:ring-purple-500"
+                                                />
+                                                <span className="ml-2 text-xs text-gray-700">
+                                                    Show Raga Notes on Keyboard
+                                                </span>
+                                            </label>
                                         </div>
                                     </div>
 
@@ -2088,7 +2104,17 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                             <div className="flex flex-col items-center">
                                 {showKeyboard && (
                                     <div className="w-full max-w-4xl">
-                                        <PianoKeyboard onPlay={playKey} octaveSequence={AVAILABLE_OCTAVES} />
+                                        <PianoKeyboard 
+                                            onPlay={playKey} 
+                                            octaveSequence={AVAILABLE_OCTAVES}
+                                            highlightedNotes={
+                                                showRagaNotesOnKeyboard && selectedRaga
+                                                    ? (customScaleMode
+                                                        ? Object.keys(customNotePattern).filter(i => customNotePattern[i]).map(Number)
+                                                        : Object.keys(getCurrentPatterns().all).filter(i => getCurrentPatterns().all[i]).map(Number))
+                                                    : []
+                                            }
+                                        />
                                     </div>
                                 )}
                             </div>
@@ -3363,7 +3389,7 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
         };
 
         // simple 3-octave piano keyboard, swara-based (Sa=0) with black/white layout
-        function PianoKeyboard({ onPlay, octaveSequence = [3, 4, 5] }) {
+        function PianoKeyboard({ onPlay, octaveSequence = [3, 4, 5], highlightedNotes = [] }) {
             const wrapRef = React.useRef(null);
             React.useEffect(() => {
                 // center the scroll on mount (shows the middle octave initially)
@@ -3397,28 +3423,34 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                 style={{ width: `${WHITE_W * 7}px` }}
                             >
                                 <div className="white-keys">
-                                    {whitePC.map((pc, i) => (
+                                    {whitePC.map((pc, i) => {
+                                        const isHighlighted = highlightedNotes.includes(pc);
+                                        return (
+                                            <div
+                                                key={i}
+                                                className={`white-key ${isHighlighted ? 'highlighted' : ''}`}
+                                                onMouseDown={() => onPlay(pc, octaveValue)}
+                                                onTouchStart={() => onPlay(pc, octaveValue)}
+                                                role="button"
+                                                aria-label={`Play ${pc} at octave ${octaveValue}`}
+                                            />
+                                        );
+                                    })}
+                                </div>
+                                {blackPC.map((pc, idx) => {
+                                    const isHighlighted = highlightedNotes.includes(pc);
+                                    return (
                                         <div
-                                            key={i}
-                                            className="white-key"
+                                            key={idx}
+                                            className={`black-key ${isHighlighted ? 'highlighted' : ''}`}
+                                            style={{ left: `${blackLefts[idx]}px` }}
                                             onMouseDown={() => onPlay(pc, octaveValue)}
                                             onTouchStart={() => onPlay(pc, octaveValue)}
                                             role="button"
                                             aria-label={`Play ${pc} at octave ${octaveValue}`}
                                         />
-                                    ))}
-                                </div>
-                                {blackPC.map((pc, idx) => (
-                                    <div
-                                        key={idx}
-                                        className="black-key"
-                                        style={{ left: `${blackLefts[idx]}px` }}
-                                        onMouseDown={() => onPlay(pc, octaveValue)}
-                                        onTouchStart={() => onPlay(pc, octaveValue)}
-                                        role="button"
-                                        aria-label={`Play ${pc} at octave ${octaveValue}`}
-                                    />
-                                ))}
+                                    );
+                                })}
                             </div>
                         ))}
                     </div>
