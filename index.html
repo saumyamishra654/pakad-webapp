@@ -222,6 +222,7 @@
             const nextProgIdRef = useRef(1);
 
             // Rhythm cycle state
+            const [rhythmMode, setRhythmMode] = useState(false); // Toggle between old progression and rhythm cycle
             const [cycleBeats, setCycleBeats] = useState(8);
             const [cycleBpm, setCycleBpm] = useState(120);
             const [cycleLoop, setCycleLoop] = useState(true);
@@ -2655,6 +2656,34 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                     ? 'Available Custom Chords' 
                                     : ` ${chordTypes.find(c => c.id === selectedChordType)?.name} Chords`}
                             </h2>
+                            {/* Rhythm Mode Toggle */}
+                            <div className="mb-4 flex items-center gap-2">
+                                <span className="text-sm font-medium text-gray-700">Progression Mode:</span>
+                                <button 
+                                    onClick={() => setRhythmMode(false)}
+                                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                        !rhythmMode 
+                                            ? 'bg-blue-600 text-white shadow-md' 
+                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                    }`}
+                                >
+                                    Simple
+                                </button>
+                                <button 
+                                    onClick={() => setRhythmMode(true)}
+                                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                        rhythmMode 
+                                            ? 'bg-blue-600 text-white shadow-md' 
+                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                    }`}
+                                >
+                                    Rhythm Cycle
+                                </button>
+                            </div>
+
+                            {/* Simple Progression Mode (Original) */}
+                            {!rhythmMode && (
+                            <>
                             {/* Progression drop area */}
                             <div onDragOver={(e) => e.preventDefault()} onDrop={(e) => {
                                 e.preventDefault();
@@ -3304,21 +3333,23 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                     </div>
                                 )
                             )}
-                        </div>
+                        </>
+                        )}
 
-                        {/* Rhythm Cycle Section */}
-                        <div className="bg-white rounded-xl p-6 mt-8 shadow-lg border">
+                        {/* Rhythm Cycle Mode */}
+                        {rhythmMode && (
+                        <>
                             <div className="flex items-center justify-between mb-4">
-                                <h2 className="text-xl font-semibold text-gray-800">Rhythm Cycle</h2>
+                                <h3 className="text-lg font-semibold text-gray-800">Rhythm Cycle</h3>
                                 <div className="flex items-center gap-3">
                                     <label className="flex items-center gap-2 text-sm">
                                         <span className="text-gray-700">Beats:</span>
                                         <input 
                                             type="number" 
                                             min="2" 
-                                            max="32" 
+                                            max="18" 
                                             value={cycleBeats}
-                                            onChange={(e) => setCycleBeats(Math.max(2, Math.min(32, parseInt(e.target.value) || 8)))}
+                                            onChange={(e) => setCycleBeats(Math.max(2, Math.min(18, parseInt(e.target.value) || 8)))}
                                             className="w-16 px-2 py-1 border rounded text-sm"
                                         />
                                     </label>
@@ -3407,22 +3438,34 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                                     {beatIndex + 1}
                                                 </div>
                                                 <div className="space-y-1">
-                                                    {chordsOnBeat.map(item => (
-                                                        <div 
-                                                            key={item.id}
-                                                            className="bg-indigo-100 border border-indigo-300 rounded px-2 py-1 text-xs relative group"
-                                                        >
-                                                            <div className="font-medium text-gray-800 truncate">
-                                                                {item.chord.westernName || `${item.chord.rootName} ${item.chord.type?.name || ''}`}
-                                                            </div>
-                                                            <button
-                                                                onClick={() => setCycleChords(prev => prev.filter(c => c.id !== item.id))}
-                                                                className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-xs hidden group-hover:flex items-center justify-center"
+                                                    {chordsOnBeat.map(item => {
+                                                        const chordType = item.chord.type || {};
+                                                        const bgColor = chordType.color || '#6366f1';
+                                                        return (
+                                                            <div 
+                                                                key={item.id}
+                                                                className="bg-white border rounded px-2 py-1.5 text-xs relative group shadow-sm"
+                                                                style={{ borderColor: bgColor }}
                                                             >
-                                                                ×
-                                                            </button>
-                                                        </div>
-                                                    ))}
+                                                                <div className="flex items-center gap-1 mb-0.5">
+                                                                    <div 
+                                                                        className="w-2 h-2 rounded-full flex-shrink-0" 
+                                                                        style={{ backgroundColor: bgColor }}
+                                                                    ></div>
+                                                                    <span className="font-medium text-gray-800 truncate text-xs">
+                                                                        {item.chord.westernName || `${item.chord.rootName} ${chordType.name || ''}`}
+                                                                    </span>
+                                                                </div>
+                                                                <button
+                                                                    onClick={() => setCycleChords(prev => prev.filter(c => c.id !== item.id))}
+                                                                    className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full text-xs opacity-0 group-hover:opacity-100 flex items-center justify-center font-bold transition-opacity shadow-md"
+                                                                    title="Remove chord"
+                                                                >
+                                                                    ×
+                                                                </button>
+                                                            </div>
+                                                        );
+                                                    })}
                                                 </div>
                                             </div>
                                         );
@@ -3432,6 +3475,8 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                     Drag chords from above onto the timeline
                                 </div>
                             </div>
+                        </>
+                        )}
                         </div>
 
                         {/* chords outside raga section */}
