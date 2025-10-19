@@ -221,6 +221,15 @@
             const [progression, setProgression] = useState([]); // [{id, chord}]
             const nextProgIdRef = useRef(1);
 
+            // Rhythm cycle state
+            const [cycleBeats, setCycleBeats] = useState(8);
+            const [cycleBpm, setCycleBpm] = useState(120);
+            const [cycleLoop, setCycleLoop] = useState(true);
+            const [cycleIsPlaying, setCycleIsPlaying] = useState(false);
+            const [cycleCurrentBeat, setCycleCurrentBeat] = useState(0);
+            const [cycleChords, setCycleChords] = useState([]); // [{id, chord, beat, duration}]
+            const cycleIntervalRef = useRef(null);
+
             // progression persistence
             useEffect(() => {
                 try {
@@ -1565,6 +1574,72 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                 window.addEventListener('keydown', handleKeyPress);
                 return () => window.removeEventListener('keydown', handleKeyPress);
             }, [audioContext]);
+
+            // Rhythm cycle playback logic
+            useEffect(() => {
+                if (!cycleIsPlaying || !audioContext) {
+                    if (cycleIntervalRef.current) {
+                        clearInterval(cycleIntervalRef.current);
+                        cycleIntervalRef.current = null;
+                    }
+                    return;
+                }
+
+                const beatDuration = (60 / cycleBpm) * 1000; // milliseconds per beat
+                let currentBeat = 0;
+
+                const playBeat = async () => {
+                    setCycleCurrentBeat(currentBeat);
+
+                    // Find chords that start on this beat
+                    const chordsToPlay = cycleChords.filter(item => {
+                        const beatStart = Math.floor(item.beat);
+                        return beatStart === currentBeat;
+                    });
+
+                    // Play each chord
+                    for (const item of chordsToPlay) {
+                        try {
+                            if (audioContext.state === 'suspended') {
+                                await audioContext.resume();
+                            }
+                            const notes = item.chord.notes;
+                            const arranged = arrangeChordNotes(notes, baseOctave);
+                            const duration = item.duration || 1; // default 1 beat
+                            const durationSeconds = (60 / cycleBpm) * duration;
+                            
+                            arranged.forEach(n => {
+                                playNote(n.noteIndex, n.octave, durationSeconds, 0);
+                            });
+                        } catch (err) {
+                            console.error('Cycle playback error:', err);
+                        }
+                    }
+
+                    // Move to next beat
+                    currentBeat++;
+                    if (currentBeat >= cycleBeats) {
+                        if (cycleLoop) {
+                            currentBeat = 0; // Loop back
+                        } else {
+                            setCycleIsPlaying(false); // Stop at end
+                            setCycleCurrentBeat(0);
+                            return; // Exit to prevent further intervals
+                        }
+                    }
+                };
+
+                // Start the interval
+                playBeat(); // Play immediately
+                cycleIntervalRef.current = setInterval(playBeat, beatDuration);
+
+                return () => {
+                    if (cycleIntervalRef.current) {
+                        clearInterval(cycleIntervalRef.current);
+                        cycleIntervalRef.current = null;
+                    }
+                };
+            }, [cycleIsPlaying, cycleBpm, cycleBeats, cycleLoop, cycleChords, audioContext, baseOctave]);
 
             // current patterns from selected raga or custom scale
             const getCurrentPatterns = () => {
@@ -3229,6 +3304,134 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                     </div>
                                 )
                             )}
+                        </div>
+
+                        {/* Rhythm Cycle Section */}
+                        <div className="bg-white rounded-xl p-6 mt-8 shadow-lg border">
+                            <div className="flex items-center justify-between mb-4">
+                                <h2 className="text-xl font-semibold text-gray-800">Rhythm Cycle</h2>
+                                <div className="flex items-center gap-3">
+                                    <label className="flex items-center gap-2 text-sm">
+                                        <span className="text-gray-700">Beats:</span>
+                                        <input 
+                                            type="number" 
+                                            min="2" 
+                                            max="32" 
+                                            value={cycleBeats}
+                                            onChange={(e) => setCycleBeats(Math.max(2, Math.min(32, parseInt(e.target.value) || 8)))}
+                                            className="w-16 px-2 py-1 border rounded text-sm"
+                                        />
+                                    </label>
+                                    <label className="flex items-center gap-2 text-sm">
+                                        <span className="text-gray-700">BPM:</span>
+                                        <input 
+                                            type="number" 
+                                            min="40" 
+                                            max="240" 
+                                            value={cycleBpm}
+                                            onChange={(e) => setCycleBpm(Math.max(40, Math.min(240, parseInt(e.target.value) || 120)))}
+                                            className="w-16 px-2 py-1 border rounded text-sm"
+                                        />
+                                    </label>
+                                    <label className="flex items-center gap-2 text-sm">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={cycleLoop}
+                                            onChange={(e) => setCycleLoop(e.target.checked)}
+                                            className="form-checkbox h-4 w-4 text-blue-600"
+                                        />
+                                        <span className="text-gray-700">Loop</span>
+                                    </label>
+                                    <button 
+                                        onClick={() => {
+                                            if (cycleIsPlaying) {
+                                                setCycleIsPlaying(false);
+                                                setCycleCurrentBeat(0);
+                                            } else {
+                                                setCycleCurrentBeat(0);
+                                                setCycleIsPlaying(true);
+                                            }
+                                        }}
+                                        className={`px-4 py-2 rounded text-sm font-medium ${
+                                            cycleIsPlaying 
+                                                ? 'bg-red-500 hover:bg-red-600 text-white' 
+                                                : 'bg-green-500 hover:bg-green-600 text-white'
+                                        }`}
+                                    >
+                                        {cycleIsPlaying ? '⏸ Stop' : '▶ Play'}
+                                    </button>
+                                    <button 
+                                        onClick={() => setCycleChords([])}
+                                        className="px-3 py-2 rounded text-sm bg-gray-100 hover:bg-gray-200 text-gray-700"
+                                    >
+                                        Clear
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Timeline Grid */}
+                            <div className="relative border-2 border-gray-300 rounded-lg p-4 bg-gray-50">
+                                <div className="flex gap-1">
+                                    {Array.from({ length: cycleBeats }).map((_, beatIndex) => {
+                                        const isCurrentBeat = cycleIsPlaying && cycleCurrentBeat === beatIndex;
+                                        const chordsOnBeat = cycleChords.filter(item => Math.floor(item.beat) === beatIndex);
+                                        
+                                        return (
+                                            <div
+                                                key={beatIndex}
+                                                className={`flex-1 min-w-[60px] border-2 rounded p-2 transition-all ${
+                                                    isCurrentBeat 
+                                                        ? 'bg-yellow-200 border-yellow-400' 
+                                                        : beatIndex === 0 
+                                                            ? 'bg-blue-50 border-blue-300' 
+                                                            : 'bg-white border-gray-300'
+                                                }`}
+                                                onDragOver={(e) => e.preventDefault()}
+                                                onDrop={(e) => {
+                                                    e.preventDefault();
+                                                    try {
+                                                        const data = e.dataTransfer.getData('application/json');
+                                                        if (!data) return;
+                                                        const chord = JSON.parse(data);
+                                                        setCycleChords(prev => [...prev, {
+                                                            id: Date.now(),
+                                                            chord,
+                                                            beat: beatIndex,
+                                                            duration: 1
+                                                        }]);
+                                                    } catch {}
+                                                }}
+                                                style={{ minHeight: '80px' }}
+                                            >
+                                                <div className="text-xs text-gray-500 font-semibold mb-1">
+                                                    {beatIndex + 1}
+                                                </div>
+                                                <div className="space-y-1">
+                                                    {chordsOnBeat.map(item => (
+                                                        <div 
+                                                            key={item.id}
+                                                            className="bg-indigo-100 border border-indigo-300 rounded px-2 py-1 text-xs relative group"
+                                                        >
+                                                            <div className="font-medium text-gray-800 truncate">
+                                                                {item.chord.westernName || `${item.chord.rootName} ${item.chord.type?.name || ''}`}
+                                                            </div>
+                                                            <button
+                                                                onClick={() => setCycleChords(prev => prev.filter(c => c.id !== item.id))}
+                                                                className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-xs hidden group-hover:flex items-center justify-center"
+                                                            >
+                                                                ×
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                <div className="mt-2 text-xs text-gray-600 text-center">
+                                    Drag chords from above onto the timeline
+                                </div>
+                            </div>
                         </div>
 
                         {/* chords outside raga section */}
