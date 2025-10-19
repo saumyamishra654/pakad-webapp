@@ -2106,35 +2106,45 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                             highlightedNotes={
                                                 showRagaNotesOnKeyboard && selectedRaga
                                                     ? (() => {
-                                                        // Get the raga notes (0-11 in Sa-based notation)
-                                                        const ragaNotes = customScaleMode
-                                                            ? Object.keys(customNotePattern).filter(i => customNotePattern[i]).map(Number)
-                                                            : Object.keys(getCurrentPatterns().all).filter(i => getCurrentPatterns().all[i]).map(Number);
-                                                        
-                                                        // If tonic is selected, transpose the notes to western notation
-                                                        if (selectedTonic !== null) {
-                                                            return ragaNotes.map(note => (note + selectedTonic) % 12);
+                                                        try {
+                                                            // Get the raga notes (0-11 in Sa-based notation)
+                                                            const ragaNotes = customScaleMode
+                                                                ? Object.keys(customNotePattern).filter(i => customNotePattern[i]).map(Number)
+                                                                : Object.keys(getCurrentPatterns().all).filter(i => getCurrentPatterns().all[i]).map(Number);
+                                                            
+                                                            // If tonic is selected, transpose the notes to western notation
+                                                            if (selectedTonic !== null) {
+                                                                return ragaNotes.map(note => (note + selectedTonic) % 12);
+                                                            }
+                                                            return ragaNotes;
+                                                        } catch (e) {
+                                                            console.error('Error computing highlighted notes:', e);
+                                                            return [];
                                                         }
-                                                        return ragaNotes;
                                                     })()
                                                     : []
                                             }
                                             swarLabels={
                                                 showRagaNotesOnKeyboard && selectedRaga
                                                     ? (() => {
-                                                        // Get the raga notes (0-11 in Sa-based notation)
-                                                        const ragaNotes = customScaleMode
-                                                            ? Object.keys(customNotePattern).filter(i => customNotePattern[i]).map(Number)
-                                                            : Object.keys(getCurrentPatterns().all).filter(i => getCurrentPatterns().all[i]).map(Number);
-                                                        
-                                                        // Create mapping from western piano key (pc) to swar index
-                                                        const mapping = {};
-                                                        ragaNotes.forEach(swarIndex => {
-                                                            // If tonic is selected, calculate the western pc for this swar
-                                                            const westernPc = selectedTonic !== null ? (swarIndex + selectedTonic) % 12 : swarIndex;
-                                                            mapping[westernPc] = swarIndex;
-                                                        });
-                                                        return mapping;
+                                                        try {
+                                                            // Get the raga notes (0-11 in Sa-based notation)
+                                                            const ragaNotes = customScaleMode
+                                                                ? Object.keys(customNotePattern).filter(i => customNotePattern[i]).map(Number)
+                                                                : Object.keys(getCurrentPatterns().all).filter(i => getCurrentPatterns().all[i]).map(Number);
+                                                            
+                                                            // Create mapping from western piano key (pc) to swar index
+                                                            const mapping = {};
+                                                            ragaNotes.forEach(swarIndex => {
+                                                                // If tonic is selected, calculate the western pc for this swar
+                                                                const westernPc = selectedTonic !== null ? (swarIndex + selectedTonic) % 12 : swarIndex;
+                                                                mapping[westernPc] = swarIndex;
+                                                            });
+                                                            return mapping;
+                                                        } catch (e) {
+                                                            console.error('Error computing swar labels:', e);
+                                                            return null;
+                                                        }
                                                     })()
                                                     : null
                                             }
@@ -3413,7 +3423,7 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
         };
 
         // simple 3-octave piano keyboard, swara-based (Sa=0) with black/white layout
-        function PianoKeyboard({ onPlay, octaveSequence = [3, 4, 5], highlightedNotes = [] }) {
+        function PianoKeyboard({ onPlay, octaveSequence = [3, 4, 5], highlightedNotes = [], swarLabels = null }) {
             const wrapRef = React.useRef(null);
             React.useEffect(() => {
                 // center the scroll on mount (shows the middle octave initially)
@@ -3436,6 +3446,9 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                 WHITE_W * 6 - BLACK_W / 2   // between 9-11
             ];
             const octaveCount = octaveSequence.length;
+            
+            // Short swar labels for keyboard display
+            const shortSwarLabels = ['S', 'r', 'R', 'g', 'G', 'm', 'M', 'P', 'd', 'D', 'n', 'N'];
 
             return (
                 <div className="piano-wrap" ref={wrapRef}>
