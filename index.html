@@ -2119,6 +2119,25 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                                     })()
                                                     : []
                                             }
+                                            swarLabels={
+                                                showRagaNotesOnKeyboard && selectedRaga
+                                                    ? (() => {
+                                                        // Get the raga notes (0-11 in Sa-based notation)
+                                                        const ragaNotes = customScaleMode
+                                                            ? Object.keys(customNotePattern).filter(i => customNotePattern[i]).map(Number)
+                                                            : Object.keys(getCurrentPatterns().all).filter(i => getCurrentPatterns().all[i]).map(Number);
+                                                        
+                                                        // Create mapping from western piano key (pc) to swar index
+                                                        const mapping = {};
+                                                        ragaNotes.forEach(swarIndex => {
+                                                            // If tonic is selected, calculate the western pc for this swar
+                                                            const westernPc = selectedTonic !== null ? (swarIndex + selectedTonic) % 12 : swarIndex;
+                                                            mapping[westernPc] = swarIndex;
+                                                        });
+                                                        return mapping;
+                                                    })()
+                                                    : null
+                                            }
                                         />
                                     </div>
                                 )}
@@ -3430,6 +3449,8 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                 <div className="white-keys">
                                     {whitePC.map((pc, i) => {
                                         const isHighlighted = highlightedNotes.includes(pc);
+                                        // Get swar label if we have swarLabels prop (object mapping pc to swar index)
+                                        const swarLabel = isHighlighted && swarLabels ? shortSwarLabels[swarLabels[pc]] : null;
                                         return (
                                             <div
                                                 key={i}
@@ -3447,13 +3468,22 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                                             bottom: '8px',
                                                             left: '50%',
                                                             transform: 'translateX(-50%)',
-                                                            width: '6px',
-                                                            height: '6px',
+                                                            minWidth: '16px',
+                                                            height: '16px',
                                                             borderRadius: '50%',
                                                             backgroundColor: '#dc2626',
-                                                            zIndex: 10
+                                                            color: 'white',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            fontSize: '9px',
+                                                            fontWeight: 'bold',
+                                                            zIndex: 10,
+                                                            padding: '0 2px'
                                                         }}
-                                                    />
+                                                    >
+                                                        {swarLabel || ''}
+                                                    </div>
                                                 )}
                                             </div>
                                         );
@@ -3461,6 +3491,7 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                 </div>
                                 {blackPC.map((pc, idx) => {
                                     const isHighlighted = highlightedNotes.includes(pc);
+                                    const swarLabel = isHighlighted && swarLabels ? shortSwarLabels[swarLabels[pc]] : null;
                                     return (
                                         <div
                                             key={idx}
@@ -3478,13 +3509,22 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                                         bottom: '8px',
                                                         left: '50%',
                                                         transform: 'translateX(-50%)',
-                                                        width: '5px',
-                                                        height: '5px',
+                                                        minWidth: '14px',
+                                                        height: '14px',
                                                         borderRadius: '50%',
                                                         backgroundColor: '#dc2626',
-                                                        zIndex: 15
+                                                        color: 'white',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        fontSize: '8px',
+                                                        fontWeight: 'bold',
+                                                        zIndex: 15,
+                                                        padding: '0 2px'
                                                     }}
-                                                />
+                                                >
+                                                    {swarLabel || ''}
+                                                </div>
                                             )}
                                         </div>
                                     );
