@@ -92,10 +92,8 @@
             box-sizing: border-box;
     }
         .white-key:active { background: #bfdbfe; }
-        .white-key.highlighted { background: #ddd6fe; border-color: #a78bfa; }
         .dark-mode .white-key { background: #e5e7eb; border-color: #94a3b8; }
         .dark-mode .white-key:active { background: #93c5fd; }
-        .dark-mode .white-key.highlighted { background: #c4b5fd; border-color: #8b5cf6; }
         .black-key {
             position: absolute;
             top: 0;
@@ -108,10 +106,8 @@
             z-index: 5;
         }
         .black-key:active { background: #2563eb; }
-        .black-key.highlighted { background: #7c3aed; border-color: #6d28d9; }
         .dark-mode .black-key { background: #0b1220; border-color: #111827; }
         .dark-mode .black-key:active { background: #1d4ed8; }
-        .dark-mode .black-key.highlighted { background: #6d28d9; border-color: #5b21b6; }
     .white-key, .black-key { cursor: pointer; }
     </style>
 </head>
@@ -2109,9 +2105,18 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                             octaveSequence={AVAILABLE_OCTAVES}
                                             highlightedNotes={
                                                 showRagaNotesOnKeyboard && selectedRaga
-                                                    ? (customScaleMode
-                                                        ? Object.keys(customNotePattern).filter(i => customNotePattern[i]).map(Number)
-                                                        : Object.keys(getCurrentPatterns().all).filter(i => getCurrentPatterns().all[i]).map(Number))
+                                                    ? (() => {
+                                                        // Get the raga notes (0-11 in Sa-based notation)
+                                                        const ragaNotes = customScaleMode
+                                                            ? Object.keys(customNotePattern).filter(i => customNotePattern[i]).map(Number)
+                                                            : Object.keys(getCurrentPatterns().all).filter(i => getCurrentPatterns().all[i]).map(Number);
+                                                        
+                                                        // If tonic is selected, transpose the notes to western notation
+                                                        if (selectedTonic !== null) {
+                                                            return ragaNotes.map(note => (note + selectedTonic) % 12);
+                                                        }
+                                                        return ragaNotes;
+                                                    })()
                                                     : []
                                             }
                                         />
@@ -3428,12 +3433,29 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                         return (
                                             <div
                                                 key={i}
-                                                className={`white-key ${isHighlighted ? 'highlighted' : ''}`}
+                                                className="white-key"
                                                 onMouseDown={() => onPlay(pc, octaveValue)}
                                                 onTouchStart={() => onPlay(pc, octaveValue)}
                                                 role="button"
                                                 aria-label={`Play ${pc} at octave ${octaveValue}`}
-                                            />
+                                                style={{ position: 'relative' }}
+                                            >
+                                                {isHighlighted && (
+                                                    <div
+                                                        style={{
+                                                            position: 'absolute',
+                                                            bottom: '8px',
+                                                            left: '50%',
+                                                            transform: 'translateX(-50%)',
+                                                            width: '6px',
+                                                            height: '6px',
+                                                            borderRadius: '50%',
+                                                            backgroundColor: '#dc2626',
+                                                            zIndex: 10
+                                                        }}
+                                                    />
+                                                )}
+                                            </div>
                                         );
                                     })}
                                 </div>
@@ -3442,13 +3464,29 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                     return (
                                         <div
                                             key={idx}
-                                            className={`black-key ${isHighlighted ? 'highlighted' : ''}`}
-                                            style={{ left: `${blackLefts[idx]}px` }}
+                                            className="black-key"
+                                            style={{ left: `${blackLefts[idx]}px`, position: 'absolute' }}
                                             onMouseDown={() => onPlay(pc, octaveValue)}
                                             onTouchStart={() => onPlay(pc, octaveValue)}
                                             role="button"
                                             aria-label={`Play ${pc} at octave ${octaveValue}`}
-                                        />
+                                        >
+                                            {isHighlighted && (
+                                                <div
+                                                    style={{
+                                                        position: 'absolute',
+                                                        bottom: '8px',
+                                                        left: '50%',
+                                                        transform: 'translateX(-50%)',
+                                                        width: '5px',
+                                                        height: '5px',
+                                                        borderRadius: '50%',
+                                                        backgroundColor: '#dc2626',
+                                                        zIndex: 15
+                                                    }}
+                                                />
+                                            )}
+                                        </div>
                                     );
                                 })}
                             </div>
