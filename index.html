@@ -241,6 +241,10 @@
             ]);
             const [activeProgressionId, setActiveProgressionId] = useState(1);
             const progressionIntervalRefs = useRef({});
+            
+            // Arpeggiation and duration controls
+            const [arpeggiationDelay, setArpeggiationDelay] = useState(0.08); // seconds between notes
+            const [chordNoteDuration, setChordNoteDuration] = useState(1.0); // how long each note sustains
 
             // progression persistence
             useEffect(() => {
@@ -1844,6 +1848,26 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                 };
             }, [cycleIsPlaying, cycleBpm, cycleBeats, cycleLoop, cycleChords, audioContext, baseOctave]);
 
+            // Play a chord with arpeggiation
+            const playChordArpeggio = async (chord) => {
+                if (!audioContext) return;
+                try {
+                    if (audioContext.state === 'suspended') {
+                        await audioContext.resume();
+                    }
+                    const notes = chord.notes;
+                    const arranged = arrangeChordNotes(notes, baseOctave);
+                    
+                    // Play notes with delay between each
+                    arranged.forEach((n, index) => {
+                        const delay = index * arpeggiationDelay;
+                        playNote(n.noteIndex, n.octave, chordNoteDuration, delay);
+                    });
+                } catch (err) {
+                    console.error('Arpeggio playback error:', err);
+                }
+            };
+
             // Play individual rhythm progression
             const playRhythmProgression = (progressionId) => {
                 const progression = rhythmProgressions.find(p => p.id === progressionId);
@@ -2989,6 +3013,32 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                         />
                                         <span className="text-gray-700">Loop</span>
                                     </label>
+                                    <label className="flex items-center gap-2 text-sm">
+                                        <span className="text-gray-700">Arp Delay:</span>
+                                        <input 
+                                            type="number" 
+                                            min="0" 
+                                            max="1" 
+                                            step="0.01"
+                                            value={arpeggiationDelay}
+                                            onChange={(e) => setArpeggiationDelay(parseFloat(e.target.value) || 0.08)}
+                                            className="w-16 px-2 py-1 border rounded text-sm"
+                                            title="Delay between notes in seconds"
+                                        />
+                                    </label>
+                                    <label className="flex items-center gap-2 text-sm">
+                                        <span className="text-gray-700">Duration:</span>
+                                        <input 
+                                            type="number" 
+                                            min="0.1" 
+                                            max="5" 
+                                            step="0.1"
+                                            value={chordNoteDuration}
+                                            onChange={(e) => setChordNoteDuration(parseFloat(e.target.value) || 1.0)}
+                                            className="w-16 px-2 py-1 border rounded text-sm"
+                                            title="Note sustain duration in seconds"
+                                        />
+                                    </label>
                                 </div>
                             </div>
 
@@ -3272,8 +3322,10 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                                                         return (
                                                                             <div 
                                                                                 key={item.id}
-                                                                                className="bg-white border rounded px-2 py-1 text-xs relative group shadow-sm"
+                                                                                className="bg-white border rounded px-2 py-1 text-xs relative group shadow-sm cursor-pointer hover:shadow-md transition-shadow"
                                                                                 style={{ borderColor: bgColor }}
+                                                                                onClick={() => playChordArpeggio(item.chord)}
+                                                                                title="Click to play arpeggiated"
                                                                             >
                                                                                 <div className="flex items-center gap-1 mb-0.5">
                                                                                     <div 
@@ -3285,10 +3337,13 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                                                                     </span>
                                                                                 </div>
                                                                                 <button
-                                                                                    onClick={() => updateProgression(activeProgression.id, {
-                                                                                        chords: activeProgression.chords.filter(c => c.id !== item.id)
-                                                                                    })}
-                                                                                    className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-xs opacity-0 group-hover:opacity-100 flex items-center justify-center font-bold transition-opacity shadow-md"
+                                                                                    onClick={(e) => {
+                                                                                        e.stopPropagation();
+                                                                                        updateProgression(activeProgression.id, {
+                                                                                            chords: activeProgression.chords.filter(c => c.id !== item.id)
+                                                                                        });
+                                                                                    }}
+                                                                                    className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-xs opacity-0 group-hover:opacity-100 flex items-center justify-center font-bold transition-opacity shadow-md z-10"
                                                                                     title="Remove chord"
                                                                                 >
                                                                                     ×
