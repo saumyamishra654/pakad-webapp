@@ -373,7 +373,7 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
       const [results, setResults] = useState([]);
 
       // Note labels for both systems
-      const swarNames = ['Sa', 'Re♭', 'Re', 'Ga♭', 'Ga', 'Ma', 'Ma♯', 'Pa', 'Dha♭', 'Dha', 'Ni♭', 'Ni'];
+      const swarNames = ['Sa/I', 'Re♭/ii', 'Re/II', 'Ga♭/iii', 'Ga/III', 'Ma/IV', 'Ma♯/v', 'Pa/V', 'Dha♭/vi', 'Dha/VI', 'Ni♭/vii', 'Ni/VII'];
       const carnaticLabels = ['S','R1','R2','G1','R3','G2','G3','M1','M2','P','D1','D2','N1','D3','N2','N3'];
       
       // Dynamic label selection and selectable notes
@@ -1094,11 +1094,6 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                 <button onClick={() => setShowPiano(v => !v)} className="px-3 py-2 rounded-md text-sm font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 border">
                   show piano {showPiano ? '▲' : '▼'}
                 </button>
-                <div className="inline-block">
-                  <select value={baseOctave} onChange={(e)=> setBaseOctave(parseInt(e.target.value,10))} className="px-2 py-1 border rounded text-sm">
-                    {[2,3,4,5].map(o => <option key={o} value={o}>Octave {o}</option>)}
-                  </select>
-                </div>
                 {/* Music System Toggle (moved here) */}
                 <div className="inline-block ml-2">
                   <div className="flex items-center gap-2">
