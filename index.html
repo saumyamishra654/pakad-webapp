@@ -1153,6 +1153,95 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                 URL.revokeObjectURL(url);
             };
 
+            // Build MIDI from rhythm cycle
+            const buildMidiFromRhythmCycle = () => {
+                if (!cycleChords || cycleChords.length === 0) return null;
+                const TPQ = 480; // ticks per quarter
+                const tempoBPM = Math.max(1, Math.min(400, Number(cycleBpm) || 120));
+                const tempoUS = Math.round(60000000 / tempoBPM);
+                const beatDurTicks = TPQ; // 1 beat = 1 quarter note
+
+                const events = [];
+                const pushEvent = (delta, bytes) => {
+                    events.push(...writeVarLen(delta), ...bytes);
+                };
+
+                // tempo meta
+                pushEvent(0, [0xFF, 0x51, 0x03, (tempoUS >> 16) & 0xFF, (tempoUS >> 8) & 0xFF, tempoUS & 0xFF]);
+                // program change on selected channel
+                const ch = Math.max(1, Math.min(16, Number(midiChannel) || 1)) - 1; // 0-15
+                const program = Math.max(0, Math.min(127, Number(midiProgram) || 0));
+                pushEvent(0, [0xC0 | ch, program]);
+
+                const tonicOffset = (selectedTonic !== null ? selectedTonic : 0);
+                
+                // Sort chords by beat for proper timing
+                const sortedChords = [...cycleChords].sort((a, b) => a.beat - b.beat);
+                let currentTick = 0;
+
+                for (const item of sortedChords) {
+                    const chord = item.chord;
+                    if (!chord || !Array.isArray(chord.notes) || chord.notes.length === 0) continue;
+                    
+                    const targetTick = Math.floor(item.beat * beatDurTicks);
+                    const delta = targetTick - currentTick;
+                    
+                    const voiced = arrangeChordNotes(chord.notes, baseOctave);
+                    const midiNotes = voiced.map(n => 12 + (n.octave * 12 + n.noteIndex + tonicOffset));
+                    const vel = Math.max(1, Math.min(127, Number(midiVelocity) || 96));
+                    const duration = Math.floor((item.duration || 1) * beatDurTicks);
+                    
+                    // note on
+                    midiNotes.forEach((m, idx) => pushEvent(idx === 0 ? delta : 0, [0x90 | ch, Math.max(0, Math.min(127, m)), vel]));
+                    currentTick = targetTick;
+                    
+                    // note off after duration
+                    midiNotes.forEach((m, idx) => pushEvent(idx === 0 ? duration : 0, [0x80 | ch, Math.max(0, Math.min(127, m)), 64]));
+                    currentTick += duration;
+                }
+
+                // end of track
+                pushEvent(0, [0xFF, 0x2F, 0x00]);
+
+                // build track chunk
+                const trackData = Uint8Array.from(events);
+                const trackHeader = new Uint8Array(8);
+                trackHeader.set([0x4D, 0x54, 0x72, 0x6B]); // 'MTrk'
+                const trackLen = trackData.length;
+                trackHeader[4] = (trackLen >>> 24) & 0xFF;
+                trackHeader[5] = (trackLen >>> 16) & 0xFF;
+                trackHeader[6] = (trackLen >>> 8) & 0xFF;
+                trackHeader[7] = trackLen & 0xFF;
+
+                // build header chunk (format 0, 1 track, TPQ)
+                const header = new Uint8Array(14);
+                header.set([0x4D, 0x54, 0x68, 0x64, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01]);
+                header[12] = (TPQ >>> 8) & 0xFF;
+                header[13] = TPQ & 0xFF;
+
+                // concatenate
+                const out = new Uint8Array(header.length + trackHeader.length + trackData.length);
+                out.set(header, 0);
+                out.set(trackHeader, header.length);
+                out.set(trackData, header.length + trackHeader.length);
+                return out;
+            };
+
+            const downloadRhythmCycleAsMIDI = () => {
+                const bytes = buildMidiFromRhythmCycle();
+                if (!bytes) return;
+                const blob = new Blob([bytes], { type: 'audio/midi' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                const name = (selectedRagaName ? selectedRagaName.replace(/\s+/g, '_') : 'rhythm_cycle');
+                a.href = url;
+                a.download = `${name}_rhythm.mid`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+            };
+
             // Play a sequence of notes (chalan) in exact order
             const playChalan = async (chalan, startingOctave = baseOctave) => {
                 if (!audioContext || isPlaying || !chalan || chalan.length === 0) return;
@@ -2398,15 +2487,40 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
 
 
 
+                        {/* Rhythm Mode Toggle */}
+                        <div className="mt-4 mb-3 flex items-center gap-2">
+                            <span className="text-sm font-medium text-gray-700">Progression Mode:</span>
+                            <button 
+                                onClick={() => setRhythmMode(false)}
+                                className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                                    !rhythmMode 
+                                        ? 'bg-blue-600 text-white shadow-md' 
+                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                }`}
+                            >
+                                Simple
+                            </button>
+                            <button 
+                                onClick={() => setRhythmMode(true)}
+                                className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                                    rhythmMode 
+                                        ? 'bg-blue-600 text-white shadow-md' 
+                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                }`}
+                            >
+                                Rhythm Cycle
+                            </button>
+                        </div>
+
                         {/* Tab Navigation */}
-                        <div className="mt-4 mb-3">
+                        <div className="mb-3">
                             <div className="flex gap-2">
                                 <button
                                     onClick={() => {
                                         setActiveTab('chords');
                                         setCustomMode(false);
                                     }}
-                                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                                    className={`px-3 py-1.5 rounded-lg font-medium text-sm transition-colors ${
                                         activeTab === 'chords'
                                             ? 'bg-blue-500 text-white'
                                             : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -2419,7 +2533,7 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                         setActiveTab('custom');
                                         setCustomMode(true);
                                     }}
-                                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                                    className={`px-3 py-1.5 rounded-lg font-medium text-sm transition-colors ${
                                         activeTab === 'custom'
                                             ? 'bg-pink-500 text-white'
                                             : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -2656,30 +2770,6 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                     ? 'Available Custom Chords' 
                                     : ` ${chordTypes.find(c => c.id === selectedChordType)?.name} Chords`}
                             </h2>
-                            {/* Rhythm Mode Toggle */}
-                            <div className="mb-4 flex items-center gap-2">
-                                <span className="text-sm font-medium text-gray-700">Progression Mode:</span>
-                                <button 
-                                    onClick={() => setRhythmMode(false)}
-                                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                                        !rhythmMode 
-                                            ? 'bg-blue-600 text-white shadow-md' 
-                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                    }`}
-                                >
-                                    Simple
-                                </button>
-                                <button 
-                                    onClick={() => setRhythmMode(true)}
-                                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                                        rhythmMode 
-                                            ? 'bg-blue-600 text-white shadow-md' 
-                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                    }`}
-                                >
-                                    Rhythm Cycle
-                                </button>
-                            </div>
 
                             {/* Simple Progression Mode (Original) */}
                             {!rhythmMode && (
@@ -3339,9 +3429,9 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                         {/* Rhythm Cycle Mode */}
                         {rhythmMode && (
                         <>
-                            <div className="flex items-center justify-between mb-4">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3">
                                 <h3 className="text-lg font-semibold text-gray-800">Rhythm Cycle</h3>
-                                <div className="flex items-center gap-3">
+                                <div className="flex flex-wrap items-center gap-2">
                                     <label className="flex items-center gap-2 text-sm">
                                         <span className="text-gray-700">Beats:</span>
                                         <input 
@@ -3383,7 +3473,7 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                                 setCycleIsPlaying(true);
                                             }
                                         }}
-                                        className={`px-4 py-2 rounded text-sm font-medium ${
+                                        className={`px-3 py-1 rounded text-sm font-medium ${
                                             cycleIsPlaying 
                                                 ? 'bg-red-500 hover:bg-red-600 text-white' 
                                                 : 'bg-green-500 hover:bg-green-600 text-white'
@@ -3393,9 +3483,16 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                     </button>
                                     <button 
                                         onClick={() => setCycleChords([])}
-                                        className="px-3 py-2 rounded text-sm bg-gray-100 hover:bg-gray-200 text-gray-700"
+                                        className="px-2 py-1 rounded text-sm bg-gray-100 hover:bg-gray-200 text-gray-700"
                                     >
                                         Clear
+                                    </button>
+                                    <button 
+                                        onClick={downloadRhythmCycleAsMIDI}
+                                        disabled={cycleChords.length === 0}
+                                        className="px-2 py-1 rounded text-sm bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        Download MIDI
                                     </button>
                                 </div>
                             </div>
