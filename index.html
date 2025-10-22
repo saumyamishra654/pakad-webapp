@@ -3221,7 +3221,7 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
 
                                             {/* Timeline Grid */}
                                             <div className="relative border-2 border-gray-300 rounded-lg p-4 bg-gray-50">
-                                                <div className="flex gap-1">
+                                                <div className="flex flex-wrap gap-2">
                                                     {Array.from({ length: cycleBeats }).map((_, beatIndex) => {
                                                         const isCurrentBeat = activeProgression.isPlaying && activeProgression.currentBeat === beatIndex;
                                                         const chordsOnBeat = activeProgression.chords.filter(item => Math.floor(item.beat) === beatIndex);
@@ -3230,13 +3230,13 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                                         return (
                                                             <div
                                                                 key={beatIndex}
-                                                                className={`flex-1 min-w-[60px] border-2 rounded p-2 transition-all ${
+                                                                className={`flex-1 min-w-[60px] sm:min-w-[70px] basis-[calc(25%-0.5rem)] sm:basis-[calc(25%-0.5rem)] md:basis-auto border-2 rounded p-2 transition-all ${
                                                                     isCurrentBeat 
                                                                         ? 'bg-yellow-200 border-yellow-400' 
                                                                         : beatIndex === 0 
                                                                             ? 'bg-blue-50 border-blue-300' 
                                                                             : 'bg-white border-gray-300'
-                                                                } ${isBreakpoint ? 'mr-3 border-r-4 border-r-indigo-500' : ''}`}
+                                                                } ${isBreakpoint ? 'md:mr-3 md:border-r-4 md:border-r-indigo-500' : ''}`}
                                                                 onDragOver={(e) => e.preventDefault()}
                                                                 onDrop={(e) => {
                                                                     e.preventDefault();
