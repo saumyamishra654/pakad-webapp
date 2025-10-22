@@ -234,10 +234,10 @@
 
             // Multiple rhythm progressions
             const [rhythmProgressions, setRhythmProgressions] = useState([
-                { id: 1, name: 'Progression 1', chords: [], isPlaying: false, currentBeat: 0 },
-                { id: 2, name: 'Progression 2', chords: [], isPlaying: false, currentBeat: 0 },
-                { id: 3, name: 'Progression 3', chords: [], isPlaying: false, currentBeat: 0 },
-                { id: 4, name: 'Progression 4', chords: [], isPlaying: false, currentBeat: 0 }
+                { id: 1, name: '1', chords: [], isPlaying: false, currentBeat: 0 },
+                { id: 2, name: '2', chords: [], isPlaying: false, currentBeat: 0 },
+                { id: 3, name: '3', chords: [], isPlaying: false, currentBeat: 0 },
+                { id: 4, name: '4', chords: [], isPlaying: false, currentBeat: 0 }
             ]);
             const [activeProgressionId, setActiveProgressionId] = useState(1);
             const progressionIntervalRefs = useRef({});
@@ -2938,46 +2938,9 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                     : ` ${chordTypes.find(c => c.id === selectedChordType)?.name} Chords`}
                             </h2>
                             {/* Rhythm Cycle Mode */}
-                                {/* Global Controls */}
-                                <div className="flex flex-wrap items-center justify-between mb-4 gap-2">
-                                    <h3 className="text-lg font-semibold text-gray-800">Rhythm Progressions</h3>
-                                    <div className="flex flex-wrap items-center gap-2">
-                                        <label className="flex items-center gap-2 text-sm">
-                                            <span className="text-gray-700">Beats:</span>
-                                            <input 
-                                                type="number" 
-                                                min="2" 
-                                                max="18" 
-                                                value={cycleBeats}
-                                                onChange={(e) => setCycleBeats(Math.max(2, Math.min(18, parseInt(e.target.value) || 8)))}
-                                                className="w-16 px-2 py-1 border rounded text-sm"
-                                            />
-                                        </label>
-                                        <label className="flex items-center gap-2 text-sm">
-                                            <span className="text-gray-700">BPM:</span>
-                                            <input 
-                                                type="number" 
-                                                min="40" 
-                                                max="240" 
-                                                value={cycleBpm}
-                                                onChange={(e) => setCycleBpm(Math.max(40, Math.min(240, parseInt(e.target.value) || 120)))}
-                                                className="w-16 px-2 py-1 border rounded text-sm"
-                                            />
-                                        </label>
-                                        <label className="flex items-center gap-2 text-sm">
-                                            <input 
-                                                type="checkbox" 
-                                                checked={cycleLoop}
-                                                onChange={(e) => setCycleLoop(e.target.checked)}
-                                                className="form-checkbox h-4 w-4 text-blue-600"
-                                            />
-                                            <span className="text-gray-700">Loop</span>
-                                        </label>
-                                    </div>
-                                </div>
-
+                            <div className="flex flex-wrap items-center justify-between mb-4 gap-3">
                                 {/* Progression Tabs */}
-                                <div className="flex flex-wrap gap-1 mb-4">
+                                <div className="flex flex-wrap gap-1">
                                     {rhythmProgressions.map(progression => (
                                         <button
                                             key={progression.id}
@@ -2992,6 +2955,42 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                         </button>
                                     ))}
                                 </div>
+                                
+                                {/* Global Controls */}
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <label className="flex items-center gap-2 text-sm">
+                                        <span className="text-gray-700">Beats:</span>
+                                        <input 
+                                            type="number" 
+                                            min="2" 
+                                            max="18" 
+                                            value={cycleBeats}
+                                            onChange={(e) => setCycleBeats(Math.max(2, Math.min(18, parseInt(e.target.value) || 8)))}
+                                            className="w-16 px-2 py-1 border rounded text-sm"
+                                        />
+                                    </label>
+                                    <label className="flex items-center gap-2 text-sm">
+                                        <span className="text-gray-700">BPM:</span>
+                                        <input 
+                                            type="number" 
+                                            min="40" 
+                                            max="240" 
+                                            value={cycleBpm}
+                                            onChange={(e) => setCycleBpm(Math.max(40, Math.min(240, parseInt(e.target.value) || 120)))}
+                                            className="w-16 px-2 py-1 border rounded text-sm"
+                                        />
+                                    </label>
+                                    <label className="flex items-center gap-2 text-sm">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={cycleLoop}
+                                            onChange={(e) => setCycleLoop(e.target.checked)}
+                                            className="form-checkbox h-4 w-4 text-blue-600"
+                                        />
+                                        <span className="text-gray-700">Loop</span>
+                                    </label>
+                                </div>
+                            </div>
 
                                 {/* Active Progression Controls */}
                                 {(() => {
@@ -3244,8 +3243,14 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                                                         const data = e.dataTransfer.getData('application/json');
                                                                         if (!data) return;
                                                                         const chord = JSON.parse(data);
+                                                                        // Filter out any existing chords at this beat position
+                                                                        const updatedChords = activeProgression.chords.filter(
+                                                                            item => Math.floor(item.beat) !== beatIndex
+                                                                        );
+                                                                        
+                                                                        // Add the new chord
                                                                         updateProgression(activeProgression.id, {
-                                                                            chords: [...activeProgression.chords, {
+                                                                            chords: [...updatedChords, {
                                                                                 id: Date.now(),
                                                                                 chord,
                                                                                 beat: beatIndex,
@@ -3254,7 +3259,7 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                                                         });
                                                                     } catch {}
                                                                 }}
-                                                                style={{ minHeight: '80px' }}
+                                                                style={{ minHeight: '10px' }}
                                                             >
                                                                 <div className="text-xs text-gray-500 font-semibold mb-1">
                                                                     {beatIndex + 1}

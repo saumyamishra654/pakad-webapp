@@ -373,7 +373,7 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
       const [results, setResults] = useState([]);
 
       // Note labels for both systems
-      const swarNames = ['Sa/I', 'Re♭/ii', 'Re/II', 'Ga♭/iii', 'Ga/III', 'Ma/IV', 'Ma♯/v', 'Pa/V', 'Dha♭/vi', 'Dha/VI', 'Ni♭/vii', 'Ni/VII'];
+      const swarNames = ['Sa', 'Re♭', 'Re', 'Ga♭', 'Ga', 'Ma', 'Ma♯', 'Pa', 'Dha♭', 'Dha', 'Ni♭', 'Ni'];
       const carnaticLabels = ['S','R1','R2','G1','R3','G2','G3','M1','M2','P','D1','D2','N1','D3','N2','N3'];
       
       // Dynamic label selection and selectable notes
@@ -1356,6 +1356,35 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
         });
       }
     });
+  </script>
+
+  <script>
+    // Disable right-click
+    document.addEventListener('contextmenu', function(e) {
+      e.preventDefault();
+    });
+
+    // Disable specific keyboard shortcuts
+    document.onkeydown = function(e) {
+      if (e.keyCode == 123) { // Disable F12
+        return false;
+      }
+      if (e.ctrlKey && e.shiftKey && e.keyCode == 'I'.charCodeAt(0)) { // Disable Ctrl+Shift+I
+        return false;
+      }
+      if (e.ctrlKey && e.shiftKey && e.keyCode == 'C'.charCodeAt(0)) { // Disable Ctrl+Shift+C
+        return false;
+      }
+      if (e.ctrlKey && e.shiftKey && e.keyCode == 'J'.charCodeAt(0)) { // Disable Ctrl+Shift+J
+        return false;
+      }
+      if (e.ctrlKey && e.keyCode == 'U'.charCodeAt(0)) { // Disable Ctrl+U
+        return false;
+      }
+      if (e.ctrlKey && e.keyCode == 'S'.charCodeAt(0)) { // Disable Ctrl+S
+        return false;
+      }
+    };
   </script>
 </body>
 </html>
