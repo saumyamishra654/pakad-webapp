@@ -2937,34 +2937,7 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                     ? 'Available Custom Chords' 
                                     : ` ${chordTypes.find(c => c.id === selectedChordType)?.name} Chords`}
                             </h2>
-                            {/* Rhythm Mode Toggle */}
-                            <div className="mb-4 flex items-center gap-2">
-                                <span className="text-sm font-medium text-gray-700">Progression Mode:</span>
-                                <button 
-                                    onClick={() => setRhythmMode(false)}
-                                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                                        !rhythmMode 
-                                            ? 'bg-blue-600 text-white shadow-md' 
-                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                    }`}
-                                >
-                                    Simple
-                                </button>
-                                <button 
-                                    onClick={() => setRhythmMode(true)}
-                                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                                        rhythmMode 
-                                            ? 'bg-blue-600 text-white shadow-md' 
-                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                    }`}
-                                >
-                                    Rhythm Cycle
-                                </button>
-                            </div>
-
                             {/* Rhythm Cycle Mode */}
-                            {rhythmMode && (
-                            <>
                                 {/* Global Controls */}
                                 <div className="flex flex-wrap items-center justify-between mb-4 gap-2">
                                     <h3 className="text-lg font-semibold text-gray-800">Rhythm Progressions</h3>
@@ -3323,14 +3296,12 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                                     })}
                                                 </div>
                                                 <div className="mt-2 text-xs text-gray-600 text-center">
-                                                    Drag chords from above onto the timeline
+                                                    Drag chords onto the timeline
                                                 </div>
                                             </div>
                                         </div>
                                     );
                                 })()}
-                            </>
-                            )}
 
                             {/* Simple Progression Mode (Original) */}
                             {!rhythmMode && (
