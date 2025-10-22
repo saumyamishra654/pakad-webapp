@@ -4384,6 +4384,33 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<ChordFormationTool />);
+
+        // Disable right-click
+        document.addEventListener('contextmenu', function (e) {
+            e.preventDefault();
+        });
+
+        // Disable specific keyboard shortcuts
+        document.onkeydown = function (e) {
+            if (e.keyCode == 123) { // Disable F12
+                return false;
+            }
+            if (e.ctrlKey && e.shiftKey && e.keyCode == 'I'.charCodeAt(0)) { // Disable Ctrl+Shift+I
+                return false;
+            }
+            if (e.ctrlKey && e.shiftKey && e.keyCode == 'C'.charCodeAt(0)) { // Disable Ctrl+Shift+C
+                return false;
+            }
+            if (e.ctrlKey && e.shiftKey && e.keyCode == 'J'.charCodeAt(0)) { // Disable Ctrl+Shift+J
+                return false;
+            }
+            if (e.ctrlKey && e.keyCode == 'U'.charCodeAt(0)) { // Disable Ctrl+U
+                return false;
+            }
+            if (e.ctrlKey && e.keyCode == 'S'.charCodeAt(0)) { // Disable Ctrl+S
+                return false;
+            }
+        };
     </script>
 
         <div style="position: fixed; top: 10px; right: 10px; z-index: 1000; display: flex; gap: 8px;">
