@@ -3053,15 +3053,6 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                         </label>
                                     )}
                                     <label className="flex items-center gap-2 text-sm">
-                                        <input 
-                                            type="checkbox"
-                                            checked={cycleLoop}
-                                            onChange={(e) => setCycleLoop(e.target.checked)}
-                                            className="form-checkbox h-4 w-4 text-blue-600"
-                                        />
-                                        <span className="text-gray-700">Loop</span>
-                                    </label>
-                                    <label className="flex items-center gap-2 text-sm">
                                         <span className="text-gray-700">Duration:</span>
                                         <input 
                                             type="number" 
@@ -3073,6 +3064,15 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                             className="w-16 px-2 py-1 border rounded text-sm"
                                             title="Note sustain duration in seconds"
                                         />
+                                    </label>
+                                    <label className="flex items-center gap-2 text-sm">
+                                        <input 
+                                            type="checkbox"
+                                            checked={cycleLoop}
+                                            onChange={(e) => setCycleLoop(e.target.checked)}
+                                            className="form-checkbox h-4 w-4 text-blue-600"
+                                        />
+                                        <span className="text-gray-700">Loop</span>
                                     </label>
                                 </div>
                             </div>
