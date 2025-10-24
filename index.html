@@ -2387,51 +2387,63 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                 {/* Toggles & Custom Section */}
                                 <div className="px-3 flex gap-6">
                                     <div className="flex flex-wrap items-center gap-4">
-                                        <label className="inline-flex items-center">
-                                            <input
-                                                type="checkbox"
-                                                checked={separateAarohAvroh}
-                                                onChange={e => setSeparateAarohAvroh(e.target.checked)}
-                                                className="form-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
-                                            />
-                                            <span className="ml-2 text-xs text-gray-700">
-                                                Separate Aaroh/Avroh
-                                            </span>
-                                        </label>
-                                        <label className={`inline-flex items-center ${customScaleMode ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                                            <input
-                                                type="checkbox"
-                                                checked={showChordsOutsideRaga && !customScaleMode}
-                                                onChange={e => {
-                                                    if (!customScaleMode) {
-                                                        setShowChordsOutsideRaga(e.target.checked);
-                                                    }
-                                                }}
-                                                disabled={customScaleMode}
-                                                className="form-checkbox h-4 w-4 text-orange-600 rounded focus:ring-orange-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                                            />
-                                            <span className="ml-2 text-xs text-gray-700">
-                                                Show Chords Outside Raga
-                                            </span>
-                                        </label>
-                                        <label className="inline-flex items-center">
-                                            <input
-                                                type="checkbox"
-                                                checked={showRagaNotesOnKeyboard}
-                                                onChange={e => setShowRagaNotesOnKeyboard(e.target.checked)}
-                                                className="form-checkbox h-4 w-4 text-purple-600 rounded focus:ring-purple-500"
-                                            />
-                                            <span className="ml-2 text-xs text-gray-700">
-                                                Show Raga Notes on Keyboard
-                                            </span>
-                                        </label>
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1 invisible">
+                                                &nbsp;
+                                            </label>
+                                            <label className="inline-flex items-center">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={separateAarohAvroh}
+                                                    onChange={e => setSeparateAarohAvroh(e.target.checked)}
+                                                    className="form-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
+                                                />
+                                                <span className="ml-2 text-xs text-gray-700">
+                                                    Separate Aaroh/Avroh
+                                                </span>
+                                            </label>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1 invisible">
+                                                &nbsp;
+                                            </label>
+                                            <label className={`inline-flex items-center ${customScaleMode ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={showChordsOutsideRaga && !customScaleMode}
+                                                    onChange={e => {
+                                                        if (!customScaleMode) {
+                                                            setShowChordsOutsideRaga(e.target.checked);
+                                                        }
+                                                    }}
+                                                    disabled={customScaleMode}
+                                                    className="form-checkbox h-4 w-4 text-orange-600 rounded focus:ring-orange-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                />
+                                                <span className="ml-2 text-xs text-gray-700">
+                                                    Show Chords Outside Raga
+                                                </span>
+                                            </label>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1 invisible">
+                                                &nbsp;
+                                            </label>
+                                            <label className="inline-flex items-center">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={showRagaNotesOnKeyboard}
+                                                    onChange={e => setShowRagaNotesOnKeyboard(e.target.checked)}
+                                                    className="form-checkbox h-4 w-4 text-purple-600 rounded focus:ring-purple-500"
+                                                />
+                                                <span className="ml-2 text-xs text-gray-700">
+                                                    Show Raga Notes on Keyboard
+                                                </span>
+                                            </label>
+                                        </div>
                                     </div>
 
                                     <div>
-                                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                                            Scale:
-                                        </label>
-                                        <div className="space-y-1">
+                                        <div>
                                             <label className="inline-flex items-center">
                                                 <input
                                                     type="checkbox"
