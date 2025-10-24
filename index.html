@@ -3432,15 +3432,7 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                             <div className="relative border-2 border-gray-300 rounded-lg p-4 bg-gray-50">
                                                 {(() => {
                                                     // Mobile rules: Always single row, 4 beats max per row with wrapping
-                                                    const [windowWidth, setWindowWidth] = React.useState(window.innerWidth);
-                                                    
-                                                    React.useEffect(() => {
-                                                        const handleResize = () => setWindowWidth(window.innerWidth);
-                                                        window.addEventListener('resize', handleResize);
-                                                        return () => window.removeEventListener('resize', handleResize);
-                                                    }, []);
-                                                    
-                                                    const isMobile = windowWidth < 768; // md breakpoint
+                                                    const isMobile = window.innerWidth < 768; // md breakpoint
                                                     
                                                     if (isMobile) {
                                                         const beatsPerRow = Math.min(4, cycleBeats);
