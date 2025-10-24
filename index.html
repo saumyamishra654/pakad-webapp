@@ -252,6 +252,10 @@
             const [arpeggiationDelay, setArpeggiationDelay] = useState(0.08); // seconds between notes
             const [chordNoteDuration, setChordNoteDuration] = useState(1.0); // how long each note sustains
             const [rhythmPlaybackMode, setRhythmPlaybackMode] = useState('unison'); // 'unison' or 'melody'
+            
+            // Custom breakpoints
+            const [customBreakpoints, setCustomBreakpoints] = useState('4-4'); // default pattern
+            const [breakpointError, setBreakpointError] = useState('');
 
             // progression persistence
             useEffect(() => {
@@ -1789,6 +1793,82 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                 return () => window.removeEventListener('keydown', handleKeyPress);
             }, [audioContext]);
 
+            // Validate breakpoints pattern
+            const validateBreakpoints = (pattern, totalBeats) => {
+                // Only allow numbers and hyphens
+                if (!/^[\d-]+$/.test(pattern)) {
+                    return { valid: false, error: 'Only numbers and hyphens allowed' };
+                }
+                
+                // Split and parse
+                const parts = pattern.split('-').filter(p => p.length > 0);
+                if (parts.length === 0) {
+                    return { valid: false, error: 'Invalid pattern' };
+                }
+                
+                // Check if all parts are valid numbers
+                const numbers = parts.map(p => parseInt(p, 10));
+                if (numbers.some(n => isNaN(n) || n <= 0)) {
+                    return { valid: false, error: 'All segments must be positive numbers' };
+                }
+                
+                // Check if sum matches total beats
+                const sum = numbers.reduce((a, b) => a + b, 0);
+                if (sum !== totalBeats) {
+                    return { valid: false, error: `Sum (${sum}) must equal ${totalBeats} beats` };
+                }
+                
+                return { valid: true, breakpoints: numbers };
+            };
+
+            // Calculate breakpoint positions from pattern
+            const getBreakpointPositions = () => {
+                const validation = validateBreakpoints(customBreakpoints, cycleBeats);
+                if (!validation.valid) return [];
+                
+                const positions = [];
+                let cumulative = 0;
+                for (let i = 0; i < validation.breakpoints.length - 1; i++) {
+                    cumulative += validation.breakpoints[i];
+                    positions.push(cumulative - 1); // -1 because we mark the last beat of each section
+                }
+                return positions;
+            };
+
+            // Auto-adjust breakpoints when cycle beats change
+            useEffect(() => {
+                const validation = validateBreakpoints(customBreakpoints, cycleBeats);
+                if (!validation.valid) {
+                    // Adjust pattern to match new beat count
+                    const parts = customBreakpoints.split('-').filter(p => p.length > 0).map(p => parseInt(p, 10));
+                    if (parts.length === 0) {
+                        setCustomBreakpoints(cycleBeats.toString());
+                        setBreakpointError('');
+                        return;
+                    }
+                    
+                    const currentSum = parts.reduce((a, b) => a + b, 0);
+                    const diff = cycleBeats - currentSum;
+                    
+                    if (diff > 0) {
+                        // Add to last segment
+                        parts[parts.length - 1] += diff;
+                    } else if (diff < 0) {
+                        // Subtract from last segment
+                        parts[parts.length - 1] += diff; // diff is negative
+                        if (parts[parts.length - 1] <= 0) {
+                            // If last segment becomes 0 or negative, rebuild pattern
+                            setCustomBreakpoints(cycleBeats.toString());
+                            setBreakpointError('');
+                            return;
+                        }
+                    }
+                    
+                    setCustomBreakpoints(parts.join('-'));
+                }
+                setBreakpointError('');
+            }, [cycleBeats]);
+
             // Rhythm cycle playback logic
             useEffect(() => {
                 if (!cycleIsPlaying || !audioContext) {
@@ -3085,6 +3165,26 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                         />
                                     </label>
                                     <label className="flex items-center gap-2 text-sm">
+                                        <span className="text-gray-700">Breakpoints:</span>
+                                        <input 
+                                            type="text" 
+                                            value={customBreakpoints}
+                                            onChange={(e) => {
+                                                const pattern = e.target.value;
+                                                setCustomBreakpoints(pattern);
+                                                const result = validateBreakpoints(pattern, cycleBeats);
+                                                if (!result.valid) {
+                                                    setBreakpointError(result.error);
+                                                } else {
+                                                    setBreakpointError('');
+                                                }
+                                            }}
+                                            className={`w-24 px-2 py-1 border rounded text-sm ${breakpointError ? 'border-red-500' : ''}`}
+                                            title="Enter beat groupings (e.g., 3-3-2 for 8 beats)"
+                                            placeholder="4-4"
+                                        />
+                                    </label>
+                                    <label className="flex items-center gap-2 text-sm">
                                         <input 
                                             type="checkbox"
                                             checked={cycleLoop}
@@ -3094,6 +3194,11 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                         <span className="text-gray-700">Loop</span>
                                     </label>
                                 </div>
+                                {breakpointError && (
+                                    <div className="text-red-600 text-xs mt-1 w-full">
+                                        {breakpointError}
+                                    </div>
+                                )}
                             </div>
 
                                 {/* Active Progression Controls */}
@@ -3325,24 +3430,60 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
 
                                             {/* Timeline Grid */}
                                             <div className="relative border-2 border-gray-300 rounded-lg p-4 bg-gray-50">
-                                                <div className="flex flex-wrap gap-2">
-                                                    {Array.from({ length: cycleBeats }).map((_, beatIndex) => {
-                                                        const isCurrentBeat = activeProgression.isPlaying && activeProgression.currentBeat === beatIndex;
-                                                        const chordsOnBeat = activeProgression.chords.filter(item => Math.floor(item.beat) === beatIndex);
-                                                        const isBreakpoint = (beatIndex + 1) % 4 === 0 && beatIndex !== cycleBeats - 1;
-                                                        
-                                                        return (
-                                                            <div
-                                                                key={beatIndex}
-                                                                className={`flex-1 min-w-[60px] sm:min-w-[70px] basis-[calc(25%-0.5rem)] sm:basis-[calc(25%-0.5rem)] md:basis-auto border-2 rounded p-2 transition-all ${
-                                                                    isCurrentBeat 
-                                                                        ? 'bg-yellow-200 border-yellow-400' 
-                                                                        : beatIndex === 0 
-                                                                            ? 'bg-blue-50 border-blue-300' 
-                                                                            : 'bg-white border-gray-300'
-                                                                } ${isBreakpoint ? 'md:mr-3 md:border-r-4 md:border-r-indigo-500' : ''}`}
-                                                                onDragOver={(e) => e.preventDefault()}
-                                                                onDrop={(e) => {
+                                                {(() => {
+                                                    const beatsPerRow = cycleBeats <= 10 ? cycleBeats : Math.ceil(cycleBeats / 2);
+                                                    const rows = cycleBeats <= 10 ? 1 : 2;
+                                                    
+                                                    return (
+                                                        <div className="space-y-2">
+                                                            {Array.from({ length: rows }).map((_, rowIndex) => {
+                                                                const startBeat = rowIndex * beatsPerRow;
+                                                                const endBeat = Math.min(startBeat + beatsPerRow, cycleBeats);
+                                                                const beatsInRow = endBeat - startBeat;
+                                                                
+                                                                return (
+                                                                    <div key={rowIndex} className="flex gap-2">
+                                                                        {Array.from({ length: beatsInRow }).map((_, indexInRow) => {
+                                                                            const beatIndex = startBeat + indexInRow;
+                                                                            const isCurrentBeat = activeProgression.isPlaying && activeProgression.currentBeat === beatIndex;
+                                                                            const chordsOnBeat = activeProgression.chords.filter(item => Math.floor(item.beat) === beatIndex);
+                                                                            const breakpointPositions = getBreakpointPositions();
+                                                                            const isBreakpoint = breakpointPositions.includes(beatIndex) && beatIndex !== cycleBeats - 1;
+                                                                            
+                                                                            // Count breakpoints in this row for width calculation
+                                                                            const breakpointsInRow = Array.from({ length: beatsInRow }).filter((_, idx) => {
+                                                                                const beatIdx = startBeat + idx;
+                                                                                return breakpointPositions.includes(beatIdx) && beatIdx !== cycleBeats - 1;
+                                                                            }).length;
+                                                                            
+                                                                            // Calculate width accounting for:
+                                                                            // - Normal gaps: 0.5rem between all cells (beatsPerRow - 1 gaps)
+                                                                            // - Extra breakpoint margins: 0.75rem after each breakpoint
+                                                                            // - Reduced breakpoint cell width: 85% of normal
+                                                                            const normalGaps = (beatsPerRow - 1) * 0.5;
+                                                                            const breakpointExtraMargins = breakpointsInRow * 0.75;
+                                                                            const totalGaps = normalGaps + breakpointExtraMargins;
+                                                                            const totalUnits = beatsPerRow - (breakpointsInRow * 0.15);
+                                                                            const widthMultiplier = isBreakpoint ? 0.85 : 1.0;
+                                                                            
+                                                                            return (
+                                                                                <div
+                                                                                    key={beatIndex}
+                                                                                    className={`border-2 rounded p-2 transition-all ${
+                                                                                        isCurrentBeat 
+                                                                                            ? 'bg-yellow-200 border-yellow-400' 
+                                                                                            : beatIndex === 0 
+                                                                                                ? 'bg-blue-50 border-blue-300' 
+                                                                                                : 'bg-white border-gray-300'
+                                                                                    } ${isBreakpoint ? 'border-r-4 border-r-indigo-500' : ''}`}
+                                                                                    style={{ 
+                                                                                        minHeight: '10px',
+                                                                                        flex: `0 0 calc(((100% - ${totalGaps}rem) / ${totalUnits}) * ${widthMultiplier})`,
+                                                                                        minWidth: '60px',
+                                                                                        marginRight: isBreakpoint ? '0.75rem' : '0'
+                                                                                    }}
+                                                                                    onDragOver={(e) => e.preventDefault()}
+                                                                                    onDrop={(e) => {
                                                                     e.preventDefault();
                                                                     try {
                                                                         const data = e.dataTransfer.getData('application/json');
@@ -3364,7 +3505,6 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                                                         });
                                                                     } catch {}
                                                                 }}
-                                                                style={{ minHeight: '10px' }}
                                                             >
                                                                 <div className="text-xs text-gray-500 font-semibold mb-1">
                                                                     {beatIndex + 1}
@@ -3407,9 +3547,14 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                                                     })}
                                                                 </div>
                                                             </div>
+                                                                                );
+                                                                            })}
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
                                                         );
-                                                    })}
-                                                </div>
+                                                    })()}
                                                 <div className="mt-2 text-xs text-gray-600 text-center">
                                                     Drag chords onto the timeline
                                                 </div>
