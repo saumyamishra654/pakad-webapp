@@ -3921,6 +3921,7 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                             ) : (
                                 !separateAarohAvroh ? (
                                     <>
+                                        <h3 className="text-lg font-medium text-gray-700 mb-3">&nbsp;</h3>
                                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
                                             {(showMoreAvailable ? availableChordsAll : availableChordsAll.slice(0, 6)).map((chord, index) => (
                                                 <div 
@@ -3984,7 +3985,7 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                 ) : (
                                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                                         <div>
-                                            <h3 className="text-lg font-medium text-gray-700 mb-3">Aaroh Chords</h3>
+                                            <h3 className="text-lg font-medium text-gray-700 mb-3 mt-6">Aaroh Chords</h3>
                                             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                                                 {(showMoreAaroh ? availableChordsAaroh : availableChordsAaroh.slice(0, 6)).map((chord, index) => (
                                                     <div
@@ -4045,7 +4046,7 @@ Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
                                         </div>
                                         
                                         <div>
-                                            <h3 className="text-lg font-medium text-gray-700 mb-3">Avroh Chords</h3>
+                                            <h3 className="text-lg font-medium text-gray-700 mb-3 mt-6">Avroh Chords</h3>
                                             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                                                 {(showMoreAvroh ? availableChordsAvroh : availableChordsAvroh.slice(0, 6)).map((chord, index) => (
                                                     <div
