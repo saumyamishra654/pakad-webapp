@@ -1,0 +1,274 @@
+/**
+ * Hindustani Raga Data
+ * Extracted from the CSV embedded in the original HTML monoliths
+ * Contains 201+ ragas with aaroh/avroh patterns
+ */
+
+// Raw CSV data (preserved for reference and parsing)
+export const HINDUSTANI_RAGAS_CSV = `RAGATABLE,Aroha,Avroh
+Abheri Todi,S-R-G-m-P-d-n-S,S-n-d-P-m-Gg-Rr-S
+Abhogi,S-R-g-m-D-S,S-D-m-g-R-S
+Adana,S-R-m-P-d-n-S,S-n-d-P-m-g-R-S
+Adbhut Kalyan,S-R-G-D-N-S,S-N-D-G-R-S
+Adi Basant,S-G-m-D-N-S,S-N-D-Mm-G-R-r-S
+Ahir Bhairav,S-r-G-m-P-D-n-S,S-n-D-P-m-G-r-S
+Ahir Lalit,S-r-G-mM-D-n-S,S-n-D-Mm-G-r-S
+Ahiri,S-r-g-m-P-D-n-S,S-n-D-P-m-g-r-S
+Ahiri Todi,S-R-g-m-P-nN-S,S-Nn-D-P-m-g-Rr-S
+Alhaiya Bilawal,S-R-G-P-D-N-S,S-n-D-P-m-G-R-S
+Amirkhani Kauns,S-G-M-P-n-S,S-n-P-M-G-S
+Anjani Kalyan,S-R-g-M-P-D-N-S,S-N-D-P-M-g-R-S
+Annapurna,S-r-g-M-P-d-N-S,S-N-d-P-M-g-r-S
+Antardhwani,S-r-g-m-d-N-S,S-N-d-m-g-r-S
+Arun Malhar,S-R-G-m-P-D-nN-S,S-Nn-D-P-m-G-R-S
+Asa Bhairav,S-R-m-P-D-N-S,S-N-D-P-m-G-r-S
+Asavari,S-R-m-P-d-S,S-n-d-P-m-g-Rr-S
+Bageshri,S-R-g-m-D-n-S,S-n-D-P-m-g-R-S
+Bahar,S-R-g-m-P-D-N-S,S-n-P-m-g-R-S
+Bairagi,S-r-m-P-n-S,S-n-P-m-r-S
+Bairagi Todi,S-r-g-P-n-S,S-n-P-g-r-S
+Bangal Bhairav,S-r-G-m-P-d-S,S-d-P-m-G-r-S
+Basant,S-G-M-d-N-S,S-N-d-P-M-G-r-S
+Basant Mukhari,S-r-G-m-P-d-n-S,S-n-d-P-m-G-r-S
+Bhairav,S-r-G-m-P-d-N-S,S-N-d-P-m-G-r-S
+Bhairav Bahar,S-r-G-m-P-D-nN-S,S-n-D-P-m-G-r-S
+Bhairavi,S-r-g-m-P-d-n-S,S-n-d-P-m-g-r-S
+Bhatiyar,S-G-M-P-D-S,S-N-D-P-M-G-r-S
+Bhavani,S-R-m-D-S,S-D-m-R-S
+Bheem,S-G-m-P-n-S,S-n-D-P-m-G-R-S
+Bhimpalasi,S-g-m-P-n-S,S-n-D-P-m-g-R-S
+Bhinna Shadja,S-G-m-D-N-S,S-N-D-m-G-S
+Bhupali,S-R-G-P-D-S,S-D-P-G-R-S
+Bhupali Todi,S-r-g-P-d-S,S-d-P-g-r-S
+Bibhas,S-r-G-P-d-S,S-d-P-G-r-S
+Bihad Bhairav,S-r-m-P-d-n-S,S-Nn-d-P-m-Gg-r-S
+Bihag,S-G-m-P-N-S,S-N-D-P-Mm-G-R-S
+Bilaskhani Todi,S-r-g-P-d-S,S-n-d-P-m-g-r-S
+Champak,S-R-G-m-P-D-N-S,S-n-D-P-m-G-R-S
+Chandni Bihag,S-G-m-P-D-n-S,S-Nn-D-P-Mm-G-S
+Chandni Kedar,S-G-M-P-D-N-S,S-n-D-P-Mm-G-R-S
+Chandrakauns,S-g-m-d-N-S,S-N-d-m-g-S
+Chandrakaushiki,S-R-g-m-d-N-S,S-Nn-d-m-g-R-S
+Chandramadhu,S-g-M-P-n-S,S-n-P-M-g-S
+Chandranandan,S-g-m-d-n-S,S-Nn-d-P-m-g-R-S
+Charukeshi,S-R-G-m-P-d-n-S,S-n-d-P-m-G-R-S
+Chayanat,S-R-G-m-P-D-N-S,S-N-D-P-Mm-G-R-S
+Dagori,S-R-G-m-P-D-N-S,S-N-D-P-m-G-R-S
+Darbari,S-R-g-m-P-d-n-S,S-n-d-P-m-g-R-S
+Darjeeling,S-r-g-m-P-D-n-S,S-n-d-P-m-g-r-S
+Deen Todi,S-r-g-m-D-n-S,S-n-D-m-g-r-S
+Des Malhar,S-R-G-m-P-N-S,S-Nn-D-P-m-G-R-S
+Desh,S-R-m-P-D-n-S,S-Nn-D-P-m-G-R-S
+Deshkar,S-R-G-P-D-S,S-D-P-G-R-S
+Desi,S-R-m-P-D-n-S,S-n-D-P-m-g-R-S
+Dev Gandhar,S-R-gG-m-P-d-n-S,S-n-d-P-m-Gg-R-S
+Devata Bhairav,S-r-G-m-P-d-N-S,S-N-d-P-m-g-r-S
+Devgandhari Todi,S-R-G-m-P-d-n-S,S-n-D-P-m-g-Rr-S
+Devgiri Bilawal,S-R-G-P-D-N-S,S-Nn-D-P-m-G-R-S
+Devranjani,S-m-P-d-N-S,S-N-d-P-m-S
+Devshri,S-R-M-P-n-S,S-n-P-M-R-S
+Dhani,S-g-m-P-n-S,S-n-P-m-g-S
+Din ki Puriya,S-r-G-M-d-N-S,S-N-d-M-G-r-S
+Durga,S-R-m-P-D-S,S-D-P-m-R-S
+Durgawati,S-R-m-P-D-S,S-n-D-P-m-R-S
+Enayetkhani Kanada,S-R-gG-m-P-d-nN-S,S-n-d-P-m-g-R-S
+Gandhari,S-R-g-m-P-d-n-S,S-n-d-P-m-g-r-S
+Gangeshwari,S-G-m-P-d-n-S,S-n-d-P-m-G-S
+Gaoti,S-G-m-P-n-S,S-n-D-P-m-G-R-S
+Gaud Malhar,S-R-G-m-P-D-N-S,S-N-D-P-m-G-R-S
+Gaud Sarang,S-R-G-m-P-D-N-S,S-N-D-P-Mm-G-R-S
+Gauri,S-r-G-m-P-d-N-S,S-N-d-P-m-G-r-S
+Gopika Basant,S-g-m-P-d-n-S,S-n-d-P-m-g-S
+Gorakh Kalyan,S-R-m-D-n-S,S-n-D-P-m-R-S
+Gujiri Todi,S-r-g-M-d-N-S,S-N-d-M-g-r-S
+Gunakri,S-r-m-P-d-S,S-d-P-m-r-S
+Gunkali,S-r-m-P-d-S,S-d-P-m-r-S
+Hameer,S-G-m-P-D-N-S,S-N-D-P-Mm-G-R-S
+Hansa Narayani,S-r-G-M-P-N-S,S-N-P-M-G-r-S
+Hansadhwani,S-R-G-P-N-S,S-N-P-G-R-S
+Hanskinkini,S-G-m-P-N-S,S-n-D-P-m-Gg-R-S
+Harikauns,S-g-M-D-n-S,S-n-D-M-g-S
+Hem Bihag,S-R-G-m-P-N-S,S-N-D-P-m-G-R-S
+Hemant,S-G-m-D-N-S,S-N-D-P-m-G-R-S
+Hemshri,S-g-m-P-N-S,S-n-P-m-g-S
+Hindol,S-G-M-D-N-S,S-N-D-M-G-S
+Hussaini Kanada,S-R-g-m-P-D-n-S,S-n-D-P-m-g-R-S
+Imratkauns,S-R-G-m-d-n-S,S-n-d-m-G-R-S
+Jaijaiwanti,S-R-gG-m-P-N-S,S-Nn-D-P-m-Gg-R-S
+Jait,S-R-G-P-D-S,S-D-P-G-Rr-S
+Jait Kalyan,S-R-G-P-D-S,S-D-P-G-R-S
+Jaitashree,S-G-P-N-S,S-N-d-P-M-G-r-S
+Jaiwanti Todi,S-r-g-m-P-D-n-S,S-D-P-m-g-r-S
+Jaldhar Kedar,S-R-m-P-D-S,S-D-P-m-R-S
+Jansammohini,S-G-P-D-n-S,S-n-D-P-G-R-S
+Jaunpuri,S-R-m-P-d-n-S,S-n-d-P-m-g-R-S
+Jhinjhoti,S-R-m-P-D-S,S-n-D-P-m-G-R-S
+Jog,S-G-m-P-n-S,S-n-P-m-Gg-S
+Jogeshwari,S-G-m-D-n-S,S-n-D-m-Gg-S
+Jogeshwari Pancham,S-G-m-P-D-n-S,S-n-D-P-m-Gg-S
+Jogiya,S-r-m-P-d-S,S-N-d-P-m-r-S
+Jogkauns,S-G-m-d-N-S,S-N-d-P-m-Gg-S
+Kafi,S-R-g-m-P-D-n-S,S-n-D-P-m-g-R-S
+Kalashri,S-G-P-D-n-S,S-n-D-P-m-G-R-S
+Kalavati,S-G-P-D-n-S,S-n-D-P-G-S
+Kalingada,S-r-G-m-P-d-N-S,S-N-d-P-m-G-r-S
+Kambhoji,S-R-G-P-D-n-S,S-n-D-P-m-G-R-S
+Kameshwari,S-R-M-P-D-n-S,S-n-D-P-M-R-S
+Kamod,S-R-G-m-P-D-N-S,S-N-D-P-Mm-G-R-S
+Kaunsi Kanada,S-g-m-d-n-S,S-n-d-P-m-g-R-S
+Kaushik Dhwani,S-G-m-D-N-S,S-N-D-m-G-S
+Kedar,S-M-P-D-N-S,S-N-D-P-Mm-R-S
+Khamaj,S-G-m-P-D-N-S,S-n-D-P-m-G-R-S
+Khambavati,S-R-m-P-D-S,S-n-D-P-m-G-R-S
+Khat,S-R-g-m-P-d-n-S,S-n-D-P-m-g-R-S
+Khem Kalyan,S-G-P-N-S,S-N-D-P-Mm-G-R-S
+Kirwani,S-R-g-m-P-d-N-S,S-N-d-P-m-g-R-S
+Lakshmi Todi,S-rR-gG-m-P-D-n-S,S-n-Dd-P-m-g-Rr-S
+Lalit,S-r-G-M-d-N-S,S-N-d-Mm-G-r-S
+Lanka Dahan Sarang,S-R-m-P-N-S,S-n-D-P-m-g-R-S
+Madhukauns,S-g-M-P-n-S,S-n-P-M-g-S
+Madhumad Sarang,S-R-m-P-n-S,S-n-P-m-R-S
+Madhuradhwani,S-G-m-D-N-S,S-n-D-m-G-S
+Madhuranjani,S-g-m-P-N-S,S-N-P-m-g-S
+Madhuvanti,S-g-M-P-N-S,S-N-D-P-M-g-R-S
+Malashree,S-G-P-S,S-P-G-S
+Malavi,S-r-G-P-D-S,S-D-P-M-G-r-S
+Malay Marutam,S-r-G-P-D-n-S,S-n-D-P-G-r-S
+Malgunji,S-R-G-m-D-n-S,S-n-D-P-m-Gg-R-S
+Malkauns,S-g-m-d-n-S,S-n-d-m-g-S
+Mand,S-R-G-m-P-D-N-S,S-N-D-P-m-Gg-R-S
+Mangal Bhairav,S-r-G-m-P-D-N-S,S-N-D-P-m-G-r-S
+Mangal Gujari,S-r-g-M-d-n-S,S-n-d-M-g-r-S
+Manjari Bihag,S-R-G-m-P-D-N-S,S-N-D-P-m-G-R-S
+Maru Bihag,S-G-mM-P-N-S,S-N-D-P-M-G-R-S
+Marwa,S-r-G-M-D-N-S,S-N-D-M-G-r-S
+Megh,S-R-m-P-n-S,S-n-P-m-R-S
+Meghranjani,S-r-G-mM-N-S,S-N-Mm-G-r-S
+Miyan ki Malhar,S-R-m-P-D-nN-S,S-Nn-D-P-m-g-R-S
+Mohankauns,S-G-m-d-n-S,S-n-d-m-G-R-S
+Multani,S-g-M-P-N-S,S-N-d-P-M-g-r-S
+Nand,S-R-G-m-P-D-N-S,S-N-D-P-Mm-G-R-S
+Nandkauns,S-G-m-d-n-S,S-n-d-P-m-Gg-S
+Narayani,S-R-m-P-D-S,S-n-D-P-m-R-S
+Nat Bhairav,S-R-G-m-d-N-S,S-N-d-P-m-G-R-S
+Nat Bihag,S-R-G-m-P-D-nN-S,S-Nn-D-P-Mm-G-R-S
+Nayaki Kanada,S-R-g-m-P-n-S,S-n-P-m-g-R-S
+Niranjani Todi,S-r-g-M-P-D-nN-S,S-n-D-P-M-g-r-S
+Pahadi,S-R-G-P-D-S,S-D-P-G-R-S
+Paraj,S-G-M-d-N-S,S-N-d-P-Mm-G-r-S
+Parameshwari,S-r-g-m-D-n-S,S-n-D-m-g-r-S
+Pat Bihag,S-R-G-m-P-D-N-S,S-D-P-m-G-R-S
+Patdeep,S-R-g-m-P-D-N-S,S-N-D-P-m-g-R-S
+Pilu,S-g-m-P-N-S,S-Nn-D-P-m-Gg-R-S
+Poorvi,S-r-G-M-P-d-N-S,S-N-d-P-Mm-G-r-S
+Prabhakali,S-r-m-P-d-S,S-n-d-P-m-G-r-S
+Prabhateshwari,S-r-g-m-D-n-S,S-n-D-P-m-g-r-S
+Puriya,S-r-G-M-D-N-S,S-N-D-M-G-r-S
+Puriya Dhanashree,S-r-G-M-P-d-N-S,S-N-d-P-M-G-r-S
+Puriya Kalyan,S-r-G-M-P-D-N-S,S-N-D-P-M-G-r-S
+Rageshri,S-G-m-D-n-S,S-n-D-m-G-R-S
+Raj Kalyan,S-R-G-M-D-N-S,S-N-D-M-G-R-S
+Rajeshwari,S-g-m-D-N-S,S-N-D-m-g-S
+Ramdasi Malhar,S-R-G-m-P-D-N-S,S-n-D-P-m-Gg-R-S
+Ramkali,S-r-G-m-P-d-N-S,S-N-d-P-Mm-G-r-S
+Rangeshwari,S-R-g-m-P-N-S,S-N-P-m-g-R-S
+Rasaranjani,S-R-m-D-N-S,S-N-D-m-R-S
+Rati Bhairav,S-r-G-m-P-dD-S,S-Dd-P-m-G-r-S
+Reva,S-r-G-P-d-S,S-d-P-G-r-S
+Salagavarali,S-r-g-P-D-n-S,S-n-D-P-g-r-S
+Sampurna Malkauns,S-g-m-d-n-S,S-n-d-P-m-g-R-S
+Sarang,S-R-m-P-N-S,S-n-P-m-R-S
+Saraswati,S-R-M-P-D-S,S-n-D-P-M-R-S
+Saraswati Kedar,S-R-G-M-P-D-S,S-n-D-P-Mm-R-S
+Sehera,S-R-G-M-d-n-S,S-n-d-M-G-R-S
+Shahana,S-R-g-m-P-D-n-S,S-n-D-P-m-g-R-S
+Shankara,S-G-P-D-N-S,S-N-D-P-G-R-S
+Shivranjani,S-R-g-P-D-S,S-D-P-g-R-S
+Shobhawari,S-R-m-P-d-S,S-d-P-m-R-S
+Shree,S-r-M-P-N-S,S-N-d-P-M-G-r-S
+Shuddha Basant,S-G-M-D-N-S,S-N-D-P-M-G-r-S
+Shuddha Kalyan,S-R-G-P-D-S,S-N-D-P-M-G-R-S
+Shuddha Malhar,S-R-m-P-D-S,S-D-P-m-R-S
+Shuddha Sarang,S-R-M-P-N-S,S-N-D-P-Mm-R-S
+Shyam Kalyan,S-R-M-P-N-S,S-N-D-P-Mm-G-R-S
+Simhendra Madhyamam,S-R-g-M-P-d-N-S,S-N-d-P-M-g-R-S
+Sindhura,S-R-m-P-D-S,S-n-D-P-m-g-R-S
+Sohini,S-G-M-D-N-S,S-N-D-M-G-r-S
+Sundarkali,S-r-G-P-n-S,S-n-P-G-r-S
+Sundarkauns,S-g-m-D-n-S,S-n-D-m-g-S
+Surdasi Malhar,S-R-m-P-N-S,S-n-D-P-m-R-S
+Tilak Kamod,S-R-G-m-P-D-N-S,S-N-D-P-m-G-R-S
+Tilang,S-G-m-P-N-S,S-n-P-m-G-S
+Tilang Bahar,S-R-G-m-P-D-nN-S,S-n-P-m-g-R-S
+Todi,S-r-g-M-P-d-N-S,S-N-d-P-M-g-r-S
+Triveni,S-r-G-P-d-N-S,S-N-d-P-G-r-S
+Vachaspati,S-R-G-M-P-D-n-S,S-n-D-P-M-G-R-S
+Vijayanagari,S-R-g-M-P-D-S,S-D-P-M-g-R-S
+Viyogavarali,S-r-g-m-d-N-S,S-N-d-m-g-r-S
+Yaman,S-R-G-M-P-D-N-S,S-N-D-P-M-G-R-S
+Zeelaf,S-G-m-P-d-S,S-d-P-m-G-S`;
+
+/**
+ * Swara to pitch class mapping for Hindustani notation
+ * S=0, r=1, R=2, g=3, G=4, m=5, M=6, P=7, d=8, D=9, n=10, N=11
+ */
+const SWAR_TO_PITCH_CLASS = {
+    'S': 0, 'r': 1, 'R': 2, 'g': 3, 'G': 4, 'm': 5,
+    'M': 6, 'P': 7, 'd': 8, 'D': 9, 'n': 10, 'N': 11
+};
+
+/**
+ * Parse a Hindustani aaroh/avroh string into a 12-element pattern array
+ * @param {string} swaraStr - e.g., "S-R-G-m-P-D-N-S"
+ * @returns {number[]} - 12-element array where 1 = note present, 0 = absent
+ */
+export function parseHindustaniSwaras(swaraStr) {
+    const pattern = new Array(12).fill(0);
+    pattern[0] = 1; // Sa is always present
+
+    for (const char of swaraStr) {
+        if (SWAR_TO_PITCH_CLASS.hasOwnProperty(char)) {
+            pattern[SWAR_TO_PITCH_CLASS[char]] = 1;
+        }
+    }
+
+    return pattern;
+}
+
+/**
+ * Parse the full Hindustani CSV into an array of raga objects
+ * @param {string} csvText - CSV with columns: name, aaroh, avroh
+ * @returns {Array<{name: string, notePattern: number[], aarohPattern: number[], avrohPattern: number[]}>}
+ */
+export function parseHindustaniRagaCSV(csvText) {
+    const lines = csvText.split(/\r?\n/).filter(Boolean);
+    const ragas = [];
+
+    for (let i = 1; i < lines.length; i++) {
+        const [name, aroha, avroh] = lines[i].split(',');
+        if (!name || !aroha || !avroh) continue;
+
+        const aarohPattern = parseHindustaniSwaras(aroha);
+        const avrohPattern = parseHindustaniSwaras(avroh);
+
+        // Combined pattern: note is present if in either aaroh or avroh
+        const notePattern = aarohPattern.map((v, idx) =>
+            (v || avrohPattern[idx]) ? 1 : 0
+        );
+
+        ragas.push({
+            name: name.trim(),
+            notePattern,
+            aarohPattern,
+            avrohPattern,
+            type: 'hindustani'
+        });
+    }
+
+    return ragas;
+}
+
+// Pre-parsed raga list for convenience
+export const HINDUSTANI_RAGAS = parseHindustaniRagaCSV(HINDUSTANI_RAGAS_CSV);
+
+export default HINDUSTANI_RAGAS;

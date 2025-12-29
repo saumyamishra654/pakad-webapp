@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
+  <rect width="192" height="192" rx="32" fill="#1e3a8a"/>
+  <g fill="#f59e0b">
+    <!-- Tanpura strings -->
+    <rect x="48" y="32" width="4" height="128" rx="2"/>
+    <rect x="72" y="32" width="4" height="128" rx="2"/>
+    <rect x="96" y="32" width="4" height="128" rx="2"/>
+    <rect x="120" y="32" width="4" height="128" rx="2"/>
+    <rect x="144" y="32" width="4" height="128" rx="2"/>
+    <!-- Musical note -->
+    <circle cx="96" cy="140" r="16"/>
+    <rect x="108" y="60" width="6" height="80" rx="3"/>
+    <ellipse cx="132" cy="60" rx="24" ry="12"/>
+  </g>
+</svg>
