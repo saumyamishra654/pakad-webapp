@@ -85,7 +85,7 @@ export function RagaInsights() {
                 <div className="text-center py-8 text-gray-500">No matches found</div>
             ) : (
                 filteredResults.sameNotes.map((group, idx) => (
-                    <div key={idx} className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                    <div key={idx} className="bg-white rounded-lg shadow p-4">
                         <div className="flex items-start justify-between">
                             <div>
                                 <div className="flex flex-wrap gap-2 mb-2">
@@ -93,8 +93,8 @@ export function RagaInsights() {
                                         <span
                                             key={i}
                                             className={`px-2 py-1 rounded text-sm font-medium ${raga.type === 'hindustani'
-                                                    ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
-                                                    : 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300'
+                                                ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
+                                                : 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300'
                                                 }`}
                                         >
                                             {raga.name}
@@ -123,7 +123,7 @@ export function RagaInsights() {
                     const isExpanded = expandedItems.has(`murchanna-${idx}`);
 
                     return (
-                        <div key={idx} className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+                        <div key={idx} className="bg-white rounded-lg shadow overflow-hidden">
                             <button
                                 onClick={() => toggleExpanded(`murchanna-${idx}`)}
                                 className="w-full p-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700"
@@ -133,8 +133,8 @@ export function RagaInsights() {
                                         {group.baseRaga.name}
                                     </span>
                                     <span className={`ml-2 text-xs px-2 py-0.5 rounded ${group.baseRaga.type === 'hindustani'
-                                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
-                                            : 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'
+                                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+                                        : 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'
                                         }`}>
                                         {group.baseRaga.type}
                                     </span>
@@ -167,8 +167,8 @@ export function RagaInsights() {
                                                         <span
                                                             key={j}
                                                             className={`text-xs px-2 py-0.5 rounded ${r.type === 'hindustani'
-                                                                    ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
-                                                                    : 'bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400'
+                                                                ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
+                                                                : 'bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400'
                                                                 }`}
                                                         >
                                                             {r.name}
@@ -197,7 +197,7 @@ export function RagaInsights() {
                     const isExpanded = expandedItems.has(`subset-${idx}`);
 
                     return (
-                        <div key={idx} className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+                        <div key={idx} className="bg-white rounded-lg shadow overflow-hidden">
                             <button
                                 onClick={() => toggleExpanded(`subset-${idx}`)}
                                 className="w-full p-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700"
@@ -207,8 +207,8 @@ export function RagaInsights() {
                                         {rel.subset.name}
                                     </span>
                                     <span className={`ml-2 text-xs px-2 py-0.5 rounded ${rel.subset.type === 'hindustani'
-                                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
-                                            : 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'
+                                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+                                        : 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'
                                         }`}>
                                         {countNotes(rel.subset.notePattern)} notes
                                     </span>
@@ -299,7 +299,7 @@ export function RagaInsights() {
 
             {/* Tabs */}
             <div className="flex justify-center mb-6">
-                <div className="flex bg-white dark:bg-gray-800 rounded-lg p-1 shadow border border-gray-200 dark:border-gray-700">
+                <div className="flex bg-white rounded-lg p-1 shadow border border-gray-700">
                     {[
                         { id: 'same-notes', label: 'Same Notes', count: filteredResults.sameNotes.length },
                         { id: 'murchanna', label: 'Murchanna', count: filteredResults.murchanna.length },
@@ -309,14 +309,14 @@ export function RagaInsights() {
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
                             className={`px-4 py-2 rounded-md font-medium transition-colors ${activeTab === tab.id
-                                    ? 'bg-blue-600 text-white'
-                                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                ? 'bg-blue-600 text-white'
+                                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
                                 }`}
                         >
                             {tab.label}
                             <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${activeTab === tab.id
-                                    ? 'bg-blue-500'
-                                    : 'bg-gray-200 dark:bg-gray-600'
+                                ? 'bg-blue-500'
+                                : 'bg-gray-200 dark:bg-gray-600'
                                 }`}>
                                 {tab.count}
                             </span>
@@ -333,7 +333,7 @@ export function RagaInsights() {
                         placeholder="Search ragas..."
                         value={searchQuery}
                         onChange={e => setSearchQuery(e.target.value)}
-                        className="px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                        className="px-3 py-2 border rounded-lg bg-gray-700 border-gray-600"
                     />
 
                     <select

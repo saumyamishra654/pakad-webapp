@@ -247,7 +247,7 @@ export function RagaQuery() {
                             value={searchQuery}
                             onChange={e => setSearchQuery(e.target.value)}
                             placeholder="Enter raga name..."
-                            className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                            className="w-full px-3 py-2 border rounded-lg bg-gray-700 border-gray-600"
                         />
                     </div>
 
@@ -259,7 +259,7 @@ export function RagaQuery() {
                         <select
                             value={scaleType}
                             onChange={e => setScaleType(e.target.value)}
-                            className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                            className="w-full px-3 py-2 border rounded-lg bg-gray-700 border-gray-600"
                         >
                             <option value="all">All scales</option>
                             <option value="5">Pentatonic (5 notes)</option>
@@ -276,7 +276,7 @@ export function RagaQuery() {
                         <select
                             value={searchMode}
                             onChange={e => setSearchMode(e.target.value)}
-                            className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                            className="w-full px-3 py-2 border rounded-lg bg-gray-700 border-gray-600"
                         >
                             <option value="contains">Contains notes</option>
                             <option value="exact">Exact match</option>

@@ -1,105 +1,167 @@
-@import "tailwindcss";
-
-/* Crimson Text font for Indian music aesthetic */
+/* Google Font Import - MUST be first */
 @import url('https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400&display=swap');
 
-/* === Base styles === */
+@import "tailwindcss";
+
+/* Base Styles - Permanent Dark Mode */
 :root {
   font-family: 'Crimson Text', serif;
-  line-height: 1.5;
-  font-weight: 400;
+  background-color: #000000;
+  color: #e2e8f0;
 }
 
 body {
+  font-family: 'Crimson Text', serif;
+  background: linear-gradient(135deg, #000000 0%, #1a1633 100%);
+  color: #e2e8f0;
+  min-height: 100vh;
   margin: 0;
-  min-width: 320px;
-  min-height: 100vh;
 }
 
-#root {
-  min-height: 100vh;
+/* Force dark mode colors on common utility classes */
+.bg-white {
+  background-color: #1f1b38 !important;
 }
 
-/* === Dark mode overrides === */
-.dark {
-  background-color: #000000;
-  color: #e5e7eb;
+.bg-gray-50 {
+  background-color: #334155 !important;
 }
 
-.dark .bg-white { background-color: #1a1a1a !important; }
-.dark .bg-gray-50 { background-color: #000000 !important; }
-.dark .bg-gray-100 { background-color: #0b1226 !important; color: #e5e7eb !important; }
-.dark .bg-blue-50 { background-color: #06202a !important; color: #9bd3ff !important; }
-.dark .bg-green-50 { background-color: #07301c !important; color: #bbf7d0 !important; }
-.dark .bg-purple-50 { background-color: #2a0b3e !important; color: #d8b4fe !important; }
-.dark .bg-orange-50 { background-color: #431407 !important; color: #fed7aa !important; }
-.dark .text-gray-800 { color: #e5e7eb !important; }
-.dark .text-gray-600, .dark .text-gray-700 { color: #cbd5e1 !important; }
-.dark .border-gray-200 { border-color: #1f2937 !important; }
-.dark input, .dark select, .dark textarea { 
-  background-color: #071126 !important; 
-  color: #e5e7eb !important; 
-  border-color: #374151 !important; 
+.bg-gray-100 {
+  background-color: #475569 !important;
+  color: #e2e8f0 !important;
 }
 
-/* === Piano keyboard styles === */
+.bg-blue-50 {
+  background-color: #1e3a8a !important;
+  color: #bfdbfe !important;
+}
+
+.bg-green-50 {
+  background-color: #14532d !important;
+  color: #bbf7d0 !important;
+}
+
+.text-gray-800,
+.text-gray-900 {
+  color: #e2e8f0 !important;
+}
+
+.text-gray-600,
+.text-gray-700 {
+  color: #cbd5e1 !important;
+}
+
+.border-gray-200,
+.border-gray-300 {
+  border-color: #475569 !important;
+}
+
+input,
+select,
+textarea {
+  background-color: #1f1b38 !important;
+  color: #e2e8f0 !important;
+  border-color: #475569 !important;
+  border-radius: 0.5rem;
+  padding: 0.5rem;
+}
+
+.border-blue-200 {
+  border-color: #1d4ed8 !important;
+}
+
+.border-green-200 {
+  border-color: #166534 !important;
+}
+
+.border-purple-200 {
+  border-color: #7e22ce !important;
+}
+
+/* Chord Circle */
+.chord-circle {
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.4));
+}
+
+.note-dot {
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.chord-shape {
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.chord-shape:hover {
+  transform: translateY(-2px);
+}
+
+.chord-preview {
+  opacity: 0.4;
+  transition: opacity 0.3s ease;
+}
+
+.chord-preview:hover {
+  opacity: 0.7;
+}
+
+/* Piano Styling - Exact match to original */
 .piano-wrap {
-  overflow-x: auto;
-  padding: 10px;
-  border-radius: 8px;
-  width: 100%;
   display: flex;
   justify-content: center;
-  align-items: center;
-  background: rgba(0,0,0,0.04);
-}
-
-.dark .piano-wrap {
-  background: rgba(255,255,255,0.06);
+  padding: 20px 0;
+  overflow-x: auto;
 }
 
 .piano {
-  position: relative;
   display: flex;
-  flex-wrap: nowrap;
-  user-select: none;
-  -webkit-user-select: none;
-  height: 120px;
+  background: #111827;
+  padding: 10px;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  border: 1px solid #374151;
 }
 
 .octave {
-  position: relative;
-  display: inline-block;
-  height: 120px;
-}
-
-.white-keys {
   display: flex;
+  position: relative;
+  height: 120px;
 }
 
 .white-key {
   width: 24px;
   height: 120px;
-  background: #ffffff;
-  border: 1px solid #cbd5e1;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
   border-bottom-left-radius: 4px;
   border-bottom-right-radius: 4px;
-  box-sizing: border-box;
   cursor: pointer;
   position: relative;
+  z-index: 1;
+  transition: background-color 0.1s;
 }
 
-.white-key:active {
-  background: #f3f4f6;
-}
-
-.dark .white-key {
+.white-key:active,
+.white-key.active {
   background: #e5e7eb;
-  border-color: #94a3b8;
 }
 
-.dark .white-key:active {
-  background: #93c5fd;
+.white-key.highlighted {
+  background: #bfdbfe;
+  border-color: #60a5fa;
+}
+
+.white-key::after {
+  content: attr(data-label);
+  position: absolute;
+  bottom: 5px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #4b5563;
+  font-size: 10px;
+  font-weight: bold;
 }
 
 .black-key {
@@ -108,92 +170,156 @@ body {
   width: 16px;
   height: 72px;
   background: #111827;
-  border: 1px solid #0f172a;
+  border: 1px solid #000000;
   border-bottom-left-radius: 3px;
   border-bottom-right-radius: 3px;
-  color: #e5e7eb;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  padding-bottom: 2px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.35);
-  cursor: pointer;
-  font-size: 10px;
   z-index: 5;
+  cursor: pointer;
+  transition: background-color 0.1s;
 }
 
-.black-key:active {
+.black-key:active,
+.black-key.active {
   background: #1f2937;
 }
 
-/* === Extended chord gradient === */
-.extended-chord {
-  background: linear-gradient(135deg, #fb923c, #f97316, #ea580c);
-  border-color: #f97316 !important;
+.black-key.highlighted {
+  background: #3b82f6;
+  border-color: #2563eb;
 }
 
-/* === Relationship card animations === */
-.relationship-card {
+/* Chord Cards Grid */
+.chord-card {
   transition: all 0.3s ease;
   cursor: pointer;
+  background-color: #1f1b38;
+  border: 1px solid #475569;
+  border-radius: 0.75rem;
+  padding: 1rem;
 }
 
-.relationship-card:hover {
+.chord-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
-}
-
-.dark .relationship-card:hover {
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+  border-color: #60a5fa;
 }
 
-/* === Note badge === */
-.note-badge {
-  display: inline-block;
-  padding: 2px 6px;
-  margin: 1px;
-  border-radius: 4px;
-  font-size: 10px;
+/* Buttons - Custom CSS instead of @apply */
+.btn-primary {
+  padding: 0.5rem 0.75rem;
+  background-color: #3b82f6;
+  color: white;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
   font-weight: 500;
+  transition: background-color 0.2s;
+  border: none;
+  cursor: pointer;
 }
 
-/* === Murchanna diagram === */
-.murchanna-diagram {
-  background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
-  border-radius: 8px;
-  padding: 12px;
-  margin: 8px 0;
+.btn-primary:hover {
+  background-color: #2563eb;
 }
 
-.dark .murchanna-diagram {
-  background: linear-gradient(135deg, #1f2937, #374151);
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
-/* === Chord circle animation === */
-.chord-circle .chord-preview line {
-  opacity: 0.15;
-  transition: opacity 0.2s ease;
+.btn-secondary {
+  padding: 0.5rem 1rem;
+  background-color: #334155;
+  color: #cbd5e1;
+  border-radius: 0.5rem;
+  border: 1px solid #475569;
+  font-weight: 500;
+  transition: all 0.2s;
+  cursor: pointer;
 }
 
-.chord-circle:hover .chord-preview line {
-  opacity: 0.6;
+.btn-secondary:hover {
+  background-color: #475569;
 }
 
-/* === Scrollbar styling for dark mode === */
-.dark ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+.btn-tanpura {
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  transition: all 0.2s;
+  cursor: pointer;
+  border: 1px solid transparent;
 }
 
-.dark ::-webkit-scrollbar-track {
-  background: #1f2937;
+.btn-tanpura.playing {
+  background-color: #f97316;
+  color: white;
 }
 
-.dark ::-webkit-scrollbar-thumb {
-  background: #4b5563;
-  border-radius: 4px;
+.btn-tanpura.playing:hover {
+  background-color: #ea580c;
 }
 
-.dark ::-webkit-scrollbar-thumb:hover {
-  background: #6b7280;
+.btn-tanpura:not(.playing) {
+  background-color: #334155;
+  color: #fed7aa;
+  border-color: #475569;
+}
+
+.btn-tanpura:not(.playing):hover {
+  background-color: #475569;
+}
+
+/* Tabs */
+.tab-btn {
+  padding: 0.25rem 0.75rem;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.2s;
+  border: none;
+  cursor: pointer;
+  background-color: #334155;
+  color: #cbd5e1;
+}
+
+.tab-btn.active {
+  background-color: #3b82f6;
+  color: white;
+}
+
+.tab-btn:not(.active):hover {
+  background-color: #475569;
+}
+
+/* Chord type list buttons */
+.chord-type-btn {
+  width: 100%;
+  text-align: left;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.375rem;
+  border: 1px solid #475569;
+  background-color: #1f1b38;
+  color: #e2e8f0;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.chord-type-btn.active {
+  border-color: #3b82f6;
+  background-color: rgba(59, 130, 246, 0.2);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.chord-type-btn:not(.active):hover {
+  background-color: #334155;
+}
+
+/* Containers */
+.card {
+  background-color: #1f1b38;
+  border-radius: 0.75rem;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
+  padding: 1.5rem;
+  border: 1px solid #2e2a4a;
 }

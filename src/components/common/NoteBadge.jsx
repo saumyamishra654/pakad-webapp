@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { getDisplayLabels } from '../utils/noteHelpers.js';
+import { getDisplayLabels } from '../../utils/noteHelpers.js';
 
 /**
  * Note badge component for displaying raga notes

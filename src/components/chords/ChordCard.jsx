@@ -1,6 +1,5 @@
 /**
- * ChordCard Component
- * Displays a chord with play button and note information
+ * ChordCard Component - Matches original chord display styling
  */
 
 import React from 'react';
@@ -8,128 +7,102 @@ import { getChordNotation } from '../../utils/chordHelpers.js';
 import { getDisplayLabels } from '../../utils/noteHelpers.js';
 
 /**
- * Single chord display card
- * @param {Object} props
- * @param {Object} props.chord - Chord object with root, type, notes, color
- * @param {Function} props.onPlay - Called when play button clicked
- * @param {number} props.tonic - Tonic offset for Western names
- * @param {boolean} props.isCarnatic - Use Carnatic labels
- * @param {boolean} props.showWesternName - Show Western chord notation
- * @param {boolean} props.isExtended - Is this an extended chord
+ * Single chord display card - matches original chord-shape styling
  */
 export function ChordCard({
     chord,
-    onPlay,
+    onPlayUnison,
+    onPlayMelody,
     tonic = 0,
     isCarnatic = false,
-    showWesternName = true,
     isExtended = false,
     className = ''
 }) {
     if (!chord) return null;
 
     const labels = getDisplayLabels(isCarnatic);
-    const westernName = showWesternName ? getChordNotation(chord, tonic) : null;
+    const westernName = getChordNotation(chord, tonic);
     const rootLabel = labels[chord.root];
-
-    // Display notes as swar names
     const noteLabels = chord.notes.map(n => labels[n]).join(' - ');
+    const chordTypeName = chord.name || chord.type?.name || '';
 
     return (
         <div
-            className={`
-        bg-white dark:bg-gray-800 rounded-lg border-2 p-3
-        hover:shadow-lg transition-all cursor-pointer
-        ${isExtended ? 'extended-chord' : ''}
-        ${className}
-      `}
-            style={{ borderColor: chord.color || '#3b82f6' }}
-            onClick={onPlay}
+            className={`p-3 rounded-lg border ${isExtended
+                    ? 'bg-gradient-to-br from-yellow-600 to-orange-600 text-white border-yellow-400'
+                    : 'bg-gray-800 border-gray-600'
+                } ${className}`}
+            draggable
+            onDragStart={(e) => {
+                e.dataTransfer.setData('application/json', JSON.stringify(chord));
+            }}
         >
-            {/* Header */}
-            <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                    {/* Root badge */}
-                    <span
-                        className="px-2 py-0.5 rounded text-white text-sm font-bold"
-                        style={{ backgroundColor: chord.color || '#3b82f6' }}
-                    >
-                        {rootLabel}
-                    </span>
+            {/* Header with color dot and chord name */}
+            <div className="flex items-center gap-2 mb-2">
+                <div
+                    className="w-3 h-3 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: chord.color || '#3b82f6' }}
+                />
+                <span className="font-semibold text-white">
+                    {rootLabel} {chordTypeName}
+                </span>
+            </div>
 
-                    {/* Chord type */}
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
-                        {chord.name}
-                    </span>
-                </div>
-
-                {/* Play button */}
-                {onPlay && (
-                    <button
-                        onClick={(e) => { e.stopPropagation(); onPlay(); }}
-                        className="p-1.5 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                        title="Play chord"
-                    >
-                        <svg className="w-4 h-4 text-gray-600 dark:text-gray-300" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
-                        </svg>
-                    </button>
+            {/* Notes and western name */}
+            <p className={`text-sm ${isExtended ? 'text-gray-100' : 'text-gray-400'} mb-3`}>
+                Notes: {noteLabels}
+                {westernName && (
+                    <span className="block mt-1 font-medium text-gray-500">{westernName}</span>
                 )}
+            </p>
+
+            {/* Chord playback buttons */}
+            <div className="flex gap-2">
+                <button
+                    onClick={(e) => { e.stopPropagation(); onPlayUnison && onPlayUnison(chord); }}
+                    className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                >
+                    ♪ Unison
+                </button>
+                <button
+                    onClick={(e) => { e.stopPropagation(); onPlayMelody && onPlayMelody(chord); }}
+                    className="px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
+                >
+                    ♫ Melody
+                </button>
             </div>
-
-            {/* Western name */}
-            {westernName && (
-                <div className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-1">
-                    {westernName}
-                </div>
-            )}
-
-            {/* Notes */}
-            <div className="text-xs text-gray-500 dark:text-gray-400">
-                {noteLabels}
-            </div>
-
-            {/* Extended badge */}
-            {isExtended && (
-                <div className="mt-2">
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300">
-                        Extended
-                    </span>
-                </div>
-            )}
         </div>
     );
 }
 
 /**
- * Grid of chord cards
+ * Grid of chord cards - matches original layout
  */
 export function ChordGrid({
     chords,
     onPlayChord,
     tonic = 0,
     isCarnatic = false,
-    showWesternName = true,
     className = ''
 }) {
     if (!chords || chords.length === 0) {
         return (
-            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+            <div className="text-center py-8 text-gray-400">
                 No chords available for current selection
             </div>
         );
     }
 
     return (
-        <div className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 ${className}`}>
+        <div className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 ${className}`}>
             {chords.map((chord, index) => (
                 <ChordCard
                     key={`${chord.root}-${chord.type}-${index}`}
                     chord={chord}
-                    onPlay={onPlayChord ? () => onPlayChord(chord) : undefined}
+                    onPlayUnison={onPlayChord ? () => onPlayChord(chord, true) : undefined}
+                    onPlayMelody={onPlayChord ? () => onPlayChord(chord, false) : undefined}
                     tonic={tonic}
                     isCarnatic={isCarnatic}
-                    showWesternName={showWesternName}
                     isExtended={chord.isExtended}
                 />
             ))}

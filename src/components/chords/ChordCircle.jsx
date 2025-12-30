@@ -1,6 +1,6 @@
 /**
  * ChordCircle Component
- * Circle of fifths visualization with chord arcs
+ * Circle visualization for raga notes and chord connections - matches original design
  */
 
 import React, { useMemo } from 'react';
@@ -13,6 +13,7 @@ import { getDisplayLabels } from '../../utils/noteHelpers.js';
  * @param {Array} props.chords - Available chords to visualize
  * @param {Function} props.onNoteClick - Called when note clicked
  * @param {number} props.selectedNote - Currently selected/filtered note
+ * @param {string} props.noteFilterMode - 'root', 'any', or 'none'
  * @param {boolean} props.isCarnatic - Use Carnatic labels
  * @param {number} props.size - SVG size in pixels
  */
@@ -21,156 +22,240 @@ export function ChordCircle({
     chords = [],
     onNoteClick,
     selectedNote = null,
+    noteFilterMode = 'root',
     isCarnatic = false,
-    size = 300,
+    size = 340,
+    customNotes = null,
+    hideLegend = false,
+    hideClickHint = false,
     className = ''
 }) {
     const labels = useMemo(() => getDisplayLabels(isCarnatic), [isCarnatic]);
 
-    const center = size / 2;
-    const outerRadius = size * 0.42;
-    const innerRadius = size * 0.25;
-    const noteRadius = size * 0.38;
+    const centerX = size / 2;
+    const centerY = size / 2;
+    const radius = size * 0.35; // 120 for 340px
 
-    // Calculate note positions around the circle
-    const notePositions = useMemo(() => {
-        return Array.from({ length: 12 }, (_, i) => {
-            // Start from top (12 o'clock) and go clockwise
-            const angle = (i * 30 - 90) * (Math.PI / 180);
-            return {
-                index: i,
-                x: center + noteRadius * Math.cos(angle),
-                y: center + noteRadius * Math.sin(angle),
-                angle
-            };
-        });
-    }, [center, noteRadius]);
-
-    // Draw chord arcs connecting notes
-    const chordArcs = useMemo(() => {
-        if (!chords || chords.length === 0) return [];
-
-        return chords.slice(0, 50).map((chord, idx) => {
-            const notes = chord.notes || [];
-            if (notes.length < 2) return null;
-
-            // Create path connecting all chord notes
-            const points = notes.map(n => notePositions[n]);
-            const pathData = points.map((p, i) =>
-                `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`
-            ).join(' ') + ' Z';
-
-            return {
-                id: `chord-${idx}`,
-                path: pathData,
-                color: chord.color || '#3b82f6',
-                chord
-            };
-        }).filter(Boolean);
-    }, [chords, notePositions]);
-
-    const handleNoteClick = (noteIndex) => {
-        if (onNoteClick) {
-            onNoteClick(noteIndex);
-        }
+    // Calculate note position on outer ring
+    const getPointPosition = (noteIndex) => {
+        const angle = (noteIndex * 30 - 90) * (Math.PI / 180);
+        return {
+            x: centerX + (radius + 20) * Math.cos(angle),
+            y: centerY + (radius + 20) * Math.sin(angle)
+        };
     };
 
+    // Get roots present in available chords
+    const chordRoots = useMemo(() => {
+        const roots = new Set();
+        chords.forEach(chord => {
+            if (chord.root !== undefined) roots.add(chord.root);
+        });
+        return roots;
+    }, [chords]);
+
+    // Get notes that appear in extended chords
+    const extendedChordNotes = useMemo(() => {
+        const notes = new Set();
+        chords.forEach(chord => {
+            if (chord.isExtended && chord.notes) {
+                chord.notes.forEach(n => notes.add(n));
+            }
+        });
+        return notes;
+    }, [chords]);
+
     return (
-        <div className={`chord-circle ${className}`}>
-            <svg
-                width={size}
-                height={size}
-                viewBox={`0 0 ${size} ${size}`}
-                className="mx-auto"
-            >
-                {/* Background circle */}
-                <circle
-                    cx={center}
-                    cy={center}
-                    r={outerRadius}
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1"
-                    className="text-gray-200 dark:text-gray-700"
-                />
+        <div className={`flex flex-col items-center ${className}`}>
+            {/* Click hint */}
+            {onNoteClick && !hideClickHint && (
+                <div className="flex items-center gap-2 mb-3 px-3 py-1 bg-blue-900/40 rounded-full">
+                    <svg width="12" height="12" viewBox="0 0 12 12" className="text-blue-400">
+                        <circle cx="6" cy="6" r="5" fill="none" stroke="currentColor" strokeWidth="1" />
+                        <circle cx="6" cy="6" r="2" fill="currentColor" />
+                    </svg>
+                    <span className="text-xs text-blue-300 font-medium">Click notes to filter chords</span>
+                </div>
+            )}
 
-                {/* Inner circle */}
-                <circle
-                    cx={center}
-                    cy={center}
-                    r={innerRadius}
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1"
-                    className="text-gray-200 dark:text-gray-700"
-                />
+            <div className="relative">
+                <svg width={size} height={size} className="chord-circle">
+                    {/* Background circle */}
+                    <circle
+                        cx={centerX}
+                        cy={centerY}
+                        r={radius + 20}
+                        fill="none"
+                        stroke="#475569"
+                        strokeWidth="2"
+                    />
 
-                {/* Chord polygons (behind notes) */}
-                <g className="chord-preview" opacity="0.3">
-                    {chordArcs.map(arc => (
-                        <path
-                            key={arc.id}
-                            d={arc.path}
-                            fill={arc.color}
-                            fillOpacity="0.1"
-                            stroke={arc.color}
-                            strokeWidth="1"
-                            strokeOpacity="0.5"
-                        />
-                    ))}
-                </g>
-
-                {/* Note circles and labels */}
-                {notePositions.map(pos => {
-                    const isInPattern = pattern[pos.index];
-                    const isSelected = selectedNote === pos.index;
-
-                    return (
-                        <g key={pos.index}>
-                            {/* Note circle */}
-                            <circle
-                                cx={pos.x}
-                                cy={pos.y}
-                                r={isSelected ? 20 : isInPattern ? 16 : 12}
-                                fill={isInPattern ? '#3b82f6' : '#e5e7eb'}
-                                stroke={isSelected ? '#facc15' : 'none'}
-                                strokeWidth={isSelected ? 3 : 0}
-                                className={`transition-all ${onNoteClick ? 'cursor-pointer hover:scale-110' : ''}`}
-                                onClick={() => handleNoteClick(pos.index)}
-                            />
-
-                            {/* Note label */}
-                            <text
-                                x={pos.x}
-                                y={pos.y}
-                                textAnchor="middle"
-                                dominantBaseline="middle"
-                                fontSize={isInPattern ? 11 : 9}
-                                fontWeight={isInPattern ? 'bold' : 'normal'}
-                                fill={isInPattern ? 'white' : '#6b7280'}
-                                className={onNoteClick ? 'cursor-pointer' : ''}
-                                onClick={() => handleNoteClick(pos.index)}
-                            >
-                                {labels[pos.index]}
-                            </text>
+                    {/* Custom chord overlay */}
+                    {customNotes && customNotes.length > 1 && (
+                        <g className="chord-preview">
+                            {customNotes.map((noteIndex, i) => {
+                                const nextIndex = (i + 1) % customNotes.length;
+                                const pos1 = getPointPosition(noteIndex);
+                                const pos2 = getPointPosition(customNotes[nextIndex]);
+                                return (
+                                    <line
+                                        key={`custom-${i}`}
+                                        x1={pos1.x}
+                                        y1={pos1.y}
+                                        x2={pos2.x}
+                                        y2={pos2.y}
+                                        stroke="#f43f5e"
+                                        strokeWidth="3"
+                                        strokeDasharray="4,4"
+                                    />
+                                );
+                            })}
                         </g>
-                    );
-                })}
+                    )}
 
-                {/* Center label */}
-                <text
-                    x={center}
-                    y={center}
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    fontSize="14"
-                    fontWeight="bold"
-                    fill="currentColor"
-                    className="text-gray-700 dark:text-gray-300"
-                >
-                    {chords.length} chords
-                </text>
-            </svg>
+
+                    {/* Chord preview lines */}
+                    {chords.slice(0, 50).map((chord, chordIndex) => (
+                        <g key={chordIndex} className="chord-preview">
+                            {chord.notes && chord.notes.map((noteIndex, i) => {
+                                const nextIndex = (i + 1) % chord.notes.length;
+                                if (chord.notes.length === 3 && i === chord.notes.length - 1) {
+                                    // For triads, connect last to first
+                                    const pos1 = getPointPosition(noteIndex);
+                                    const pos2 = getPointPosition(chord.notes[0]);
+                                    return (
+                                        <line
+                                            key={`${chordIndex}-${i}-close`}
+                                            x1={pos1.x}
+                                            y1={pos1.y}
+                                            x2={pos2.x}
+                                            y2={pos2.y}
+                                            stroke={chord.color || '#3b82f6'}
+                                            strokeWidth={chord.isExtended ? "3" : "2"}
+                                            strokeDasharray={chord.isExtended ? "5,5" : "none"}
+                                        />
+                                    );
+                                } else if (chord.notes.length > 3) {
+                                    // For extended chords, create more complex shapes
+                                    const pos1 = getPointPosition(noteIndex);
+                                    const pos2 = getPointPosition(chord.notes[nextIndex]);
+                                    return (
+                                        <line
+                                            key={`${chordIndex}-${i}`}
+                                            x1={pos1.x}
+                                            y1={pos1.y}
+                                            x2={pos2.x}
+                                            y2={pos2.y}
+                                            stroke={chord.color || '#3b82f6'}
+                                            strokeWidth="3"
+                                            strokeDasharray="5,5"
+                                        />
+                                    );
+                                } else if (i < chord.notes.length - 1) {
+                                    // Regular connections
+                                    const pos1 = getPointPosition(noteIndex);
+                                    const pos2 = getPointPosition(chord.notes[nextIndex]);
+                                    return (
+                                        <line
+                                            key={`${chordIndex}-${i}`}
+                                            x1={pos1.x}
+                                            y1={pos1.y}
+                                            x2={pos2.x}
+                                            y2={pos2.y}
+                                            stroke={chord.color || '#3b82f6'}
+                                            strokeWidth="2"
+                                        />
+                                    );
+                                }
+                                return null;
+                            })}
+                        </g>
+                    ))}
+
+                    {/* Note dots */}
+                    {labels.map((swara, index) => {
+                        const pos = getPointPosition(index);
+                        const isPresent = pattern[index];
+                        const isRoot = chordRoots.has(index);
+                        const isSelected = selectedNote === index;
+                        const isInExtendedChord = extendedChordNotes.has(index);
+
+                        // Determine fill color based on state
+                        let fillColor;
+                        if (isSelected) {
+                            fillColor = noteFilterMode === 'root' ? '#9333ea' : '#dc2626'; // Purple for root, red for any
+                        } else if (isPresent) {
+                            if (isRoot) {
+                                fillColor = '#f59e0b'; // Amber for chord roots
+                            } else if (isInExtendedChord) {
+                                fillColor = '#fbbf24'; // Light amber for extended chord notes
+                            } else {
+                                fillColor = '#10b981'; // Green for available notes
+                            }
+                        } else {
+                            fillColor = '#475569'; // Gray for unavailable
+                        }
+
+                        // Determine stroke color
+                        let strokeColor;
+                        if (isSelected) {
+                            strokeColor = noteFilterMode === 'root' ? '#e9d5ff' : '#fecaca';
+                        } else {
+                            strokeColor = isPresent ? '#ffffff' : '#64748b';
+                        }
+
+                        return (
+                            <g key={index}>
+                                <circle
+                                    cx={pos.x}
+                                    cy={pos.y}
+                                    r={isPresent ? (isRoot ? 14 : 12) : 12}
+                                    fill={fillColor}
+                                    stroke={strokeColor}
+                                    strokeWidth={isSelected ? "3" : "2"}
+                                    className="note-dot cursor-pointer hover:opacity-80"
+                                    onClick={() => onNoteClick && onNoteClick(index)}
+                                    style={{ cursor: onNoteClick ? 'pointer' : 'default' }}
+                                />
+                                <text
+                                    x={pos.x}
+                                    y={pos.y + 4}
+                                    textAnchor="middle"
+                                    fontSize={isRoot ? "9" : "10"}
+                                    fill="#cbd5e1"
+                                    fontWeight="bold"
+                                >
+                                    {swara}
+                                </text>
+                            </g>
+                        );
+                    })}
+                </svg>
+            </div>
+
+            {/* Legend */}
+            {!hideLegend && (
+                <div className="mt-4 text-center">
+                    <div className="flex items-center justify-center gap-4 text-sm flex-wrap">
+                        <div className="flex items-center gap-1">
+                            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                            <span className="text-gray-400">Available Notes</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <div className="w-3 h-3 bg-amber-500 rounded-full"></div>
+                            <span className="text-gray-400">Chord Roots</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <div className="w-3 h-3 bg-red-600 rounded-full"></div>
+                            <span className="text-gray-400">Any Position</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <div className="w-3 h-3 bg-purple-600 rounded-full"></div>
+                            <span className="text-gray-400">As Root Only</span>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
