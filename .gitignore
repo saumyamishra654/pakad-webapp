@@ -2,9 +2,6 @@
 .netlify
 node_modules
 
-# Build artifacts
-dist/
-
 # Capacitor native platforms (regeneratable)
 android/
 ios/
