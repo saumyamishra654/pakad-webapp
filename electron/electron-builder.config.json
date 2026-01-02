@@ -1,0 +1,34 @@
+{
+  "appId": "com.pakad.webapp",
+  "productName": "Pakad Webapp",
+  "directories": {
+    "buildResources": "resources"
+  },
+  "files": [
+    "assets/**/*",
+    "build/**/*",
+    "capacitor.config.*",
+    "app/**/*"
+  ],
+  "publish": {
+    "provider": "github",
+    "owner": "saumyamishra654",
+    "repo": "pakad-webapp"
+  },
+  "nsis": {
+    "allowElevation": true,
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true
+  },
+  "win": {
+    "target": "nsis",
+    "icon": "assets/appIcon.ico"
+  },
+  "mac": {
+    "category": "public.app-category.music",
+    "target": [
+      "dmg",
+      "zip"
+    ]
+  }
+}

@@ -1,3 +1,24 @@
 # Local Netlify folder
 .netlify
 node_modules
+
+# Build artifacts
+dist/
+
+# Capacitor native platforms (regeneratable)
+android/
+ios/
+
+# Electron build artifacts (not source)
+electron/dist/
+electron/build/
+electron/node_modules/
+# Capacitor config (generated)
+capacitor.config.json
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*

@@ -6,7 +6,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
 export default defineConfig({
-  // Use app.html as entry point (old index.html preserved for reference)
+  // Standard build options (uses index.html by default)
   build: {
     // Standard build options
   },
