@@ -3,7 +3,7 @@
  * Verifies all piano samples and tanpura drones are accessible
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { SAMPLE_NOTE_NAMES, AVAILABLE_OCTAVES, NOTE_SUFFIX_BY_OCTAVE } from '../../utils/noteHelpers.js';
 
 // Expected audio files

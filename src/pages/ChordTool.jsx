@@ -47,9 +47,7 @@ export function ChordTool() {
     const [showRagaNotesOnKeyboard, setShowRagaNotesOnKeyboard] = useState(false);
     const [selectedNote, setSelectedNote] = useState(null);
     const [noteFilterMode, setNoteFilterMode] = useState('root'); // 'root' or 'any'
-    const [showMoreAaroh, setShowMoreAaroh] = useState(false);
-    const [showMoreAvroh, setShowMoreAvroh] = useState(false);
-    const [showMoreAll, setShowMoreAll] = useState(false);
+
 
     // Custom scale state
     const [customScaleMode, setCustomScaleMode] = useState(false);
@@ -69,7 +67,7 @@ export function ChordTool() {
         { id: 4, name: '4', chords: [], isPlaying: false, currentBeat: 0 }
     ]);
     const [activeProgressionId, setActiveProgressionId] = useState(1);
-    const progressionIntervalRefs = useRef({});
+
     const nextChordIdRef = useRef(1);
 
     // Get active progression
@@ -87,7 +85,7 @@ export function ChordTool() {
     // Rhythm/beat state
     const [beats, setBeats] = useState(8);
     const [bpm, setBpm] = useState(120);
-    const [currentBeat, setCurrentBeat] = useState(-1);
+
     const [loop, setLoop] = useState(true);
 
     // Enhanced progression controls (matching original)
@@ -104,34 +102,41 @@ export function ChordTool() {
             if (raw) {
                 const parsed = JSON.parse(raw);
                 if (Array.isArray(parsed) && parsed.length === 4) {
-                    setRhythmProgressions(parsed.map(p => ({ ...p, isPlaying: false, currentBeat: 0 })));
+                    setTimeout(() => {
+                        setRhythmProgressions(parsed.map(p => ({ ...p, isPlaying: false, currentBeat: 0 })));
+                    }, 0);
                     // Ensure ID counter is ahead
                     const maxId = parsed.flatMap(p => p.chords || []).reduce((m, c) => Math.max(m, c.id || 0), 0);
                     nextChordIdRef.current = maxId + 1;
                 }
             }
-        } catch { }
+        } catch {
+            // Ignore storage errors
+        }
     }, []);
 
     useEffect(() => {
         try {
             localStorage.setItem('pakad_progressions', JSON.stringify(rhythmProgressions));
-        } catch { }
+        } catch {
+            // Ignore storage errors
+        }
     }, [rhythmProgressions]);
 
     // MIDI settings
     const [showMidiSettings, setShowMidiSettings] = useState(false);
     const [showPianoChords, setShowPianoChords] = useState(false);
     const [midiTempo, setMidiTempo] = useState(120);
-    const [midiProgram, setMidiProgram] = useState(0);
+    const [midiProgram] = useState(0);
     const [midiVelocity, setMidiVelocity] = useState(96);
     const [midiNoteLengthBeats, setMidiNoteLengthBeats] = useState(3.2);
     const [midiGapBeats, setMidiGapBeats] = useState(0.4);
-    const [midiChannel, setMidiChannel] = useState(1);
+    const [midiChannel] = useState(1);
 
     // Audio
     const { audioContext, resume } = useAudio();
-    const { playNote, playChord, isReady: pianoReady } = usePianoSamples(audioContext);
+
+    const { playNote, isReady: pianoReady, isLoading: isPianoLoading, loadSamples } = usePianoSamples(audioContext);
     const { isPlaying: isTanpuraPlaying, toggle: toggleTanpura, changeTonic } = useTanpura();
 
     // Get raga list
@@ -148,16 +153,26 @@ export function ChordTool() {
             // Check Hindustani first
             const hindustaniMatch = HINDUSTANI_RAGAS.find(r => r.name === decodedName);
             if (hindustaniMatch) {
-                setIsCarnatic(false);
-                setSelectedRagaName(decodedName);
+                setTimeout(() => {
+                    setIsCarnatic(prev => {
+                        if (prev !== false) return false;
+                        return prev;
+                    });
+                    setSelectedRagaName(decodedName);
+                }, 0);
                 return;
             }
 
             // Check Carnatic
             const carnaticMatch = MELAKARTA_72.find(r => r.name === decodedName);
             if (carnaticMatch) {
-                setIsCarnatic(true);
-                setSelectedRagaName(decodedName);
+                setTimeout(() => {
+                    setIsCarnatic(prev => {
+                        if (prev !== true) return true;
+                        return prev;
+                    });
+                    setSelectedRagaName(decodedName);
+                }, 0);
                 return;
             }
         }
@@ -169,7 +184,12 @@ export function ChordTool() {
         if (searchParams.get('raga')) return;
 
         if (!selectedRagaName && ragaList.length > 0) {
-            setSelectedRagaName(ragaList[0].name);
+            setTimeout(() => {
+                setSelectedRagaName(prev => {
+                    if (prev !== ragaList[0].name) return ragaList[0].name;
+                    return prev;
+                });
+            }, 0);
         }
     }, [ragaList, selectedRagaName, searchParams]);
 
@@ -187,9 +207,19 @@ export function ChordTool() {
             const aarohStr = JSON.stringify(aarohSorted);
             const avrohStr = JSON.stringify(avrohSorted);
             if (aarohStr !== avrohStr) {
-                setSeparateAarohAvroh(true);
+                setTimeout(() => {
+                    setSeparateAarohAvroh(prev => {
+                        if (prev !== true) return true;
+                        return prev;
+                    });
+                }, 0);
             } else {
-                setSeparateAarohAvroh(false);
+                setTimeout(() => {
+                    setSeparateAarohAvroh(prev => {
+                        if (prev !== false) return false;
+                        return prev;
+                    });
+                }, 0);
             }
         }
     }, [selectedRaga, customScaleMode]);
@@ -283,10 +313,7 @@ export function ChordTool() {
         }
     }, [activeTab, chordData]);
 
-    // Handle raga selection
-    const handleRagaSelect = useCallback((raga) => {
-        setSelectedRagaName(raga.name);
-    }, []);
+
 
     // Custom chord builder helpers
     const addStack = useCallback((interval) => {
@@ -323,15 +350,7 @@ export function ChordTool() {
         };
     }, [customNotesAll, getCurrentPatterns]);
 
-    // Validate breakpoints pattern
-    const validateBreakpoints = useCallback((pattern, totalBeats) => {
-        if (!pattern.trim()) return { valid: true, error: '' };
-        const parts = pattern.split('-').map(s => parseInt(s.trim()));
-        if (parts.some(isNaN)) return { valid: false, error: 'Invalid format. Use numbers separated by dashes (e.g., 4-4)' };
-        const sum = parts.reduce((a, b) => a + b, 0);
-        if (sum !== totalBeats) return { valid: false, error: `Sum (${sum}) must equal beats (${totalBeats})` };
-        return { valid: true, error: '' };
-    }, []);
+
 
     // Handle mode change
     const handleModeChange = useCallback((carnatic) => {
@@ -343,7 +362,8 @@ export function ChordTool() {
     const handlePlayChord = useCallback(async (chord, isUnison = true) => {
         if (!pianoReady) {
             await resume();
-            return;
+            // Trigger lazy load
+            await loadSamples();
         }
 
         const arranged = arrangeChordNotes(chord.notes, 4);
@@ -369,7 +389,7 @@ export function ChordTool() {
                 setTimeout(() => playNote(transposedNote, transposedOctave, duration * 0.6, 0, 0.6), i * delay);
             });
         }
-    }, [pianoReady, resume, playNote, selectedTonic, chordNoteDuration, arpeggiationDelay]);
+    }, [pianoReady, resume, playNote, selectedTonic, chordNoteDuration, arpeggiationDelay, loadSamples]);
 
     // Add chord to progression
     const handleChordPlace = useCallback((beatIndex, chord) => {
@@ -407,9 +427,7 @@ export function ChordTool() {
         }
     }, [activeProgression, activeProgressionId, updateProgression]);
 
-    const handleStop = useCallback(() => {
-        updateProgression(activeProgressionId, { isPlaying: false, currentBeat: -1 });
-    }, [activeProgressionId, updateProgression]);
+
 
     const handleClear = useCallback(() => {
         updateProgression(activeProgressionId, { chords: [], isPlaying: false, currentBeat: -1 });
@@ -757,6 +775,12 @@ export function ChordTool() {
                     >
                         {showPiano ? 'Hide Keyboard' : 'Show Keyboard'}
                     </button>
+
+                    {isPianoLoading && (
+                        <span className="px-2 py-1 text-xs text-yellow-400 animate-pulse font-medium bg-gray-800 rounded border border-yellow-400/30">
+                            Loading Sounds...
+                        </span>
+                    )}
 
                     {/* Tanpura Toggle */}
                     <button
@@ -1136,7 +1160,7 @@ export function ChordTool() {
                             </div>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-6 min-h-[250px]">
                             {/* Aaroh Chords - Scrollable */}
                             <div>
                                 <h3 className="text-lg font-medium text-blue-300 mb-3">Aaroh Chords ({chordData.aaroh.length})</h3>
@@ -1434,7 +1458,7 @@ export function ChordTool() {
                                         const val = e.target.value;
                                         setCustomBreakpoints(val);
                                         // Validate
-                                        if (val && !/^[0-9\-]+$/.test(val)) {
+                                        if (val && !/^[0-9-]+$/.test(val)) {
                                             setBreakpointError('Use numbers and dashes only');
                                         } else {
                                             setBreakpointError('');

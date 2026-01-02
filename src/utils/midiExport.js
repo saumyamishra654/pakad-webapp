@@ -84,17 +84,15 @@ export function buildMidiFromProgression({
         data: [0xc0 | midiChannel, program & 0x7f]
     });
 
-    let currentTick = 0;
+
     const noteLengthTicks = Math.round(noteLengthBeats * ticksPerBeat);
     const gapTicks = Math.round(gapBeats * ticksPerBeat);
-    const totalChordTicks = noteLengthTicks + gapTicks;
 
     for (const item of progression) {
         const chord = item.chord || item;
         const notes = chord.notes || [];
 
         if (notes.length === 0) {
-            currentTick += totalChordTicks;
             continue;
         }
 
@@ -118,8 +116,6 @@ export function buildMidiFromProgression({
                 data: [0x80 | midiChannel, arranged[i].midiNote & 0x7f, 0]
             });
         }
-
-        currentTick += totalChordTicks;
     }
 
     // End of track

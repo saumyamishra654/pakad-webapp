@@ -227,7 +227,7 @@ export function parseHindustaniSwaras(swaraStr) {
     pattern[0] = 1; // Sa is always present
 
     for (const char of swaraStr) {
-        if (SWAR_TO_PITCH_CLASS.hasOwnProperty(char)) {
+        if (Object.prototype.hasOwnProperty.call(SWAR_TO_PITCH_CLASS, char)) {
             pattern[SWAR_TO_PITCH_CLASS[char]] = 1;
         }
     }

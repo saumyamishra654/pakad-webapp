@@ -17,11 +17,15 @@ export function useAudio() {
     useEffect(() => {
         try {
             const ctx = new (window.AudioContext || window.webkitAudioContext)();
-            setAudioContext(ctx);
+            setTimeout(() => {
+                setAudioContext(ctx);
+            }, 0);
 
             // Check if context is already running
             if (ctx.state === 'running') {
-                setIsReady(true);
+                setTimeout(() => {
+                    setIsReady(true);
+                }, 0);
             }
         } catch (e) {
             console.warn('WebAudio not available:', e);

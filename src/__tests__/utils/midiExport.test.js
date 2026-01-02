@@ -3,7 +3,7 @@
  * Covers MIDI file generation from chord progressions
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { buildMidiFromProgression } from '../../utils/midiExport.js';
 
 describe('midiExport', () => {

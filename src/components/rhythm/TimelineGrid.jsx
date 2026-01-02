@@ -50,7 +50,7 @@ export function TimelineGrid({
             if (onChordPlace) {
                 onChordPlace(beatIndex, chordData);
             }
-        } catch (err) {
+        } catch {
             console.warn('Invalid drop data');
         }
     };
@@ -179,8 +179,6 @@ export function PlaybackControls({
     onPlayPause,
     onStop,
     onClear,
-    bpm,
-    onBpmChange,
     loop,
     onLoopToggle,
     className = ''

@@ -14,29 +14,22 @@ import { pitchClassToFrequency, SAMPLE_NOTE_NAMES, NOTE_SUFFIX_BY_OCTAVE, AVAILA
  * @returns {Promise<AudioBuffer|null>}
  */
 export async function fetchSampleBuffer(ctx, noteName, suffix = '', basePath = '/Piano') {
-    const extensions = ['.mp3', '.wav', '.ogg'];
-    const variants = [noteName, noteName.replace('#', 'sharp'), noteName.replace('#', 's')];
+    // Optimization: Hardcode to .mp3 and specific note names to avoid 404s
+    const encoded = encodeURIComponent(`${noteName}${suffix}`);
+    const url = `${basePath}/${encoded}.mp3`;
 
-    for (const variant of variants) {
-        for (const ext of extensions) {
-            const encoded = encodeURIComponent(`${variant}${suffix}`);
-            const url = `${basePath}/${encoded}${ext}`;
+    try {
+        const response = await fetch(url);
+        if (!response.ok) return null;
 
-            try {
-                const response = await fetch(url);
-                if (!response.ok) continue;
+        const arrayBuffer = await response.arrayBuffer();
+        if (arrayBuffer.byteLength === 0) return null;
 
-                const arrayBuffer = await response.arrayBuffer();
-                if (arrayBuffer.byteLength === 0) continue;
-
-                return await ctx.decodeAudioData(arrayBuffer.slice(0));
-            } catch (err) {
-                // Try next variant/extension
-            }
-        }
+        return await ctx.decodeAudioData(arrayBuffer.slice(0));
+    } catch (err) {
+        console.error(`Failed to load sample: ${url}`, err);
+        return null;
     }
-
-    return null;
 }
 
 /**

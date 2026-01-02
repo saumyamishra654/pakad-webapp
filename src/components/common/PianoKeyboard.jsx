@@ -27,7 +27,6 @@ export function PianoKeyboard({
     highlightedNotes = [],
     swarLabels = null,
     isCarnatic = false,
-    tonic = 0,
     octaveSequence = [3, 4, 5],
     className = ''
 }) {

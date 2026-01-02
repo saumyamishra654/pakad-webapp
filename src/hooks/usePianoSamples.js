@@ -3,7 +3,7 @@
  * Loads piano samples and provides playback function
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { loadPianoSamples, playNote as playNoteAudio } from '../utils/audioHelpers.js';
 import { AVAILABLE_OCTAVES } from '../utils/noteHelpers.js';
 
@@ -19,58 +19,42 @@ export function usePianoSamples(audioContext, basePath = '/Piano') {
     const [error, setError] = useState(null);
     const buffersRef = useRef({});
 
-    // Load samples when audio context is available
-    useEffect(() => {
-        if (!audioContext) return;
+    // Lazy load function
+    const loadSamples = useCallback(async () => {
+        if (!audioContext || isReady || isLoading || buffersRef.current['C']) return;
 
-        let cancelled = false;
+        setIsLoading(true);
+        setError(null);
 
-        const load = async () => {
-            setIsLoading(true);
-            setError(null);
-            setIsReady(false);
+        try {
+            const buffers = await loadPianoSamples(audioContext, basePath);
+            buffersRef.current = buffers;
 
-            try {
-                const buffers = await loadPianoSamples(audioContext, basePath);
+            // Check if all octaves loaded for all notes
+            const allReady = Object.keys(buffers).length === 12 &&
+                Object.values(buffers).every(noteMap =>
+                    AVAILABLE_OCTAVES.every(oct => !!noteMap[oct])
+                );
 
-                if (cancelled) return;
-
-                buffersRef.current = buffers;
-
-                // Check if all octaves loaded for all notes
-                const allReady = Object.keys(buffers).length === 12 &&
-                    Object.values(buffers).every(noteMap =>
-                        AVAILABLE_OCTAVES.every(oct => !!noteMap[oct])
-                    );
-
-                setIsReady(allReady);
-                if (!allReady) {
-                    console.warn('Some piano samples failed to load');
-                }
-            } catch (err) {
-                if (!cancelled) {
-                    console.error('Failed to load piano samples:', err);
-                    setError(err.message || 'Failed to load samples');
-                    buffersRef.current = {};
-                    setIsReady(false);
-                }
-            } finally {
-                if (!cancelled) {
-                    setIsLoading(false);
-                }
+            setIsReady(allReady);
+            if (!allReady) {
+                console.warn('Some piano samples failed to load');
             }
-        };
+        } catch (err) {
+            console.error('Failed to load piano samples:', err);
+            setError(err.message || 'Failed to load samples');
+            buffersRef.current = {};
+            setIsReady(false);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [audioContext, basePath, isReady, isLoading]);
 
-        load();
-
-        return () => {
-            cancelled = true;
-        };
-    }, [audioContext, basePath]);
+    // No auto-loading useEffect anymore!
 
     // Play a single note
     const playNote = useCallback((noteIndex, octave = 4, duration = 0.5, delay = 0, volume = 1) => {
-        if (!audioContext || !isReady) return null;
+        if (!audioContext || !buffersRef.current) return null;
 
         // Resume context if suspended (autoplay policy)
         if (audioContext.state === 'suspended') {
@@ -86,7 +70,7 @@ export function usePianoSamples(audioContext, basePath = '/Piano') {
             delay,
             volume
         });
-    }, [audioContext, isReady]);
+    }, [audioContext]);
 
     // Play a chord (all notes simultaneously)
     const playChord = useCallback((notes, octave = 4, duration = 0.8, delay = 0, volume = 1) => {
@@ -143,7 +127,8 @@ export function usePianoSamples(audioContext, basePath = '/Piano') {
         playNote,
         playChord,
         playChordArpeggiated,
-        playSequence
+        playSequence,
+        loadSamples
     };
 }
 

@@ -3,7 +3,7 @@
  * Database search interface for finding ragas by note patterns
  */
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { HINDUSTANI_RAGAS } from '../data/ragaData.js';
 import { MELAKARTA_72 } from '../data/melakartaData.js';
@@ -71,7 +71,7 @@ export function RagaQuery() {
     const [excludedAvrohNotes, setExcludedAvrohNotes] = useState(new Set());
 
     const [showPiano, setShowPiano] = useState(false);
-    const [results, setResults] = useState([]);
+
 
     // Audio
     const { audioContext, resume } = useAudio();
@@ -84,8 +84,10 @@ export function RagaQuery() {
 
     const labels = useMemo(() => getDisplayLabels(isCarnatic), [isCarnatic]);
 
-    // Clear filters when mode changes
-    useEffect(() => {
+    // Toggle between Hindustani and Carnatic systems
+    const toggleSystem = useCallback(() => {
+        setIsCarnatic(prev => !prev);
+        // Clear all filters when switching systems
         setSelectedNotes(new Set());
         setExcludedNotes(new Set());
         setSelectedAarohNotes(new Set());
@@ -93,7 +95,7 @@ export function RagaQuery() {
         setSelectedAvrohNotes(new Set());
         setExcludedAvrohNotes(new Set());
         setSearchQuery('');
-    }, [isCarnatic]);
+    }, []);
 
     // Handle tri-state note toggle (neutral -> selected -> excluded -> neutral)
     const handleNoteToggle = useCallback((noteIndex, setSelected, setExcluded, selected, excluded) => {
@@ -213,7 +215,7 @@ export function RagaQuery() {
     }, [pianoReady, resume, playSequence]);
 
     // Handle piano key click for note selection
-    const handlePianoKeyClick = useCallback((noteIndex, octave) => {
+    const handlePianoKeyClick = useCallback((noteIndex) => {
         // Use the current note selection context
         if (separateNoteSelection) {
             // In separate mode, clicking adds to general selection for now
@@ -339,7 +341,7 @@ export function RagaQuery() {
                     </span>
 
                     <button
-                        onClick={() => setIsCarnatic(!isCarnatic)}
+                        onClick={toggleSystem}
                         className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${isCarnatic ? 'bg-purple-600' : 'bg-blue-600'}`}
                         title="Toggle Music System"
                     >
@@ -476,8 +478,8 @@ export function RagaQuery() {
                     </button>
                 </div>
 
-                {/* Results */}
-                <div className="bg-[#071126] rounded-xl shadow-lg p-6">
+                {/* Results Section */}
+                <div className="bg-[#071126] rounded-xl shadow-lg p-6 min-h-[500px]">
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="text-lg font-semibold text-white">
                             Results ({filteredResults.length})
@@ -485,7 +487,7 @@ export function RagaQuery() {
                     </div>
 
                     {filteredResults.length === 0 ? (
-                        <div className="text-center py-8 text-gray-400">
+                        <div className="text-center py-12 text-gray-400">
                             No ragas match your criteria
                         </div>
                     ) : (
@@ -551,7 +553,6 @@ export function RagaQuery() {
                                     </div>
                                 </div>
                             ))}
-
                         </div>
                     )}
                 </div>
@@ -559,5 +560,6 @@ export function RagaQuery() {
         </div>
     );
 }
+
 
 export default RagaQuery;

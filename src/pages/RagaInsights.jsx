@@ -33,8 +33,6 @@ export function RagaInsights() {
 
     // Run analysis on mount
     useEffect(() => {
-        setIsLoading(true);
-
         // Use setTimeout to allow UI to render loading state
         setTimeout(() => {
             const sameNotes = analyzeSameNotes(HINDUSTANI_RAGAS, MELAKARTA_72);

@@ -47,7 +47,7 @@ async function loadTanpuraFile(fileName, basePath) {
             });
 
             return audio;
-        } catch (error) {
+        } catch {
             console.log(`Tanpura file ${variant} not found, trying next variant...`);
             continue;
         }

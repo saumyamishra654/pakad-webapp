@@ -8,10 +8,7 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ChordCard } from '../../components/chords/ChordCard.jsx';
 
-// Polyfill for dataTransfer in tests
-const mockDataTransfer = () => ({
-    setData: vi.fn()
-});
+
 
 describe('ChordCard', () => {
     const mockChord = {
