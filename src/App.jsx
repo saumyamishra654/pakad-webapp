@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { HashRouter, Routes, Route } from 'react-router-dom';
 import { Header } from './components/common/Header.jsx';
 
 // Lazy load pages for better performance
@@ -24,7 +24,7 @@ const PageLoader = () => (
 
 function App() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <div className="min-h-screen bg-[#000000] text-[#e2e8f0]">
         <Header />
 
@@ -39,7 +39,7 @@ function App() {
           </React.Suspense>
         </main>
       </div>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
 

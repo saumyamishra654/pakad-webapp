@@ -1,4 +1,4 @@
-import{j as x}from"./index-CA2lxd0e.js";import{g as b}from"./noteHelpers-Cl6DLqkx.js";function c({noteIndex:e,isActive:a=!0,isCarnatic:r=!1,activeColor:s="bg-blue-500",onClick:t,size:o="md",className:n=""}){const i=b(r)[e]||"",d={sm:"px-1.5 py-0.5 text-[9px]",md:"px-2 py-1 text-xs",lg:"px-3 py-1.5 text-sm"},u=`
+import{j as x}from"./index-IMYt5GRD.js";import{g as b}from"./noteHelpers-Cl6DLqkx.js";function c({noteIndex:e,isActive:a=!0,isCarnatic:r=!1,activeColor:s="bg-blue-500",onClick:t,size:o="md",className:n=""}){const i=b(r)[e]||"",d={sm:"px-1.5 py-0.5 text-[9px]",md:"px-2 py-1 text-xs",lg:"px-3 py-1.5 text-sm"},u=`
     inline-block rounded font-medium transition-all
     ${d[o]||d.md}
     ${t?"cursor-pointer hover:scale-105":""}
