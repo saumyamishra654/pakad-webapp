@@ -1,19 +1,14 @@
 /**
  * TimelineGrid Component
  * Beat grid for placing chords in rhythm progressions
+ * Updated to match original styling
  */
 
 import React, { useState, useCallback } from 'react';
+import { getDisplayLabels } from '../../utils/noteHelpers.js';
 
 /**
- * TimelineGrid for chord progression building
- * @param {Object} props
- * @param {number} props.beats - Number of beats
- * @param {Array} props.chords - Chords placed on beats [{beat, chord}]
- * @param {Function} props.onChordPlace - Called when chord dropped on beat
- * @param {Function} props.onChordRemove - Called when chord removed from beat
- * @param {number} props.currentBeat - Currently playing beat (for highlighting)
- * @param {string} props.breakpoints - Breakpoint pattern (e.g., "4-4" or "3-3-2")
+ * TimelineGrid for chord progression building - matches original light theme styling
  */
 export function TimelineGrid({
     beats = 8,
@@ -22,42 +17,34 @@ export function TimelineGrid({
     onChordRemove,
     currentBeat = -1,
     breakpoints = '',
+    isCarnatic = false,
     className = ''
 }) {
     const [dragOverBeat, setDragOverBeat] = useState(null);
+    const labels = getDisplayLabels(isCarnatic);
 
-    // Parse breakpoints into accent positions
-    const accentPositions = React.useMemo(() => {
-        if (!breakpoints) return new Set([0]);
-
+    // Parse breakpoints into positions
+    const breakpointPositions = React.useMemo(() => {
+        if (!breakpoints) return [];
         const parts = breakpoints.split('-').map(Number).filter(n => !isNaN(n) && n > 0);
-        const positions = new Set([0]);
+        const positions = [];
         let pos = 0;
-
         for (const len of parts) {
             pos += len;
-            if (pos <= beats) positions.add(pos);
+            if (pos < beats) positions.push(pos - 1); // Mark the beat BEFORE the break
         }
-
         return positions;
     }, [breakpoints, beats]);
 
     // Get chord at specific beat
     const getChordAtBeat = useCallback((beatIndex) => {
-        return chords.find(c => c.beat === beatIndex);
+        return chords.find(c => Math.floor(c.beat) === beatIndex);
     }, [chords]);
-
-    // Handle drag over
-    const handleDragOver = (e, beatIndex) => {
-        e.preventDefault();
-        setDragOverBeat(beatIndex);
-    };
 
     // Handle drop
     const handleDrop = (e, beatIndex) => {
         e.preventDefault();
         setDragOverBeat(null);
-
         try {
             const chordData = JSON.parse(e.dataTransfer.getData('application/json'));
             if (onChordPlace) {
@@ -68,72 +55,114 @@ export function TimelineGrid({
         }
     };
 
-    // Handle click to remove
-    const handleBeatClick = (beatIndex) => {
-        const chord = getChordAtBeat(beatIndex);
-        if (chord && onChordRemove) {
-            onChordRemove(beatIndex);
-        }
-    };
+    // Calculate layout - single row for <=10 beats, 2 rows for more
+    const beatsPerRow = beats <= 10 ? beats : Math.ceil(beats / 2);
+    const rows = beats <= 10 ? 1 : 2;
 
     return (
-        <div className={`${className}`}>
-            {/* Beat grid */}
-            <div className="flex gap-1 overflow-x-auto pb-2">
-                {Array.from({ length: beats }, (_, i) => {
-                    const chord = getChordAtBeat(i);
-                    const isAccent = accentPositions.has(i);
-                    const isPlaying = currentBeat === i;
-                    const isDragOver = dragOverBeat === i;
+        <div className={`border-2 border-gray-300 rounded-lg p-4 bg-gray-50 ${className}`}>
+            <div className="space-y-2">
+                {Array.from({ length: rows }).map((_, rowIndex) => {
+                    const startBeat = rowIndex * beatsPerRow;
+                    const endBeat = Math.min(startBeat + beatsPerRow, beats);
 
                     return (
-                        <div
-                            key={i}
-                            className={`
-                flex-shrink-0 w-16 h-20 rounded-lg border-2 
-                flex flex-col items-center justify-center
-                transition-all cursor-pointer
-                ${isAccent ? 'border-blue-400 dark:border-blue-600' : 'border-gray-300 dark:border-gray-600'}
-                ${isPlaying ? 'bg-yellow-100 dark:bg-yellow-900/40 ring-2 ring-yellow-400' : 'bg-white dark:bg-gray-800'}
-                ${isDragOver ? 'border-dashed border-blue-500 bg-blue-50 dark:bg-blue-900/20' : ''}
-                ${chord ? 'hover:bg-red-50 dark:hover:bg-red-900/20' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}
-              `}
-                            onDragOver={(e) => handleDragOver(e, i)}
-                            onDragLeave={() => setDragOverBeat(null)}
-                            onDrop={(e) => handleDrop(e, i)}
-                            onClick={() => handleBeatClick(i)}
-                        >
-                            {/* Beat number */}
-                            <span className={`text-xs ${isAccent ? 'font-bold text-blue-600 dark:text-blue-400' : 'text-gray-400'}`}>
-                                {i + 1}
-                            </span>
+                        <div key={rowIndex} className="flex gap-1">
+                            {Array.from({ length: endBeat - startBeat }).map((_, indexInRow) => {
+                                const beatIndex = startBeat + indexInRow;
+                                const chord = getChordAtBeat(beatIndex);
+                                const isPlaying = currentBeat === beatIndex;
+                                const isDragOver = dragOverBeat === beatIndex;
+                                const isBreakpoint = breakpointPositions.includes(beatIndex);
+                                const isFirstBeat = beatIndex === 0;
 
-                            {/* Chord display */}
-                            {chord ? (
-                                <div className="mt-1 text-center">
+                                return (
                                     <div
-                                        className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
-                                        style={{ backgroundColor: chord.chord?.color || '#3b82f6' }}
+                                        key={beatIndex}
+                                        className={`
+                                            border-2 rounded p-1 transition-all flex-1 min-w-0 relative group
+                                            ${isPlaying
+                                                ? 'bg-yellow-200 border-yellow-400'
+                                                : isFirstBeat
+                                                    ? 'bg-blue-50 border-blue-300'
+                                                    : 'bg-white border-gray-300'
+                                            }
+                                            ${isDragOver ? 'border-dashed border-blue-500 bg-blue-50' : ''}
+                                            ${isBreakpoint ? 'border-r-4 border-r-indigo-500' : ''}
+                                        `}
+                                        style={{
+                                            minHeight: '70px',
+                                            marginRight: isBreakpoint ? '0.5rem' : '0'
+                                        }}
+                                        onDragOver={(e) => {
+                                            e.preventDefault();
+                                            setDragOverBeat(beatIndex);
+                                        }}
+                                        onDragLeave={() => setDragOverBeat(null)}
+                                        onDrop={(e) => handleDrop(e, beatIndex)}
                                     >
-                                        {chord.chord?.root !== undefined ? chord.chord.root : '?'}
+                                        {/* Beat number at top */}
+                                        <div className="text-xs text-gray-500 font-semibold mb-1">
+                                            {beatIndex + 1}
+                                        </div>
+
+                                        {/* Chord chips */}
+                                        <div className="space-y-1">
+                                            {chord && (() => {
+                                                const chordType = chord.chord?.type || {};
+                                                const bgColor = chord.chord?.color || chordType.color || '#6366f1';
+                                                const rootLabel = labels[chord.chord?.root] || '';
+                                                const typeName = chord.chord?.name || chordType.name || '';
+                                                const westernName = chord.chord?.westernName;
+
+                                                return (
+                                                    <div
+                                                        className="bg-white border rounded px-1 py-1 text-xs relative group shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+                                                        style={{ borderColor: bgColor }}
+                                                        title="Click remove button to delete"
+                                                    >
+                                                        <div className="flex items-center gap-1 mb-0.5">
+                                                            <div
+                                                                className="w-2 h-2 rounded-full flex-shrink-0"
+                                                                style={{ backgroundColor: bgColor }}
+                                                            />
+                                                            <span className="font-medium text-gray-800 truncate text-xs">
+                                                                {westernName || `${rootLabel} ${typeName}`}
+                                                            </span>
+                                                        </div>
+                                                        {/* Delete button on hover */}
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                if (onChordRemove) onChordRemove(beatIndex, chord.id);
+                                                            }}
+                                                            className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-xs opacity-0 group-hover:opacity-100 flex items-center justify-center font-bold transition-opacity shadow-md z-10"
+                                                            title="Remove chord"
+                                                        >
+                                                            ×
+                                                        </button>
+                                                    </div>
+                                                );
+                                            })()}
+
+                                            {/* Empty state - plus icon */}
+                                            {!chord && (
+                                                <div className="text-gray-300 text-lg text-center">+</div>
+                                            )}
+                                        </div>
                                     </div>
-                                    <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 truncate w-14">
-                                        {chord.chord?.name?.slice(0, 8) || ''}
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="mt-1 text-gray-300 dark:text-gray-600 text-2xl">+</div>
-                            )}
+                                );
+                            })}
                         </div>
                     );
                 })}
             </div>
 
             {/* Legend */}
-            <div className="flex items-center gap-4 mt-2 text-xs text-gray-500 dark:text-gray-400">
-                <span>Drag chords to beats • Click to remove</span>
+            <div className="flex items-center gap-4 mt-3 text-xs text-gray-500">
+                <span>Drag chords to beats</span>
                 {breakpoints && (
-                    <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded">
+                    <span className="px-2 py-0.5 bg-gray-100 rounded">
                         Pattern: {breakpoints}
                     </span>
                 )}
@@ -162,49 +191,26 @@ export function PlaybackControls({
             <button
                 onClick={onPlayPause}
                 className={`
-          p-2 rounded-full transition-colors
-          ${isPlaying
+                    px-3 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-colors
+                    ${isPlaying
                         ? 'bg-yellow-500 hover:bg-yellow-600 text-white'
                         : 'bg-green-500 hover:bg-green-600 text-white'
                     }
-        `}
+                `}
             >
-                {isPlaying ? (
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                    </svg>
-                ) : (
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
-                    </svg>
-                )}
+                {isPlaying ? '⏸ Pause' : '▶ Play'}
             </button>
 
             {/* Stop */}
             <button
                 onClick={onStop}
-                className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300"
+                className="px-3 py-2 rounded-lg font-medium text-sm bg-gray-200 hover:bg-gray-300 text-gray-700"
             >
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clipRule="evenodd" />
-                </svg>
+                ⏹ Stop
             </button>
 
-            {/* BPM */}
-            <div className="flex items-center gap-2">
-                <label className="text-sm text-gray-600 dark:text-gray-400">BPM</label>
-                <input
-                    type="number"
-                    value={bpm}
-                    onChange={e => onBpmChange(parseInt(e.target.value) || 120)}
-                    min={40}
-                    max={240}
-                    className="w-16 px-2 py-1 text-sm border rounded dark:bg-gray-800 dark:border-gray-600"
-                />
-            </div>
-
             {/* Loop */}
-            <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
+            <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
                 <input
                     type="checkbox"
                     checked={loop}
@@ -217,7 +223,7 @@ export function PlaybackControls({
             {/* Clear */}
             <button
                 onClick={onClear}
-                className="px-3 py-1 text-sm bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded hover:bg-red-200 dark:hover:bg-red-800/40"
+                className="px-3 py-2 text-sm bg-red-100 text-red-700 rounded-lg hover:bg-red-200"
             >
                 Clear
             </button>

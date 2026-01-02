@@ -4,7 +4,7 @@
  * rhythm progression builder, and audio playback
  */
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { HINDUSTANI_RAGAS } from '../data/ragaData.js';
 import { MELAKARTA_72 } from '../data/melakartaData.js';
@@ -14,8 +14,9 @@ import { ChordCard, ChordGrid } from '../components/chords/ChordCard.jsx';
 import { ChordTypeList } from '../components/chords/ChordTypeList.jsx';
 import { PianoKeyboard } from '../components/common/PianoKeyboard.jsx';
 import { TimelineGrid, PlaybackControls } from '../components/rhythm/TimelineGrid.jsx';
-import { getAvailableChords, getChordsOutsidePattern, countChordsByType, arrangeChordNotes } from '../utils/chordHelpers.js';
+import { getAvailableChords, getChordsOutsidePattern, countChordsByType, arrangeChordNotes, filterChordsByNote } from '../utils/chordHelpers.js';
 import { getDisplayLabels, patternToPitchClasses, WESTERN_NOTES_SHARP } from '../utils/noteHelpers.js';
+import { arrangeNotesAscending, arrangeNotesDescending } from '../utils/audioHelpers.js';
 import { buildMidiFromProgression, downloadMidi } from '../utils/midiExport.js';
 import { useAudio } from '../hooks/useAudio.js';
 import { usePianoSamples } from '../hooks/usePianoSamples.js';
@@ -37,12 +38,15 @@ export function ChordTool() {
     const [showExtended, setShowExtended] = useState(false);
     const [separateAarohAvroh, setSeparateAarohAvroh] = useState(false);
     const [showOutsideChords, setShowOutsideChords] = useState(false);
+    const [outsideMinAllowed, setOutsideMinAllowed] = useState(1);
+    const [outsideMaxAllowed, setOutsideMaxAllowed] = useState(1);
 
     // UI state
     const [showPiano, setShowPiano] = useState(false);
     const [activeTab, setActiveTab] = useState('chords'); // 'chords', 'custom'
     const [showRagaNotesOnKeyboard, setShowRagaNotesOnKeyboard] = useState(false);
     const [selectedNote, setSelectedNote] = useState(null);
+    const [noteFilterMode, setNoteFilterMode] = useState('root'); // 'root' or 'any'
     const [showMoreAaroh, setShowMoreAaroh] = useState(false);
     const [showMoreAvroh, setShowMoreAvroh] = useState(false);
     const [showMoreAll, setShowMoreAll] = useState(false);
@@ -57,11 +61,32 @@ export function ChordTool() {
     const [customRoot, setCustomRoot] = useState(0);
     const [customIntervalsAbs, setCustomIntervalsAbs] = useState([0]); // Absolute intervals from root
 
-    // Rhythm state
-    const [progressionChords, setProgressionChords] = useState([]);
+    // Multiple rhythm progressions (4 tabs like original)
+    const [rhythmProgressions, setRhythmProgressions] = useState([
+        { id: 1, name: '1', chords: [], isPlaying: false, currentBeat: 0 },
+        { id: 2, name: '2', chords: [], isPlaying: false, currentBeat: 0 },
+        { id: 3, name: '3', chords: [], isPlaying: false, currentBeat: 0 },
+        { id: 4, name: '4', chords: [], isPlaying: false, currentBeat: 0 }
+    ]);
+    const [activeProgressionId, setActiveProgressionId] = useState(1);
+    const progressionIntervalRefs = useRef({});
+    const nextChordIdRef = useRef(1);
+
+    // Get active progression
+    const activeProgression = useMemo(() => {
+        return rhythmProgressions.find(p => p.id === activeProgressionId) || rhythmProgressions[0];
+    }, [rhythmProgressions, activeProgressionId]);
+
+    // Update a specific progression
+    const updateProgression = useCallback((id, updates) => {
+        setRhythmProgressions(prev => prev.map(p =>
+            p.id === id ? { ...p, ...updates } : p
+        ));
+    }, []);
+
+    // Rhythm/beat state
     const [beats, setBeats] = useState(8);
     const [bpm, setBpm] = useState(120);
-    const [isPlaying, setIsPlaying] = useState(false);
     const [currentBeat, setCurrentBeat] = useState(-1);
     const [loop, setLoop] = useState(true);
 
@@ -71,6 +96,28 @@ export function ChordTool() {
     const [chordNoteDuration, setChordNoteDuration] = useState(1.0);
     const [customBreakpoints, setCustomBreakpoints] = useState('');
     const [breakpointError, setBreakpointError] = useState('');
+
+    // localStorage persistence for progressions
+    useEffect(() => {
+        try {
+            const raw = localStorage.getItem('pakad_progressions');
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed) && parsed.length === 4) {
+                    setRhythmProgressions(parsed.map(p => ({ ...p, isPlaying: false, currentBeat: 0 })));
+                    // Ensure ID counter is ahead
+                    const maxId = parsed.flatMap(p => p.chords || []).reduce((m, c) => Math.max(m, c.id || 0), 0);
+                    nextChordIdRef.current = maxId + 1;
+                }
+            }
+        } catch { }
+    }, []);
+
+    useEffect(() => {
+        try {
+            localStorage.setItem('pakad_progressions', JSON.stringify(rhythmProgressions));
+        } catch { }
+    }, [rhythmProgressions]);
 
     // MIDI settings
     const [showMidiSettings, setShowMidiSettings] = useState(false);
@@ -85,30 +132,46 @@ export function ChordTool() {
     // Audio
     const { audioContext, resume } = useAudio();
     const { playNote, playChord, isReady: pianoReady } = usePianoSamples(audioContext);
-    const { isPlaying: isTanpuraPlaying, toggle: toggleTanpura, changeTonic } = useTanpura(audioContext);
+    const { isPlaying: isTanpuraPlaying, toggle: toggleTanpura, changeTonic } = useTanpura();
 
     // Get raga list
     const ragaList = useMemo(() => {
         return isCarnatic ? MELAKARTA_72 : HINDUSTANI_RAGAS;
     }, [isCarnatic]);
 
-    // Handle URL param for raga selection
+    // Handle URL param for raga selection (search both lists)
     useEffect(() => {
         const ragaParam = searchParams.get('raga');
         if (ragaParam) {
-            const found = ragaList.find(r => r.name === decodeURIComponent(ragaParam));
-            if (found) {
-                setSelectedRagaName(found.name);
+            const decodedName = decodeURIComponent(ragaParam);
+
+            // Check Hindustani first
+            const hindustaniMatch = HINDUSTANI_RAGAS.find(r => r.name === decodedName);
+            if (hindustaniMatch) {
+                setIsCarnatic(false);
+                setSelectedRagaName(decodedName);
+                return;
+            }
+
+            // Check Carnatic
+            const carnaticMatch = MELAKARTA_72.find(r => r.name === decodedName);
+            if (carnaticMatch) {
+                setIsCarnatic(true);
+                setSelectedRagaName(decodedName);
+                return;
             }
         }
-    }, [searchParams, ragaList]);
+    }, [searchParams]);
 
-    // Auto-select first raga if none selected
+    // Auto-select first raga if none selected AND no URL param
     useEffect(() => {
+        // Don't auto-select if we're trying to load from URL
+        if (searchParams.get('raga')) return;
+
         if (!selectedRagaName && ragaList.length > 0) {
             setSelectedRagaName(ragaList[0].name);
         }
-    }, [ragaList, selectedRagaName]);
+    }, [ragaList, selectedRagaName, searchParams]);
 
     // Get selected raga object
     const selectedRaga = useMemo(() => {
@@ -147,6 +210,24 @@ export function ChordTool() {
         return { all: selectedRaga.notePattern, aaroh: selectedRaga.aarohPattern, avroh: selectedRaga.avrohPattern };
     }, [customScaleMode, separateAarohAvroh, customNotePattern, customAarohPattern, customAvrohPattern, selectedRaga]);
 
+    // Handle note click - cycle through: any -> root -> clear
+    const handleNoteClick = useCallback((noteIndex) => {
+        if (selectedNote === noteIndex) {
+            // Same note clicked - cycle to next mode or clear
+            if (noteFilterMode === 'any') {
+                setNoteFilterMode('root');
+            } else {
+                // Was 'root', clear selection
+                setSelectedNote(null);
+                setNoteFilterMode('any'); // Reset for next selection
+            }
+        } else {
+            // Different note clicked - start with 'any' mode
+            setSelectedNote(noteIndex);
+            setNoteFilterMode('any');
+        }
+    }, [selectedNote, noteFilterMode]);
+
     // Compute available chords
     const chordData = useMemo(() => {
         const patterns = getCurrentPatterns();
@@ -161,18 +242,36 @@ export function ChordTool() {
         const avroh = separateAarohAvroh
             ? getAvailableChords(patterns.avroh, selectedChordType, showExtended)
             : [];
-        const outside = showOutsideChords
-            ? getChordsOutsidePattern(patterns.all, 1, 2, selectedChordType, showExtended)
-            : [];
+
+        // Outside chords
+        let outside = [];
+        let outsideAaroh = [];
+        let outsideAvroh = [];
+        if (showOutsideChords) {
+            if (separateAarohAvroh) {
+                outsideAaroh = getChordsOutsidePattern(patterns.aaroh, outsideMinAllowed, outsideMaxAllowed, selectedChordType, showExtended);
+                outsideAvroh = getChordsOutsidePattern(patterns.avroh, outsideMinAllowed, outsideMaxAllowed, selectedChordType, showExtended);
+            } else {
+                outside = getChordsOutsidePattern(patterns.all, outsideMinAllowed, outsideMaxAllowed, selectedChordType, showExtended);
+            }
+        }
+
+        // Apply note filter if selectedNote is set
+        const applyNoteFilter = (chords) => {
+            if (selectedNote === null) return chords;
+            return filterChordsByNote(chords, selectedNote, noteFilterMode);
+        };
 
         return {
-            all,
-            aaroh,
-            avroh,
-            outside,
+            all: applyNoteFilter(all),
+            aaroh: applyNoteFilter(aaroh),
+            avroh: applyNoteFilter(avroh),
+            outside: applyNoteFilter(outside),
+            outsideAaroh: applyNoteFilter(outsideAaroh),
+            outsideAvroh: applyNoteFilter(outsideAvroh),
             counts: countChordsByType(all)
         };
-    }, [getCurrentPatterns, selectedChordType, showExtended, separateAarohAvroh, showOutsideChords]);
+    }, [getCurrentPatterns, selectedChordType, showExtended, separateAarohAvroh, showOutsideChords, outsideMinAllowed, outsideMaxAllowed, selectedNote, noteFilterMode]);
 
     // Get current chords based on active tab
     const currentChords = useMemo(() => {
@@ -253,60 +352,75 @@ export function ChordTool() {
         if (isUnison) {
             // Play all notes at once
             for (const { noteIndex, octave } of arranged) {
-                const transposedNote = (noteIndex + selectedTonic) % 12;
-                playNote(transposedNote, octave, duration, 0, 0.8);
+                // Apply tonic offset and recalculate both note and octave
+                const totalSemitones = noteIndex + selectedTonic + octave * 12;
+                const transposedNote = ((totalSemitones % 12) + 12) % 12;
+                const transposedOctave = Math.floor(totalSemitones / 12);
+                playNote(transposedNote, transposedOctave, duration, 0, 0.8);
             }
         } else {
             // Play notes as a melody (arpeggiated)
             const delay = (arpeggiationDelay || 0.08) * 1000; // Convert to ms
             arranged.forEach(({ noteIndex, octave }, i) => {
-                const transposedNote = (noteIndex + selectedTonic) % 12;
-                setTimeout(() => playNote(transposedNote, octave, duration * 0.6, 0, 0.6), i * delay);
+                // Apply tonic offset and recalculate both note and octave
+                const totalSemitones = noteIndex + selectedTonic + octave * 12;
+                const transposedNote = ((totalSemitones % 12) + 12) % 12;
+                const transposedOctave = Math.floor(totalSemitones / 12);
+                setTimeout(() => playNote(transposedNote, transposedOctave, duration * 0.6, 0, 0.6), i * delay);
             });
         }
     }, [pianoReady, resume, playNote, selectedTonic, chordNoteDuration, arpeggiationDelay]);
 
     // Add chord to progression
     const handleChordPlace = useCallback((beatIndex, chord) => {
-        setProgressionChords(prev => {
-            // Remove any existing chord at this beat
-            const filtered = prev.filter(c => c.beat !== beatIndex);
-            return [...filtered, { beat: beatIndex, chord }].sort((a, b) => a.beat - b.beat);
+        const existingChords = activeProgression.chords.filter(c => Math.floor(c.beat) !== beatIndex);
+        const newChord = {
+            id: nextChordIdRef.current++,
+            chord,
+            beat: beatIndex,
+            duration: 1
+        };
+        updateProgression(activeProgressionId, {
+            chords: [...existingChords, newChord].sort((a, b) => a.beat - b.beat)
         });
-    }, []);
+    }, [activeProgression, activeProgressionId, updateProgression]);
 
     // Remove chord from progression
-    const handleChordRemove = useCallback((beatIndex) => {
-        setProgressionChords(prev => prev.filter(c => c.beat !== beatIndex));
-    }, []);
+    const handleChordRemove = useCallback((beatIndex, chordId) => {
+        if (chordId !== undefined) {
+            updateProgression(activeProgressionId, {
+                chords: activeProgression.chords.filter(c => c.id !== chordId)
+            });
+        } else {
+            updateProgression(activeProgressionId, {
+                chords: activeProgression.chords.filter(c => Math.floor(c.beat) !== beatIndex)
+            });
+        }
+    }, [activeProgression, activeProgressionId, updateProgression]);
 
     // Playback controls
     const handlePlayPause = useCallback(() => {
-        if (isPlaying) {
-            setIsPlaying(false);
-            setCurrentBeat(-1);
+        if (activeProgression.isPlaying) {
+            updateProgression(activeProgressionId, { isPlaying: false, currentBeat: -1 });
         } else {
-            setIsPlaying(true);
-            setCurrentBeat(0);
+            updateProgression(activeProgressionId, { isPlaying: true, currentBeat: 0 });
         }
-    }, [isPlaying]);
+    }, [activeProgression, activeProgressionId, updateProgression]);
 
     const handleStop = useCallback(() => {
-        setIsPlaying(false);
-        setCurrentBeat(-1);
-    }, []);
+        updateProgression(activeProgressionId, { isPlaying: false, currentBeat: -1 });
+    }, [activeProgressionId, updateProgression]);
 
     const handleClear = useCallback(() => {
-        setProgressionChords([]);
-        handleStop();
-    }, [handleStop]);
+        updateProgression(activeProgressionId, { chords: [], isPlaying: false, currentBeat: -1 });
+    }, [activeProgressionId, updateProgression]);
 
     // Download progression as MIDI
     const handleDownloadMidi = useCallback(() => {
-        if (progressionChords.length === 0) return;
+        if (activeProgression.chords.length === 0) return;
 
         const midiData = buildMidiFromProgression({
-            progression: progressionChords,
+            progression: activeProgression.chords,
             tempo: midiTempo,
             noteLengthBeats: midiNoteLengthBeats,
             gapBeats: midiGapBeats,
@@ -318,47 +432,67 @@ export function ChordTool() {
 
         if (midiData) {
             const filename = selectedRagaName
-                ? `${selectedRagaName.replace(/\s+/g, '_')}_progression`
-                : 'chord_progression';
+                ? `${selectedRagaName.replace(/\s+/g, '_')}_progression_${activeProgressionId}`
+                : `chord_progression_${activeProgressionId}`;
             downloadMidi(midiData, filename);
         }
-    }, [progressionChords, midiTempo, midiNoteLengthBeats, midiGapBeats, midiVelocity, midiChannel, midiProgram, selectedRagaName]);
+    }, [activeProgression, activeProgressionId, midiTempo, midiNoteLengthBeats, midiGapBeats, midiVelocity, midiChannel, midiProgram, selectedRagaName]);
 
-    // Playback interval
+    // Playback interval for active progression
     useEffect(() => {
-        if (!isPlaying) return;
+        if (!activeProgression.isPlaying) return;
 
         const msPerBeat = 60000 / bpm;
 
+        // Play chord at beat 0 immediately when playback starts
+        const chordAtBeat0 = activeProgression.chords.find(c => Math.floor(c.beat) === 0);
+        if (chordAtBeat0 && activeProgression.currentBeat === 0) {
+            const isUnison = rhythmPlaybackMode === 'unison';
+            handlePlayChord(chordAtBeat0.chord, isUnison);
+        }
+
         const interval = setInterval(() => {
-            setCurrentBeat(prev => {
-                const next = prev + 1;
+            setRhythmProgressions(prev => prev.map(p => {
+                if (p.id !== activeProgressionId || !p.isPlaying) return p;
+
+                const next = p.currentBeat + 1;
                 if (next >= beats) {
-                    if (loop) return 0;
-                    setIsPlaying(false);
-                    return -1;
+                    if (loop) {
+                        // Loop back and play chord at beat 0
+                        const chordAt0 = p.chords.find(c => Math.floor(c.beat) === 0);
+                        if (chordAt0) {
+                            const isUnison = rhythmPlaybackMode === 'unison';
+                            handlePlayChord(chordAt0.chord, isUnison);
+                        }
+                        return { ...p, currentBeat: 0 };
+                    }
+                    return { ...p, isPlaying: false, currentBeat: -1 };
                 }
 
-                // Play chord at this beat using current rhythm mode
-                const chordAtBeat = progressionChords.find(c => c.beat === next);
+                // Play chord at this beat
+                const chordAtBeat = p.chords.find(c => Math.floor(c.beat) === next);
                 if (chordAtBeat) {
                     const isUnison = rhythmPlaybackMode === 'unison';
                     handlePlayChord(chordAtBeat.chord, isUnison);
                 }
 
-                return next;
-            });
+                return { ...p, currentBeat: next };
+            }));
         }, msPerBeat);
 
         return () => clearInterval(interval);
-    }, [isPlaying, bpm, beats, loop, progressionChords, handlePlayChord, rhythmPlaybackMode]);
+    }, [activeProgression.isPlaying, activeProgression.currentBeat, activeProgression.chords, activeProgressionId, bpm, beats, loop, handlePlayChord, rhythmPlaybackMode]);
 
-    // Update tanpura when tonic changes
+    // Update tanpura when tonic changes (only if already playing)
+    // Use a ref to track previous tonic to only react to actual changes
+    const prevTonicRef = useRef(selectedTonic);
     useEffect(() => {
-        if (isTanpuraPlaying) {
-            changeTonic(selectedTonic);
+        // Only change tonic if it actually changed and tanpura is playing
+        if (prevTonicRef.current !== selectedTonic && isTanpuraPlaying) {
+            changeTonic(selectedTonic, true); // true = autoPlay after changing
         }
-    }, [selectedTonic, isTanpuraPlaying, changeTonic]);
+        prevTonicRef.current = selectedTonic;
+    }, [selectedTonic]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const labels = useMemo(() => getDisplayLabels(isCarnatic), [isCarnatic]);
 
@@ -517,11 +651,24 @@ export function ChordTool() {
                         onClick={() => {
                             if (!pianoReady) { resume(); return; }
                             const patterns = getCurrentPatterns();
-                            const notes = patternToPitchClasses(patterns.aaroh.length ? patterns.aaroh : patterns.all);
-                            const sequence = notes.map(n => ({ noteIndex: (n + selectedTonic) % 12, octave: 4 }));
-                            // Play ascending
-                            sequence.forEach((note, i) => {
-                                setTimeout(() => playNote(note.noteIndex, note.octave, 0.5), i * 300);
+                            const aarohPcs = patternToPitchClasses(patterns.aaroh.length ? patterns.aaroh : patterns.all);
+                            const baseOctave = 4;
+
+                            // Use arrangeNotesAscending (matches original index.html)
+                            const aarohNotesBase = arrangeNotesAscending(aarohPcs, baseOctave);
+
+                            // Add higher Sa at the end
+                            const higherSaOctave = aarohNotesBase.length > 0
+                                ? Math.max(...aarohNotesBase.map(n => n.octave)) + 1
+                                : baseOctave + 1;
+                            const aarohNotes = [...aarohNotesBase, { noteIndex: 0, octave: higherSaOctave }];
+
+                            // Play with tonic transposition
+                            aarohNotes.forEach((note, i) => {
+                                const totalSemitones = note.noteIndex + selectedTonic + note.octave * 12;
+                                const transposedNote = ((totalSemitones % 12) + 12) % 12;
+                                const transposedOctave = Math.floor(totalSemitones / 12);
+                                setTimeout(() => playNote(transposedNote, transposedOctave, 0.6), i * 400);
                             });
                         }}
                         className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium text-sm flex items-center gap-2 hover:bg-blue-700 transition-colors"
@@ -534,10 +681,25 @@ export function ChordTool() {
                         onClick={() => {
                             if (!pianoReady) { resume(); return; }
                             const patterns = getCurrentPatterns();
-                            const notes = patternToPitchClasses(patterns.avroh.length ? patterns.avroh : patterns.all).reverse();
-                            const sequence = notes.map(n => ({ noteIndex: (n + selectedTonic) % 12, octave: 4 }));
-                            sequence.forEach((note, i) => {
-                                setTimeout(() => playNote(note.noteIndex, note.octave, 0.5), i * 300);
+                            const avrohPcs = patternToPitchClasses(patterns.avroh.length ? patterns.avroh : patterns.all);
+                            const baseOctave = 4;
+
+                            // First determine upper Sa octave from aaroh to be consistent
+                            const aarohPcs = patternToPitchClasses(patterns.aaroh.length ? patterns.aaroh : patterns.all);
+                            const aarohNotesBase = arrangeNotesAscending(aarohPcs, baseOctave);
+                            const higherSaOctave = aarohNotesBase.length > 0
+                                ? Math.max(...aarohNotesBase.map(n => n.octave)) + 1
+                                : baseOctave + 1;
+
+                            // Use arrangeNotesDescending (matches original index.html)
+                            const avrohNotes = arrangeNotesDescending(avrohPcs, higherSaOctave, true, baseOctave);
+
+                            // Play with tonic transposition
+                            avrohNotes.forEach((note, i) => {
+                                const totalSemitones = note.noteIndex + selectedTonic + note.octave * 12;
+                                const transposedNote = ((totalSemitones % 12) + 12) % 12;
+                                const transposedOctave = Math.floor(totalSemitones / 12);
+                                setTimeout(() => playNote(transposedNote, transposedOctave, 0.6), i * 400);
                             });
                         }}
                         className="px-4 py-2 bg-green-600 text-white rounded-lg font-medium text-sm flex items-center gap-2 hover:bg-green-700 transition-colors"
@@ -550,11 +712,37 @@ export function ChordTool() {
                         onClick={() => {
                             if (!pianoReady) { resume(); return; }
                             const patterns = getCurrentPatterns();
-                            const aarohNotes = patternToPitchClasses(patterns.aaroh.length ? patterns.aaroh : patterns.all);
-                            const avrohNotes = patternToPitchClasses(patterns.avroh.length ? patterns.avroh : patterns.all).reverse();
-                            const allNotes = [...aarohNotes, ...avrohNotes];
-                            allNotes.forEach((n, i) => {
-                                setTimeout(() => playNote((n + selectedTonic) % 12, 4, 0.5), i * 300);
+                            const baseOctave = 4;
+
+                            // Build aaroh (matches original index.html)
+                            const aarohPcs = patternToPitchClasses(patterns.aaroh.length ? patterns.aaroh : patterns.all);
+                            const aarohNotesBase = arrangeNotesAscending(aarohPcs, baseOctave);
+                            const higherSaOctave = aarohNotesBase.length > 0
+                                ? Math.max(...aarohNotesBase.map(n => n.octave)) + 1
+                                : baseOctave + 1;
+                            const aarohNotes = [...aarohNotesBase, { noteIndex: 0, octave: higherSaOctave }];
+
+                            // Build avroh starting from higherSa octave (matches original)
+                            const avrohPcs = patternToPitchClasses(patterns.avroh.length ? patterns.avroh : patterns.all);
+                            const avrohNotes = arrangeNotesDescending(avrohPcs, higherSaOctave, true, baseOctave);
+
+                            // Play aaroh first
+                            aarohNotes.forEach((note, i) => {
+                                const totalSemitones = note.noteIndex + selectedTonic + note.octave * 12;
+                                const transposedNote = ((totalSemitones % 12) + 12) % 12;
+                                const transposedOctave = Math.floor(totalSemitones / 12);
+                                setTimeout(() => playNote(transposedNote, transposedOctave, 0.6), i * 400);
+                            });
+
+                            // Then play avroh after aaroh + small pause
+                            const aarohDuration = aarohNotes.length * 400;
+                            const pauseBetween = 300;
+
+                            avrohNotes.forEach((note, i) => {
+                                const totalSemitones = note.noteIndex + selectedTonic + note.octave * 12;
+                                const transposedNote = ((totalSemitones % 12) + 12) % 12;
+                                const transposedOctave = Math.floor(totalSemitones / 12);
+                                setTimeout(() => playNote(transposedNote, transposedOctave, 0.6), aarohDuration + pauseBetween + (i * 400));
                             });
                         }}
                         className="px-4 py-2 bg-purple-600 text-white rounded-lg font-medium text-sm flex items-center gap-2 hover:bg-purple-700 transition-colors"
@@ -580,6 +768,42 @@ export function ChordTool() {
                     >
                         <span>▶</span> Tanpura
                     </button>
+
+                    {/* Outside Chords Min/Max Controls */}
+                    {showOutsideChords && !customScaleMode && (
+                        <div className="flex items-center gap-2 px-3 py-1 bg-gray-700 rounded-lg">
+                            <span className="text-xs text-orange-300">Outside:</span>
+                            <select
+                                value={outsideMinAllowed}
+                                onChange={e => {
+                                    const newMin = parseInt(e.target.value, 10);
+                                    setOutsideMinAllowed(newMin);
+                                    if (outsideMaxAllowed < newMin) setOutsideMaxAllowed(newMin);
+                                }}
+                                className="w-12 p-1 border border-gray-500 rounded text-xs bg-gray-600 text-white"
+                                title="Min notes outside"
+                            >
+                                <option value={1}>1</option>
+                                <option value={2}>2</option>
+                                <option value={3}>3</option>
+                            </select>
+                            <span className="text-xs text-gray-400">-</span>
+                            <select
+                                value={outsideMaxAllowed}
+                                onChange={e => {
+                                    const newMax = parseInt(e.target.value, 10);
+                                    setOutsideMaxAllowed(newMax);
+                                    if (outsideMinAllowed > newMax) setOutsideMinAllowed(newMax);
+                                }}
+                                className="w-12 p-1 border border-gray-500 rounded text-xs bg-gray-600 text-white"
+                                title="Max notes outside"
+                            >
+                                <option value={1}>1</option>
+                                <option value={2}>2</option>
+                                <option value={3}>3</option>
+                            </select>
+                        </div>
+                    )}
                 </div>
 
                 {/* Custom Scale Editor - shown when customScaleMode is enabled */}
@@ -753,9 +977,9 @@ export function ChordTool() {
                                         <ChordCircle
                                             pattern={getCurrentPatterns().aaroh}
                                             chords={chordData.aaroh}
-                                            onNoteClick={(noteIndex) => setSelectedNote(selectedNote === noteIndex ? null : noteIndex)}
+                                            onNoteClick={handleNoteClick}
                                             selectedNote={selectedNote}
-                                            noteFilterMode="root"
+                                            noteFilterMode={noteFilterMode}
                                             isCarnatic={isCarnatic}
                                             size={340}
                                             hideLegend={true}
@@ -767,9 +991,9 @@ export function ChordTool() {
                                         <ChordCircle
                                             pattern={getCurrentPatterns().avroh}
                                             chords={chordData.avroh}
-                                            onNoteClick={(noteIndex) => setSelectedNote(selectedNote === noteIndex ? null : noteIndex)}
+                                            onNoteClick={handleNoteClick}
                                             selectedNote={selectedNote}
-                                            noteFilterMode="any"
+                                            noteFilterMode={noteFilterMode}
                                             isCarnatic={isCarnatic}
                                             size={340}
                                             hideLegend={true}
@@ -805,9 +1029,9 @@ export function ChordTool() {
                                 <ChordCircle
                                     pattern={getCurrentPatterns().all}
                                     chords={chordData.all}
-                                    onNoteClick={(noteIndex) => setSelectedNote(selectedNote === noteIndex ? null : noteIndex)}
+                                    onNoteClick={handleNoteClick}
                                     selectedNote={selectedNote}
-                                    noteFilterMode="root"
+                                    noteFilterMode={noteFilterMode}
                                     isCarnatic={isCarnatic}
                                     size={340}
                                 />
@@ -896,9 +1120,9 @@ export function ChordTool() {
                     </h2>
 
                     {!separateAarohAvroh ? (
-                        <div>
+                        <div className="max-h-64 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
-                                {(showMoreAll ? currentChords : currentChords.slice(0, 12)).map((chord, index) => (
+                                {currentChords.map((chord, index) => (
                                     <ChordCard
                                         key={`all-${chord.root}-${chord.type}-${index}`}
                                         chord={chord}
@@ -910,75 +1134,162 @@ export function ChordTool() {
                                     />
                                 ))}
                             </div>
-                            {currentChords.length > 12 && (
-                                <button
-                                    onClick={() => setShowMoreAll(v => !v)}
-                                    className="mt-3 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
-                                >
-                                    {showMoreAll ? `Show Less` : `Show More (${currentChords.length - 12} more)`}
-                                </button>
-                            )}
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-6">
-                            {/* Aaroh Chords */}
+                            {/* Aaroh Chords - Scrollable */}
                             <div>
                                 <h3 className="text-lg font-medium text-blue-300 mb-3">Aaroh Chords ({chordData.aaroh.length})</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                    {(showMoreAaroh ? chordData.aaroh : chordData.aaroh.slice(0, 6)).map((chord, index) => (
-                                        <ChordCard
-                                            key={`aaroh-${chord.root}-${chord.type}-${index}`}
-                                            chord={chord}
-                                            onPlayUnison={() => handlePlayChord(chord, true)}
-                                            onPlayMelody={() => handlePlayChord(chord, false)}
-                                            tonic={selectedTonic}
-                                            isCarnatic={isCarnatic}
-                                            isExtended={chord.isExtended}
-                                        />
-                                    ))}
+                                <div className="max-h-64 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                        {chordData.aaroh.map((chord, index) => (
+                                            <ChordCard
+                                                key={`aaroh-${chord.root}-${chord.type}-${index}`}
+                                                chord={chord}
+                                                onPlayUnison={() => handlePlayChord(chord, true)}
+                                                onPlayMelody={() => handlePlayChord(chord, false)}
+                                                tonic={selectedTonic}
+                                                isCarnatic={isCarnatic}
+                                                isExtended={chord.isExtended}
+                                            />
+                                        ))}
+                                    </div>
                                 </div>
-                                {chordData.aaroh.length > 6 && (
-                                    <button
-                                        onClick={() => setShowMoreAaroh(v => !v)}
-                                        className="mt-3 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
-                                    >
-                                        {showMoreAaroh ? `Show Less` : `Show More (${chordData.aaroh.length - 6} more)`}
-                                    </button>
-                                )}
                             </div>
-                            {/* Avroh Chords */}
+                            {/* Avroh Chords - Scrollable */}
                             <div>
                                 <h3 className="text-lg font-medium text-green-300 mb-3">Avroh Chords ({chordData.avroh.length})</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                    {(showMoreAvroh ? chordData.avroh : chordData.avroh.slice(0, 6)).map((chord, index) => (
-                                        <ChordCard
-                                            key={`avroh-${chord.root}-${chord.type}-${index}`}
-                                            chord={chord}
-                                            onPlayUnison={() => handlePlayChord(chord, true)}
-                                            onPlayMelody={() => handlePlayChord(chord, false)}
-                                            tonic={selectedTonic}
-                                            isCarnatic={isCarnatic}
-                                            isExtended={chord.isExtended}
-                                        />
-                                    ))}
+                                <div className="max-h-64 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                        {chordData.avroh.map((chord, index) => (
+                                            <ChordCard
+                                                key={`avroh-${chord.root}-${chord.type}-${index}`}
+                                                chord={chord}
+                                                onPlayUnison={() => handlePlayChord(chord, true)}
+                                                onPlayMelody={() => handlePlayChord(chord, false)}
+                                                tonic={selectedTonic}
+                                                isCarnatic={isCarnatic}
+                                                isExtended={chord.isExtended}
+                                            />
+                                        ))}
+                                    </div>
                                 </div>
-                                {chordData.avroh.length > 6 && (
-                                    <button
-                                        onClick={() => setShowMoreAvroh(v => !v)}
-                                        className="mt-3 px-4 py-2 text-sm bg-green-600 hover:bg-green-700 text-white rounded transition-colors"
-                                    >
-                                        {showMoreAvroh ? `Show Less` : `Show More (${chordData.avroh.length - 6} more)`}
-                                    </button>
-                                )}
                             </div>
                         </div>
                     )}
+
+                    {/* Chords Outside Raga Section */}
+                    {showOutsideChords && !customScaleMode && (
+                        (separateAarohAvroh ? (chordData.outsideAaroh.length > 0 || chordData.outsideAvroh.length > 0) : chordData.outside.length > 0)
+                    ) && (
+                            <div className="mt-6 pt-6 border-t border-gray-600">
+                                <h3 className="text-lg font-semibold text-orange-300 mb-2">
+                                    Chords Outside Raga
+                                </h3>
+                                <p className="text-sm text-gray-400 mb-4">
+                                    Chords with {outsideMinAllowed === outsideMaxAllowed
+                                        ? `${outsideMinAllowed} note${outsideMinAllowed > 1 ? 's' : ''}`
+                                        : `${outsideMinAllowed}-${outsideMaxAllowed} notes`
+                                    } outside the raga. Notes outside are highlighted in yellow.
+                                </p>
+
+                                {separateAarohAvroh ? (
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                        {/* Outside Aaroh */}
+                                        {chordData.outsideAaroh.length > 0 && (
+                                            <div>
+                                                <h4 className="text-md font-medium text-blue-300 mb-3">Aaroh ({chordData.outsideAaroh.length})</h4>
+                                                <div className="max-h-48 overflow-y-auto pr-2">
+                                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                                        {chordData.outsideAaroh.map((chord, index) => (
+                                                            <ChordCard
+                                                                key={`outside-aaroh-${chord.root}-${chord.type}-${index}`}
+                                                                chord={chord}
+                                                                onPlayUnison={() => handlePlayChord(chord, true)}
+                                                                onPlayMelody={() => handlePlayChord(chord, false)}
+                                                                tonic={selectedTonic}
+                                                                isCarnatic={isCarnatic}
+                                                                isExtended={chord.isExtended}
+                                                                isOutside={true}
+                                                                ragaPattern={getCurrentPatterns().aaroh}
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                        {/* Outside Avroh */}
+                                        {chordData.outsideAvroh.length > 0 && (
+                                            <div>
+                                                <h4 className="text-md font-medium text-green-300 mb-3">Avroh ({chordData.outsideAvroh.length})</h4>
+                                                <div className="max-h-48 overflow-y-auto pr-2">
+                                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                                        {chordData.outsideAvroh.map((chord, index) => (
+                                                            <ChordCard
+                                                                key={`outside-avroh-${chord.root}-${chord.type}-${index}`}
+                                                                chord={chord}
+                                                                onPlayUnison={() => handlePlayChord(chord, true)}
+                                                                onPlayMelody={() => handlePlayChord(chord, false)}
+                                                                tonic={selectedTonic}
+                                                                isCarnatic={isCarnatic}
+                                                                isExtended={chord.isExtended}
+                                                                isOutside={true}
+                                                                ragaPattern={getCurrentPatterns().avroh}
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div className="max-h-64 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+                                            {chordData.outside.map((chord, index) => (
+                                                <ChordCard
+                                                    key={`outside-${chord.root}-${chord.type}-${index}`}
+                                                    chord={chord}
+                                                    onPlayUnison={() => handlePlayChord(chord, true)}
+                                                    onPlayMelody={() => handlePlayChord(chord, false)}
+                                                    tonic={selectedTonic}
+                                                    isCarnatic={isCarnatic}
+                                                    isExtended={chord.isExtended}
+                                                    isOutside={true}
+                                                    ragaPattern={getCurrentPatterns().all}
+                                                />
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
 
                     {/* Chord Progression Builder - now inside Available Chords */}
                     <div className="mt-6 pt-6 border-t border-gray-600">
                         <h3 className="text-lg font-semibold text-white mb-4">
                             Chord Progression Builder
                         </h3>
+
+                        {/* Progression Tabs */}
+                        <div className="flex gap-2 mb-4">
+                            {rhythmProgressions.map(prog => (
+                                <button
+                                    key={prog.id}
+                                    onClick={() => setActiveProgressionId(prog.id)}
+                                    className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${activeProgressionId === prog.id
+                                        ? 'bg-blue-600 text-white'
+                                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                                        }`}
+                                >
+                                    {prog.name}
+                                    {prog.chords.length > 0 && (
+                                        <span className="ml-1 text-xs opacity-70">
+                                            ({prog.chords.length})
+                                        </span>
+                                    )}
+                                </button>
+                            ))}
+                        </div>
 
                         {/* Global Controls Row */}
                         <div className="flex flex-wrap items-center gap-3 mb-4">
@@ -1081,154 +1392,107 @@ export function ChordTool() {
                                 />
                             </label>
 
-                            {/* Breakpoints */}
+                            {/* Playback Controls */}
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={handlePlayPause}
+                                    className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${activeProgression.isPlaying
+                                        ? 'bg-yellow-500 hover:bg-yellow-600 text-white'
+                                        : 'bg-green-500 hover:bg-green-600 text-white'
+                                        }`}
+                                >
+                                    {activeProgression.isPlaying ? '⏸ Pause' : '▶ Play'}
+                                </button>
+                                <button
+                                    onClick={handleClear}
+                                    className="px-4 py-2 rounded-lg font-medium text-sm bg-red-600 hover:bg-red-700 text-white"
+                                >
+                                    Clear
+                                </button>
+                            </div>
+
+                            {/* Loop Toggle */}
+                            <label className="flex items-center gap-2 text-sm cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={loop}
+                                    onChange={(e) => setLoop(e.target.checked)}
+                                    className="w-4 h-4"
+                                />
+                                <span className="text-gray-300">Loop</span>
+                            </label>
+                        </div>
+
+                        {/* Breakpoint Pattern */}
+                        <div className="flex items-center gap-3 mb-4">
                             <label className="flex items-center gap-2 text-sm">
                                 <span className="text-gray-300">Breakpoints:</span>
                                 <input
                                     type="text"
                                     value={customBreakpoints}
                                     onChange={(e) => {
-                                        const pattern = e.target.value;
-                                        setCustomBreakpoints(pattern);
-                                        const result = validateBreakpoints(pattern, beats);
-                                        setBreakpointError(result.valid ? '' : result.error);
+                                        const val = e.target.value;
+                                        setCustomBreakpoints(val);
+                                        // Validate
+                                        if (val && !/^[0-9\-]+$/.test(val)) {
+                                            setBreakpointError('Use numbers and dashes only');
+                                        } else {
+                                            setBreakpointError('');
+                                        }
                                     }}
-                                    className={`w-20 px-2 py-1 border rounded text-sm bg-gray-700 text-white ${breakpointError ? 'border-red-500' : 'border-gray-600'}`}
-                                    title="Enter beat groupings (e.g., 3-3-2 for 8 beats)"
-                                    placeholder="4-4"
+                                    placeholder="e.g., 4-4 or 3-3-2"
+                                    className="w-28 px-2 py-1 border border-gray-600 rounded text-sm bg-gray-700 text-white"
                                 />
                             </label>
-
-                            {/* Loop */}
-                            <label className="flex items-center gap-2 text-sm cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    checked={loop}
-                                    onChange={(e) => setLoop(e.target.checked)}
-                                    className="w-4 h-4 text-blue-600"
-                                />
-                                <span className="text-gray-300">Loop</span>
-                            </label>
+                            {breakpointError && (
+                                <span className="text-xs text-red-400">{breakpointError}</span>
+                            )}
                         </div>
 
-                        {/* Breakpoint Error */}
-                        {breakpointError && (
-                            <div className="text-red-400 text-xs mb-3">
-                                {breakpointError}
-                            </div>
-                        )}
-
-                        {/* Playback Controls Row */}
-                        <div className="flex flex-wrap items-center gap-2 mb-4">
+                        {/* MIDI Controls */}
+                        <div className="flex flex-wrap gap-2 mb-4">
                             <button
-                                onClick={handlePlayPause}
-                                className={`px-4 py-2 rounded text-sm font-medium ${isPlaying
-                                    ? 'bg-red-500 hover:bg-red-600 text-white'
-                                    : 'bg-green-500 hover:bg-green-600 text-white'
-                                    }`}
+                                onClick={() => setShowMidiSettings(!showMidiSettings)}
+                                className="px-3 py-1 text-xs bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors"
                             >
-                                {isPlaying ? '⏸ Stop' : '▶ Play'}
-                            </button>
-                            <button
-                                onClick={handleClear}
-                                className="px-3 py-2 rounded text-sm bg-gray-700 hover:bg-gray-600 text-gray-200"
-                            >
-                                Clear
-                            </button>
-                            <button
-                                onClick={() => setShowMidiSettings(v => !v)}
-                                className="px-2 py-2 text-xs rounded border border-gray-600 bg-gray-700 hover:bg-gray-600 text-gray-200"
-                            >
-                                {showMidiSettings ? 'Hide MIDI Settings' : 'MIDI Settings'}
-                            </button>
-                            <button
-                                onClick={() => setShowPianoChords(v => !v)}
-                                className="px-2 py-2 text-xs rounded border border-gray-600 bg-gray-700 hover:bg-gray-600 text-gray-200"
-                                disabled={progressionChords.length === 0}
-                            >
-                                {showPianoChords ? 'Hide Piano' : 'Piano Chords'}
+                                ⚙ MIDI Settings
                             </button>
                             <button
                                 onClick={handleDownloadMidi}
-                                disabled={progressionChords.length === 0}
-                                className="px-3 py-2 rounded text-sm bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                                disabled={activeProgression.chords.length === 0}
+                                className="px-3 py-1 text-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                Download MIDI
+                                ⬇ Download MIDI
+                            </button>
+                            <button
+                                onClick={() => setShowPianoChords(!showPianoChords)}
+                                className="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+                            >
+                                🎹 {showPianoChords ? 'Hide' : 'Show'} Piano Chords
                             </button>
                         </div>
 
                         {/* MIDI Settings Panel */}
                         {showMidiSettings && (
-                            <div className="mb-4 p-4 rounded-lg border border-gray-600 bg-gray-800">
-                                <h3 className="text-sm font-semibold text-gray-200 mb-3">MIDI Settings</h3>
-                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
-                                    <label className="text-xs text-gray-300">
-                                        Tempo (BPM)
-                                        <input type="number" min="1" max="400" value={midiTempo}
-                                            onChange={e => setMidiTempo(parseInt(e.target.value) || 120)}
-                                            className="mt-1 w-full p-2 border border-gray-600 rounded text-sm bg-gray-700 text-white" />
+                            <div className="mb-4 p-4 rounded-lg border border-purple-700 bg-purple-900/30">
+                                <h4 className="text-sm font-semibold text-purple-200 mb-3">MIDI Export Settings</h4>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                                    <label className="flex flex-col gap-1">
+                                        <span className="text-gray-400">Tempo</span>
+                                        <input type="number" value={midiTempo} onChange={e => setMidiTempo(parseInt(e.target.value) || 120)} className="px-2 py-1 border border-gray-600 rounded bg-gray-700 text-white" />
                                     </label>
-                                    <label className="text-xs text-gray-300">
-                                        Program (0-127)
-                                        <input type="number" min="0" max="127" value={midiProgram}
-                                            onChange={e => setMidiProgram(parseInt(e.target.value) || 0)}
-                                            className="mt-1 w-full p-2 border border-gray-600 rounded text-sm bg-gray-700 text-white" />
+                                    <label className="flex flex-col gap-1">
+                                        <span className="text-gray-400">Note Length</span>
+                                        <input type="number" step="0.1" value={midiNoteLengthBeats} onChange={e => setMidiNoteLengthBeats(parseFloat(e.target.value) || 1)} className="px-2 py-1 border border-gray-600 rounded bg-gray-700 text-white" />
                                     </label>
-                                    <label className="text-xs text-gray-300">
-                                        Velocity (1-127)
-                                        <input type="number" min="1" max="127" value={midiVelocity}
-                                            onChange={e => setMidiVelocity(parseInt(e.target.value) || 96)}
-                                            className="mt-1 w-full p-2 border border-gray-600 rounded text-sm bg-gray-700 text-white" />
+                                    <label className="flex flex-col gap-1">
+                                        <span className="text-gray-400">Gap</span>
+                                        <input type="number" step="0.1" value={midiGapBeats} onChange={e => setMidiGapBeats(parseFloat(e.target.value) || 0)} className="px-2 py-1 border border-gray-600 rounded bg-gray-700 text-white" />
                                     </label>
-                                    <label className="text-xs text-gray-300">
-                                        Note length (beats)
-                                        <input type="number" min="0.1" max="64" step="0.1" value={midiNoteLengthBeats}
-                                            onChange={e => setMidiNoteLengthBeats(parseFloat(e.target.value) || 3.2)}
-                                            className="mt-1 w-full p-2 border border-gray-600 rounded text-sm bg-gray-700 text-white" />
+                                    <label className="flex flex-col gap-1">
+                                        <span className="text-gray-400">Velocity</span>
+                                        <input type="number" min="0" max="127" value={midiVelocity} onChange={e => setMidiVelocity(parseInt(e.target.value) || 96)} className="px-2 py-1 border border-gray-600 rounded bg-gray-700 text-white" />
                                     </label>
-                                    <label className="text-xs text-gray-300">
-                                        Gap (beats)
-                                        <input type="number" min="0" max="16" step="0.1" value={midiGapBeats}
-                                            onChange={e => setMidiGapBeats(parseFloat(e.target.value) || 0.4)}
-                                            className="mt-1 w-full p-2 border border-gray-600 rounded text-sm bg-gray-700 text-white" />
-                                    </label>
-                                    <label className="text-xs text-gray-300">
-                                        Channel (1-16)
-                                        <input type="number" min="1" max="16" value={midiChannel}
-                                            onChange={e => setMidiChannel(parseInt(e.target.value) || 1)}
-                                            className="mt-1 w-full p-2 border border-gray-600 rounded text-sm bg-gray-700 text-white" />
-                                    </label>
-                                </div>
-                                <div className="mt-3 text-xs text-gray-500">
-                                    Common programs: 0 = Piano, 24 = Nylon Guitar, 25 = Steel Guitar, 40 = Violin, 72 = Flute
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Piano Chord Visualization */}
-                        {showPianoChords && progressionChords.length > 0 && (
-                            <div className="mb-4 p-4 rounded-lg border border-blue-700 bg-blue-900/30">
-                                <h3 className="text-lg font-semibold text-blue-200 mb-4">Piano Chords</h3>
-                                <div className="space-y-3">
-                                    {progressionChords.map((item, idx) => {
-                                        const chord = item.chord;
-                                        const rootLabel = labels[chord.root];
-                                        const chordName = chord.name || chord.type?.name || '';
-                                        const noteLabels = chord.notes.map(n => labels[n]).join(' - ');
-
-                                        return (
-                                            <div key={idx} className="p-3 bg-gray-800 rounded border border-gray-600">
-                                                <div className="flex items-center gap-3 mb-2">
-                                                    <span className="font-medium text-white">
-                                                        Beat {item.beat + 1}: {rootLabel} {chordName}
-                                                    </span>
-                                                </div>
-                                                <div className="text-sm text-gray-400">
-                                                    Notes: {noteLabels}
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
                                 </div>
                             </div>
                         )}
@@ -1236,20 +1500,166 @@ export function ChordTool() {
                         {/* Timeline Grid */}
                         <TimelineGrid
                             beats={beats}
-                            chords={progressionChords}
+                            chords={activeProgression.chords}
                             onChordPlace={handleChordPlace}
                             onChordRemove={handleChordRemove}
-                            currentBeat={currentBeat}
+                            currentBeat={activeProgression.currentBeat}
                             breakpoints={customBreakpoints}
+                            isCarnatic={isCarnatic}
                         />
 
                         <div className="mt-4 text-sm text-gray-400">
-                            Drag chords from above and drop onto the timeline • Click to remove
+                            Drag chords from above and drop onto the timeline • Hover to remove
                         </div>
+
+                        {/* Piano Chords View - below timeline */}
+                        {showPianoChords && activeProgression.chords.length > 0 && (
+                            <div className="mt-4 p-3 rounded-lg border border-blue-700 bg-blue-900/30">
+                                <h3 className="text-md font-semibold text-blue-200 mb-3">Piano Chords</h3>
+                                <div className="space-y-3">
+                                    {activeProgression.chords.map((item, idx) => {
+                                        const chord = item.chord;
+                                        const rootLabel = labels[chord.root];
+                                        const chordName = chord.name || chord.type?.name || '';
+                                        const noteLabels = chord.notes.map(n => labels[n]).join(' - ');
+
+                                        // getPianoKeyPositions logic from original index.html
+                                        const getPianoKeys = () => {
+                                            if (!chord.notes || chord.notes.length === 0) return [];
+                                            const tonicOffset = selectedTonic !== null ? selectedTonic : 0;
+                                            const baseOctave = 4;
+
+                                            // Get the root note (first note in the chord)
+                                            const rootNote = (chord.notes[0] + tonicOffset) % 12;
+
+                                            // Arrange chord notes properly starting from root
+                                            const arrangedNotes = [];
+                                            const rootMidi = baseOctave * 12 + rootNote;
+                                            arrangedNotes.push(rootMidi);
+
+                                            // Add other chord notes in the next octave if they would be lower than previous
+                                            for (let i = 1; i < chord.notes.length; i++) {
+                                                const noteIndex = (chord.notes[i] + tonicOffset) % 12;
+                                                let midiNote = baseOctave * 12 + noteIndex;
+
+                                                // If this note is lower than the previous note, move it to next octave
+                                                if (midiNote <= arrangedNotes[arrangedNotes.length - 1]) {
+                                                    midiNote += 12;
+                                                }
+
+                                                arrangedNotes.push(midiNote);
+                                            }
+
+                                            return arrangedNotes;
+                                        };
+
+                                        const pianoKeys = getPianoKeys();
+
+                                        return (
+                                            <div key={idx} className="p-2 bg-gray-800 rounded border border-gray-600">
+                                                <div className="flex items-center gap-3 mb-2">
+                                                    <span className="text-sm font-medium text-white">
+                                                        Beat {item.beat + 1}: {rootLabel} {chordName}
+                                                    </span>
+                                                    <span className="text-xs text-gray-400">
+                                                        {noteLabels}
+                                                    </span>
+                                                </div>
+                                                {/* 2 octave piano visualization - matching original */}
+                                                <div className="piano-wrap" style={{ justifyContent: 'flex-start', padding: '2px' }}>
+                                                    <div className="piano" style={{ width: `${24 * 7 * 2}px`, height: '60px', display: 'flex' }}>
+                                                        {/* 2 full octaves starting from C4 */}
+                                                        {[0, 1].map((octaveIdx) => (
+                                                            <div key={octaveIdx} style={{ position: 'relative', display: 'inline-block', height: '60px', width: `${24 * 7}px` }}>
+                                                                {/* White keys */}
+                                                                <div style={{ display: 'flex' }}>
+                                                                    {[0, 2, 4, 5, 7, 9, 11].map((pc) => {
+                                                                        const midiNote = (4 + octaveIdx) * 12 + pc;
+                                                                        const isActive = pianoKeys.includes(midiNote);
+                                                                        return (
+                                                                            <div
+                                                                                key={pc}
+                                                                                style={{
+                                                                                    width: '24px',
+                                                                                    height: '60px',
+                                                                                    background: '#ffffff',
+                                                                                    border: '1px solid #4b5563',
+                                                                                    borderBottomLeftRadius: '4px',
+                                                                                    borderBottomRightRadius: '4px',
+                                                                                    boxSizing: 'border-box',
+                                                                                    position: 'relative'
+                                                                                }}
+                                                                            >
+                                                                                {isActive && (
+                                                                                    <div
+                                                                                        style={{
+                                                                                            position: 'absolute',
+                                                                                            top: '6px',
+                                                                                            left: '50%',
+                                                                                            transform: 'translateX(-50%)',
+                                                                                            width: '16px',
+                                                                                            height: '16px',
+                                                                                            background: '#3b82f6',
+                                                                                            borderRadius: '50%'
+                                                                                        }}
+                                                                                    />
+                                                                                )}
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                                {/* Black keys */}
+                                                                <div style={{ position: 'absolute', top: '0', left: '0', display: 'flex' }}>
+                                                                    {[1, 3, 6, 8, 10].map((pc, blackIdx) => {
+                                                                        const midiNote = (4 + octaveIdx) * 12 + pc;
+                                                                        const isActive = pianoKeys.includes(midiNote);
+                                                                        const leftOffset = [18, 42, 90, 114, 138][blackIdx];
+                                                                        return (
+                                                                            <div
+                                                                                key={pc}
+                                                                                style={{
+                                                                                    position: 'absolute',
+                                                                                    left: `${leftOffset}px`,
+                                                                                    width: '12px',
+                                                                                    height: '36px',
+                                                                                    background: '#1f2937',
+                                                                                    borderBottomLeftRadius: '2px',
+                                                                                    borderBottomRightRadius: '2px',
+                                                                                    zIndex: 1
+                                                                                }}
+                                                                            >
+                                                                                {isActive && (
+                                                                                    <div
+                                                                                        style={{
+                                                                                            position: 'absolute',
+                                                                                            top: '6px',
+                                                                                            left: '50%',
+                                                                                            transform: 'translateX(-50%)',
+                                                                                            width: '8px',
+                                                                                            height: '8px',
+                                                                                            background: '#f59e0b',
+                                                                                            borderRadius: '50%'
+                                                                                        }}
+                                                                                    />
+                                                                                )}
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
-            </div>
-        </div>
+            </div >
+        </div >
     );
 }
 

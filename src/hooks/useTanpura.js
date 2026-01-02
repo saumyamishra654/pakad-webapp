@@ -1,161 +1,169 @@
 /**
  * useTanpura Hook
- * Manages tanpura drone playback
+ * Manages tanpura drone playback using HTMLAudioElement for proper pause/resume support
+ * Matches the original index.html implementation
  */
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { WESTERN_NOTES_SHARP } from '../utils/noteHelpers.js';
+
+// Note names for file loading (using flats for URL compatibility)
+const WESTERN_NOTES_FLAT = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+
+/**
+ * Get tanpura filename for a given tonic
+ * @param {number} tonicIndex - 0-11 tonic index
+ * @returns {string} - Filename like "C.mp3"
+ */
+function getTanpuraFileName(tonicIndex) {
+    if (tonicIndex === null || tonicIndex === undefined) return 'C.mp3';
+    return `${WESTERN_NOTES_FLAT[tonicIndex]}.mp3`;
+}
+
+/**
+ * Load a tanpura audio file, trying multiple naming conventions
+ * @param {string} fileName - Primary filename to try
+ * @param {string} basePath - Base path for tanpura files
+ * @returns {Promise<HTMLAudioElement>} - Loaded audio element
+ */
+async function loadTanpuraFile(fileName, basePath) {
+    const namingVariants = [
+        fileName, // original (e.g., "Db.mp3")
+        fileName.replace('b', '#'), // sharp notation (e.g., "D#.mp3")
+        fileName.replace('#', 's'), // s for sharp (e.g., "Ds.mp3")
+        'C.mp3' // fallback to C
+    ];
+
+    for (const variant of namingVariants) {
+        try {
+            const audio = new Audio(`${basePath}/${variant}`);
+            audio.loop = true;
+            audio.preload = 'metadata';
+
+            // Test if file exists by trying to load metadata
+            await new Promise((resolve, reject) => {
+                audio.addEventListener('canplaythrough', resolve, { once: true });
+                audio.addEventListener('error', reject, { once: true });
+                audio.load();
+            });
+
+            return audio;
+        } catch (error) {
+            console.log(`Tanpura file ${variant} not found, trying next variant...`);
+            continue;
+        }
+    }
+
+    throw new Error('No tanpura file found for any naming variant');
+}
 
 /**
  * Hook for tanpura drone playback
- * @param {AudioContext} audioContext - Web Audio context from useAudio
  * @param {string} basePath - Path to tanpura samples (default "/tanpura")
- * @returns {Object} - { isPlaying, isLoading, start, stop, setTonic }
+ * @returns {Object} - { isPlaying, isLoading, toggle, changeTonic }
  */
-export function useTanpura(audioContext, basePath = '/tanpura') {
+export function useTanpura(basePath = '/tanpura') {
     const [isPlaying, setIsPlaying] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [currentTonic, setCurrentTonic] = useState(0); // 0 = C
 
-    const sourceRef = useRef(null);
-    const gainNodeRef = useRef(null);
-    const bufferCacheRef = useRef({}); // Cache loaded buffers
+    // Use ref for audio element - this is the key pattern from original index.html
+    const tanpuraRef = useRef(null);
 
-    // Load tanpura sample for a given tonic
-    const loadTanpuraBuffer = useCallback(async (tonic) => {
-        if (!audioContext) return null;
+    // Toggle tanpura playback - matches original index.html implementation
+    const toggle = useCallback(async (tonic = currentTonic) => {
+        console.log('[Tanpura] toggle called, tonic:', tonic);
+        try {
+            // Check if currently playing by examining the audio element directly
+            const currentlyPlaying = tanpuraRef.current && !tanpuraRef.current.paused;
+            console.log('[Tanpura] currentlyPlaying:', currentlyPlaying, 'audioRef exists:', !!tanpuraRef.current);
 
-        // Check cache first
-        if (bufferCacheRef.current[tonic]) {
-            return bufferCacheRef.current[tonic];
-        }
+            if (currentlyPlaying) {
+                // Pause tanpura
+                console.log('[Tanpura] Pausing...');
+                tanpuraRef.current.pause();
+                setIsPlaying(false);
+            } else {
+                // Play tanpura
+                const fileName = getTanpuraFileName(tonic);
+                console.log('[Tanpura] Playing, fileName:', fileName);
+                setCurrentTonic(tonic);
 
-        const noteName = WESTERN_NOTES_SHARP[tonic];
-        const extensions = ['.mp3', '.wav', '.ogg'];
-        const variants = [noteName, noteName.replace('#', 'sharp'), noteName.replace('#', 's')];
+                // Create new audio element if needed or if tonic changed
+                if (!tanpuraRef.current || !tanpuraRef.current.src.includes(fileName.replace('.mp3', ''))) {
+                    // Stop current audio if it exists
+                    if (tanpuraRef.current) {
+                        console.log('[Tanpura] Stopping old audio');
+                        tanpuraRef.current.pause();
+                        tanpuraRef.current.currentTime = 0;
+                    }
 
-        for (const variant of variants) {
-            for (const ext of extensions) {
-                const url = `${basePath}/${variant}${ext}`;
-                try {
-                    const response = await fetch(url);
-                    if (!response.ok) continue;
+                    setIsLoading(true);
+                    console.log('[Tanpura] Loading new audio...');
 
-                    const arrayBuffer = await response.arrayBuffer();
-                    if (arrayBuffer.byteLength === 0) continue;
+                    try {
+                        const audio = await loadTanpuraFile(fileName, basePath);
+                        console.log('[Tanpura] Audio loaded successfully');
 
-                    const buffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
-                    bufferCacheRef.current[tonic] = buffer;
-                    return buffer;
-                } catch (err) {
-                    // Try next variant/extension
+                        // Handle ended event (even though looped, just in case)
+                        audio.addEventListener('ended', () => {
+                            console.log('[Tanpura] Audio ended event fired');
+                            setIsPlaying(false);
+                        });
+
+                        // Debug: track when audio gets paused
+                        audio.addEventListener('pause', () => {
+                            console.log('[Tanpura] Audio PAUSED event fired!');
+                            console.trace('[Tanpura] Stack trace for pause:');
+                        });
+
+                        tanpuraRef.current = audio;
+
+                        // Play the loaded audio
+                        console.log('[Tanpura] Calling audio.play()...');
+                        await audio.play();
+                        console.log('[Tanpura] audio.play() succeeded, paused:', audio.paused);
+                        setIsPlaying(true);
+                    } catch (error) {
+                        console.error('[Tanpura] Could not load/play audio:', error);
+                        setIsPlaying(false);
+                    } finally {
+                        setIsLoading(false);
+                    }
+                } else {
+                    // Resume existing audio
+                    console.log('[Tanpura] Resuming existing audio');
+                    await tanpuraRef.current.play();
+                    setIsPlaying(true);
                 }
             }
-        }
-
-        console.warn(`Failed to load tanpura for tonic ${noteName}`);
-        return null;
-    }, [audioContext, basePath]);
-
-    // Start tanpura drone
-    const start = useCallback(async (tonic = currentTonic) => {
-        if (!audioContext) return false;
-
-        // Resume context if suspended
-        if (audioContext.state === 'suspended') {
-            await audioContext.resume();
-        }
-
-        // Stop any existing playback
-        if (sourceRef.current) {
-            try {
-                sourceRef.current.stop();
-            } catch (e) {
-                // Already stopped
-            }
-        }
-
-        setIsLoading(true);
-        setCurrentTonic(tonic);
-
-        const buffer = await loadTanpuraBuffer(tonic);
-
-        if (!buffer) {
+        } catch (error) {
+            console.error('[Tanpura] Toggle error:', error);
+            setIsPlaying(false);
             setIsLoading(false);
-            return false;
         }
+    }, [currentTonic, basePath]); // Remove isPlaying from deps - check audio element directly
 
-        // Create source and gain nodes
-        const source = audioContext.createBufferSource();
-        const gainNode = audioContext.createGain();
-
-        source.buffer = buffer;
-        source.loop = true;
-        source.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-
-        // Fade in
-        gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-        gainNode.gain.linearRampToValueAtTime(0.7, audioContext.currentTime + 0.5);
-
-        source.start();
-
-        sourceRef.current = source;
-        gainNodeRef.current = gainNode;
-        setIsPlaying(true);
-        setIsLoading(false);
-
-        return true;
-    }, [audioContext, currentTonic, loadTanpuraBuffer]);
-
-    // Stop tanpura drone
-    const stop = useCallback(() => {
-        if (sourceRef.current && gainNodeRef.current && audioContext) {
-            // Fade out
-            gainNodeRef.current.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.3);
-
-            // Stop after fade
-            setTimeout(() => {
-                try {
-                    sourceRef.current?.stop();
-                } catch (e) {
-                    // Already stopped
-                }
-                sourceRef.current = null;
-                gainNodeRef.current = null;
-            }, 350);
+    // Change tonic (stops current playback and optionally restarts with new tonic)
+    const changeTonic = useCallback(async (newTonic, autoPlay = false) => {
+        // Stop current playback
+        if (tanpuraRef.current) {
+            tanpuraRef.current.pause();
+            tanpuraRef.current.currentTime = 0;
         }
-
         setIsPlaying(false);
-    }, [audioContext]);
+        setCurrentTonic(newTonic);
 
-    // Toggle tanpura
-    const toggle = useCallback((tonic) => {
-        if (isPlaying) {
-            stop();
-        } else {
-            start(tonic);
+        if (autoPlay) {
+            await toggle(newTonic);
         }
-    }, [isPlaying, start, stop]);
-
-    // Change tonic while playing
-    const changeTonic = useCallback(async (newTonic) => {
-        if (isPlaying) {
-            await start(newTonic);
-        } else {
-            setCurrentTonic(newTonic);
-        }
-    }, [isPlaying, start]);
+    }, [toggle]);
 
     // Cleanup on unmount
     useEffect(() => {
         return () => {
-            if (sourceRef.current) {
-                try {
-                    sourceRef.current.stop();
-                } catch (e) {
-                    // Already stopped
-                }
+            if (tanpuraRef.current) {
+                tanpuraRef.current.pause();
+                tanpuraRef.current.currentTime = 0;
             }
         };
     }, []);
@@ -164,8 +172,6 @@ export function useTanpura(audioContext, basePath = '/tanpura') {
         isPlaying,
         isLoading,
         currentTonic,
-        start,
-        stop,
         toggle,
         changeTonic
     };

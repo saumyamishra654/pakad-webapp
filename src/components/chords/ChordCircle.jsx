@@ -224,6 +224,7 @@ export function ChordCircle({
                                     fontSize={isRoot ? "9" : "10"}
                                     fill="#cbd5e1"
                                     fontWeight="bold"
+                                    style={{ userSelect: 'none', pointerEvents: 'none' }}
                                 >
                                     {swara}
                                 </text>

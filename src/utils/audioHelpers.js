@@ -87,12 +87,29 @@ export function playNote({ ctx, buffers, noteIndex, octave = 4, duration = 0.5, 
 
     if (!noteBuffers) return;
 
-    // Find closest available octave
+    // Find closest available octave and calculate pitch shift if needed
+    const minAvail = Math.min(...AVAILABLE_OCTAVES);
+    const maxAvail = Math.max(...AVAILABLE_OCTAVES);
     let resolvedOctave = octave;
+    let pitchShiftSemitones = 0;
+
+    if (octave < minAvail) {
+        resolvedOctave = minAvail;
+        pitchShiftSemitones = (octave - minAvail) * 12; // Negative semitones
+    } else if (octave > maxAvail) {
+        resolvedOctave = maxAvail;
+        pitchShiftSemitones = (octave - maxAvail) * 12; // Positive semitones
+    }
+
+    // Fallback to any available octave if resolvedOctave doesn't have a buffer
     if (!noteBuffers[resolvedOctave]) {
-        const minAvail = Math.min(...AVAILABLE_OCTAVES);
-        const maxAvail = Math.max(...AVAILABLE_OCTAVES);
-        resolvedOctave = Math.min(Math.max(octave, minAvail), maxAvail);
+        for (const oct of AVAILABLE_OCTAVES) {
+            if (noteBuffers[oct]) {
+                pitchShiftSemitones += (resolvedOctave - oct) * 12;
+                resolvedOctave = oct;
+                break;
+            }
+        }
     }
 
     const buffer = noteBuffers[resolvedOctave];
@@ -105,10 +122,12 @@ export function playNote({ ctx, buffers, noteIndex, octave = 4, duration = 0.5, 
     source.connect(gainNode);
     gainNode.connect(ctx.destination);
 
-    // No pitch shifting - use pre-rendered buffer as-is
-    source.playbackRate.setValueAtTime(1.0, startTime);
+    // Apply pitch shift if octave was outside available range
+    // Each semitone = 2^(1/12) ratio
+    const playbackRate = Math.pow(2, pitchShiftSemitones / 12);
+    source.playbackRate.setValueAtTime(playbackRate, startTime);
 
-    const bufferDuration = buffer.duration;
+    const bufferDuration = buffer.duration / playbackRate; // Adjust for playback rate
     const maxDuration = 2.0;
     const playDuration = Math.min(maxDuration, bufferDuration, duration);
     const fadeOutStart = Math.max(0, playDuration - 0.03);

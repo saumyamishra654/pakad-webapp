@@ -7,13 +7,8 @@ import { resolve } from 'path'
 // https://vite.dev/config/
 export default defineConfig({
   // Use app.html as entry point (old index.html preserved for reference)
-  appType: 'mpa',
   build: {
-    rollupOptions: {
-      input: {
-        main: resolve(__dirname, 'app.html'),
-      },
-    },
+    // Standard build options
   },
   plugins: [
     react(),
