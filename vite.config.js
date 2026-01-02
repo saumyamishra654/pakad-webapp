@@ -9,7 +9,7 @@ export default defineConfig({
   // Standard build options (uses index.html by default)
   base: './', // Use relative paths for GitHub Pages & Electron support
   build: {
-    // Standard build options
+    outDir: 'docs', // Build to docs/ for GitHub Pages "folder" deployment
   },
   plugins: [
     react(),
