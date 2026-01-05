@@ -265,7 +265,12 @@ export function ChordTool() {
             return { all: [], aaroh: [], avroh: [], outside: [], counts: {} };
         }
 
-        const all = getAvailableChords(patterns.all, selectedChordType, showExtended);
+        // Always compute counts from ALL chord types (unfiltered) so they remain stable
+        const allForCounts = getAvailableChords(patterns.all, 'all', showExtended);
+
+        const all = selectedChordType === 'all'
+            ? allForCounts
+            : getAvailableChords(patterns.all, selectedChordType, showExtended);
         const aaroh = separateAarohAvroh
             ? getAvailableChords(patterns.aaroh, selectedChordType, showExtended)
             : [];
@@ -299,7 +304,7 @@ export function ChordTool() {
             outside: applyNoteFilter(outside),
             outsideAaroh: applyNoteFilter(outsideAaroh),
             outsideAvroh: applyNoteFilter(outsideAvroh),
-            counts: countChordsByType(all)
+            counts: countChordsByType(allForCounts)
         };
     }, [getCurrentPatterns, selectedChordType, showExtended, separateAarohAvroh, showOutsideChords, outsideMinAllowed, outsideMaxAllowed, selectedNote, noteFilterMode]);
 
