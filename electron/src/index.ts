@@ -46,7 +46,14 @@ if (electronIsDev) {
   // Initialize our app, build windows, and load content.
   await myCapacitorApp.init();
   // Check for updates if we are in a packaged app.
-  autoUpdater.checkForUpdatesAndNotify();
+  if (!electronIsDev) {
+    try {
+      await autoUpdater.checkForUpdatesAndNotify();
+    } catch (error) {
+      // Silently ignore update check errors (e.g., no published releases yet)
+      console.log('Auto-update check skipped:', (error as Error).message);
+    }
+  }
 })();
 
 // Handle when all of our windows are close (platforms have their own expectations).
