@@ -45,7 +45,7 @@
     The output will be in the `dist/` directory.
 
 ## Legacy Code
-The original prototype of this application was built as a set of monolithic HTML files. For historical reference, these have been archived in the [`legacy/`](legacy/) directory:
+The original prototype of this application was built as a set of monolithic HTML files. For reference, these have been archived in the [`legacy/`](legacy/) directory:
 *   `legacy/index.html` (Original Chord Tool)
 *   `legacy/raga-query.html`
 *   `legacy/raga-insights.html`
