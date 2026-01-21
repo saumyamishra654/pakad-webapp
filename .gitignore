@@ -24,4 +24,7 @@ dist-ssr
 *.sw?
 
 # Project documentation (internal)
-# FEATURE_COMPARISON.md
+FEATURE_COMPARISON.md
+LLM_REFERENCE.md
+TODO.md
+CHANGELOG.md
