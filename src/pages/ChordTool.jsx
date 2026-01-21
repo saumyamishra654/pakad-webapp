@@ -313,15 +313,8 @@ const ChordTool = () => {
         // Play note
         playNote(noteIndex, octave);
 
-        // Toggle filter if same note clicked
-        if (selectedNoteFilter === noteIndex) {
-            setSelectedNoteFilter(null);
-        } else {
-            setSelectedNoteFilter(noteIndex);
-        }
-
-        // Visual feedback
-        setActiveNotes([noteIndex]);
+        // Visual feedback (Specific key only)
+        setActiveNotes([{ pc: noteIndex, oct: octave }]);
         setTimeout(() => setActiveNotes([]), 500);
     };
 

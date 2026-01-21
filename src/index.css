@@ -2,6 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
+html {
+  background-color: #000000;
+}
+
 body {
   font-family: 'Crimson Text', serif;
   background: linear-gradient(135deg, #000000 0%, #000000 100%);

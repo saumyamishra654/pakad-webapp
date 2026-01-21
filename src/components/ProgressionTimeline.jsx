@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { swarNames } from '../utils/musicTheory';
+import React, { useMemo, useCallback } from 'react';
+import BeatCell from './BeatCell';
 
 const ProgressionTimeline = ({
     activeTrack,
@@ -25,7 +25,23 @@ const ProgressionTimeline = ({
 
     const breakpointPositions = useMemo(getBreakpointPositions, [customBreakpoints]);
 
-    const handleDrop = (e, beatIndex) => {
+    // Performance Optimization: Create a lookup map for chords by beat
+    // This avoids filtering the entire chord list for every beat render O(N) -> O(1)
+    const chordsByBeat = useMemo(() => {
+        const map = new Map();
+        if (activeTrack && activeTrack.chords) {
+            activeTrack.chords.forEach(item => {
+                const beatIndex = Math.floor(item.beat);
+                if (!map.has(beatIndex)) {
+                    map.set(beatIndex, []);
+                }
+                map.get(beatIndex).push(item);
+            });
+        }
+        return map;
+    }, [activeTrack.chords]);
+
+    const handleDrop = useCallback((e, beatIndex) => {
         e.preventDefault();
         try {
             const data = e.dataTransfer.getData('application/json');
@@ -49,14 +65,13 @@ const ProgressionTimeline = ({
         } catch (err) {
             console.error("Drop error:", err);
         }
-    };
+    }, [activeTrack.chords, onUpdateTrack]);
 
-    const handleRemoveChord = (e, chordId) => {
-        e.stopPropagation();
+    const handleRemoveChord = useCallback((chordId) => {
         onUpdateTrack({
             chords: activeTrack.chords.filter(c => c.id !== chordId)
         });
-    };
+    }, [activeTrack.chords, onUpdateTrack]);
 
     // Responsive layout logic
     const beatsPerRow = cycleBeats <= 10 ? cycleBeats : Math.ceil(cycleBeats / 2);
@@ -75,55 +90,20 @@ const ProgressionTimeline = ({
                             {Array.from({ length: beatsInRow }).map((_, indexInRow) => {
                                 const beatIndex = startBeat + indexInRow;
                                 const isCurrentBeat = activeTrack.isPlaying && activeTrack.currentBeat === beatIndex;
-                                const chordsOnBeat = activeTrack.chords.filter(item => Math.floor(item.beat) === beatIndex);
+                                const chordsOnBeat = chordsByBeat.get(beatIndex) || [];
                                 const isBreakpoint = breakpointPositions.includes(beatIndex) && beatIndex !== cycleBeats - 1;
 
                                 return (
-                                    <div
+                                    <BeatCell
                                         key={beatIndex}
-                                        className={`flex-1 min-w-[50px] min-h-[60px] border-2 rounded-lg p-1.5 transition-all relative ${isCurrentBeat
-                                            ? 'bg-blue-600/30 border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.5)]'
-                                            : beatIndex === 0
-                                                ? 'bg-blue-900/20 border-blue-800/50'
-                                                : 'bg-gray-900/40 border-gray-700/50'
-                                            } ${isBreakpoint ? 'mr-3 border-r-indigo-500/50' : ''}`}
-                                        onDragOver={(e) => e.preventDefault()}
-                                        onDrop={(e) => handleDrop(e, beatIndex)}
-                                    >
-                                        <div className="text-[9px] text-gray-500 font-bold mb-1">
-                                            {beatIndex + 1}
-                                        </div>
-
-                                        <div className="space-y-1">
-                                            {chordsOnBeat.map(item => {
-                                                const chordType = item.chord.type || {};
-                                                const bgColor = chordType.color || '#3b82f6';
-                                                return (
-                                                    <div
-                                                        key={item.id}
-                                                        className="group bg-gray-800 border rounded p-1 text-[9px] relative cursor-pointer hover:border-gray-500 transition-all active:scale-95"
-                                                        style={{ borderLeftWidth: '3px', borderLeftColor: bgColor }}
-                                                        onClick={() => onPlayArpeggio(item.chord)}
-                                                        title="Click to play"
-                                                    >
-                                                        <div className="font-bold text-gray-200 truncate pr-3 leading-tight">
-                                                            {item.chord.westernName || `${item.chord.rootName} ${chordType.name || ''}`}
-                                                        </div>
-                                                        <button
-                                                            onClick={(e) => handleRemoveChord(e, item.id)}
-                                                            className="absolute top-0.5 right-0.5 w-3 h-3 bg-red-500/80 hover:bg-red-500 text-white rounded-full flex items-center justify-center text-[8px] opacity-0 group-hover:opacity-100 transition-opacity"
-                                                        >
-                                                            ×
-                                                        </button>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-
-                                        {isBreakpoint && (
-                                            <div className="absolute top-0 -right-2 w-1 h-full bg-indigo-500/20 rounded-full" />
-                                        )}
-                                    </div>
+                                        beatIndex={beatIndex}
+                                        isCurrentBeat={isCurrentBeat}
+                                        chords={chordsOnBeat}
+                                        isBreakpoint={isBreakpoint}
+                                        onDrop={handleDrop}
+                                        onPlayArpeggio={onPlayArpeggio}
+                                        onRemoveChord={handleRemoveChord}
+                                    />
                                 );
                             })}
                         </div>
