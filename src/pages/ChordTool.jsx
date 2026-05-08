@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import RagaSelector from '../components/RagaSelector';
 import Piano from '../components/Piano';
 import ChordDisplay from '../components/ChordDisplay';
 import RagaCircle from '../components/RagaCircle';
@@ -34,7 +33,6 @@ const ChordTool = () => {
     const [isTanpuraPlaying, setIsTanpuraPlaying] = useState(false);
     const [isTanpuraLoading, setIsTanpuraLoading] = useState(false);
     const [showKeyboard, setShowKeyboard] = useState(true);
-    const [scaleMode, setScaleMode] = useState('full'); // 'aaroha', 'avroha', 'full'
 
     // New Modes & Interaction
     const [isCarnaticMode, setIsCarnaticMode] = useState(false);
@@ -303,7 +301,7 @@ const ChordTool = () => {
     };
 
     const playCustomChord = () => {
-        const voiced = arrangeChordNotes(customChordNotes, 3, rootNote);
+        const voiced = arrangeChordNotes(customChordNotes, 3);
         const delay = playbackMode === 'unison' ? 0 : arpeggiationDelay;
         playChord(voiced, chordNoteDuration, delay);
     };
@@ -320,7 +318,7 @@ const ChordTool = () => {
 
     const handleChordClick = (chord, mode = 'unison') => {
         // Arrange chord notes in appropriate octaves
-        const arranged = arrangeChordNotes(chord.notes, 3, rootNote);
+        const arranged = arrangeChordNotes(chord.notes, 3);
 
         // Set active notes for visual feedback
         setActiveNotes(chord.notes.map(n => (n + rootNote) % 12));
@@ -339,8 +337,8 @@ const ChordTool = () => {
 
         const sequence = mode === 'avroha' ? selectedRaga.avrohaChalan : selectedRaga.aarohaChalan;
         const arranged = mode === 'avroha'
-            ? arrangeNotesDescending(sequence, 4, true, 3, rootNote)
-            : arrangeNotesAscending(sequence, 3, rootNote);
+            ? arrangeNotesDescending(sequence, 4, true, 3)
+            : arrangeNotesAscending(sequence, 3);
 
         // Visual follow along
         for (const note of arranged) {
@@ -462,7 +460,7 @@ const ChordTool = () => {
             // Play chords on current beat
             const chordsToPlay = activeTrack.chords.filter(c => Math.floor(c.beat) === beatIdx);
             chordsToPlay.forEach(item => {
-                const voiced = arrangeChordNotes(item.chord.notes, 3, rootNote);
+                const voiced = arrangeChordNotes(item.chord.notes, 3);
                 const delay = playbackMode === 'unison' ? 0 : arpeggiationDelay;
                 playChord(voiced, chordNoteDuration, delay);
             });

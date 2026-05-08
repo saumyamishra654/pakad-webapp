@@ -11,32 +11,6 @@ export const getAudioContext = () => {
     return audioContext;
 };
 
-const loadBuffer = async (url) => {
-    if (bufferCache[url]) return bufferCache[url];
-
-    const ctx = getAudioContext();
-    try {
-        const response = await fetch(url);
-        if (!response.ok) {
-            console.error(`HTTP error loading ${url}: ${response.status}`);
-            return null;
-        }
-        const arrayBuffer = await response.arrayBuffer();
-        if (arrayBuffer.byteLength === 0) {
-            console.error(`Empty buffer for ${url}`);
-            return null;
-        }
-        // Clone the array buffer to avoid detached buffer errors
-        const audioBuffer = await ctx.decodeAudioData(arrayBuffer.slice(0));
-        bufferCache[url] = audioBuffer;
-        return audioBuffer;
-    } catch (error) {
-        console.error(`Failed to load/decode audio from ${url}:`, error);
-        // If standard decoding fails, the file might be corrupted or unsupported
-        // Return null so playback can gracefully fail
-        return null;
-    }
-};
 
 const getNoteFilename = async (noteIndex, octave, ctx) => {
     // noteIndex: 0-11 (C to B)

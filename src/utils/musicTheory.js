@@ -124,48 +124,7 @@ export const attachWesternNames = (chords, tonicIndex) => {
     });
 };
 
-// Piano visualization helpers
-export const getFrequencyFromNote = (noteIndex, octave = 4, selectedTonic = null) => {
-    // use C4 = 261.63 Hz as base, but adjust the calculation
-    const baseFreq = selectedTonic !== null ?
-        261.63 * Math.pow(2, selectedTonic / 12) : // C4 adjusted for tonic
-        261.63; // C4 default
-    // calculate frequency using proper octave offset
-    return baseFreq * Math.pow(2, (noteIndex / 12) + (octave - 4));
-};
-
-export const getPianoKeyPositions = (chordNotes, selectedTonic) => {
-    if (!chordNotes || chordNotes.length === 0) return [];
-
-    const tonicOffset = selectedTonic !== null ? selectedTonic : 0;
-    const baseOctave = 4; // Start in octave 4
-
-    // Get the root note (first note in the chord)
-    const rootNote = (chordNotes[0] + tonicOffset) % 12;
-
-    // Arrange chord notes properly starting from root
-    const arrangedNotes = [];
-    const rootMidi = baseOctave * 12 + rootNote;
-    arrangedNotes.push(rootMidi);
-
-    // Add other chord notes in the next octave if they would be lower than root
-    let currentOctave = baseOctave;
-    for (let i = 1; i < chordNotes.length; i++) {
-        const noteIndex = (chordNotes[i] + tonicOffset) % 12;
-        let midiNote = currentOctave * 12 + noteIndex;
-
-        // If this note is lower than the previous note, move it to next octave
-        if (midiNote <= arrangedNotes[arrangedNotes.length - 1]) {
-            midiNote += 12;
-        }
-
-        arrangedNotes.push(midiNote);
-    }
-
-    return arrangedNotes;
-};
-
-export const arrangeNotesAscending = (noteIndices, baseOctave = 3, selectedTonic = null) => {
+export const arrangeNotesAscending = (noteIndices, baseOctave = 3) => {
     if (!noteIndices || noteIndices.length === 0) return [];
 
     const arrangedNotes = [];
@@ -174,8 +133,7 @@ export const arrangeNotesAscending = (noteIndices, baseOctave = 3, selectedTonic
 
     arrangedNotes.push({
         noteIndex: noteIndices[0],
-        octave: baseOctave,
-        frequency: getFrequencyFromNote(noteIndices[0], baseOctave, selectedTonic)
+        octave: baseOctave
     });
 
     for (let i = 1; i < noteIndices.length; i++) {
@@ -187,8 +145,7 @@ export const arrangeNotesAscending = (noteIndices, baseOctave = 3, selectedTonic
         const abs = octave * 12 + pc;
         arrangedNotes.push({
             noteIndex: pc,
-            octave: octave,
-            frequency: getFrequencyFromNote(pc, octave, selectedTonic)
+            octave: octave
         });
         prevAbs = abs;
     }
@@ -196,7 +153,7 @@ export const arrangeNotesAscending = (noteIndices, baseOctave = 3, selectedTonic
     return arrangedNotes;
 };
 
-export const arrangeNotesDescending = (noteIndices, startingOctave = 4, includeLowerSa = true, baseLowerOctave = 3, selectedTonic = null) => {
+export const arrangeNotesDescending = (noteIndices, startingOctave = 4, includeLowerSa = true, baseLowerOctave = 3) => {
     if (!noteIndices || noteIndices.length === 0) return [];
 
     const arranged = [];
@@ -206,8 +163,7 @@ export const arrangeNotesDescending = (noteIndices, startingOctave = 4, includeL
 
     arranged.push({
         noteIndex: firstPc,
-        octave: startingOctave,
-        frequency: getFrequencyFromNote(firstPc, startingOctave, selectedTonic)
+        octave: startingOctave
     });
 
     for (let i = 1; i < noteIndices.length; i++) {
@@ -220,8 +176,7 @@ export const arrangeNotesDescending = (noteIndices, startingOctave = 4, includeL
         prevAbs = abs;
         arranged.push({
             noteIndex: pc,
-            octave,
-            frequency: getFrequencyFromNote(pc, octave, selectedTonic)
+            octave
         });
     }
 
@@ -231,15 +186,14 @@ export const arrangeNotesDescending = (noteIndices, startingOctave = 4, includeL
         if (0 >= (prevAbs % 12)) octave--;
         arranged.push({
             noteIndex: 0,
-            octave,
-            frequency: getFrequencyFromNote(0, octave, selectedTonic)
+            octave
         });
     }
 
     return arranged;
 };
 
-export const arrangeChordNotes = (noteIndices, baseOctave = 3, selectedTonic = null) => {
+export const arrangeChordNotes = (noteIndices, baseOctave = 3) => {
     if (!noteIndices || noteIndices.length === 0) return [];
 
     // Sort chord notes to ensure bottom-up stacking
@@ -250,8 +204,7 @@ export const arrangeChordNotes = (noteIndices, baseOctave = 3, selectedTonic = n
 
     arranged.push({
         noteIndex: pcs[0],
-        octave: baseOctave,
-        frequency: getFrequencyFromNote(pcs[0], baseOctave, selectedTonic)
+        octave: baseOctave
     });
 
     for (let i = 1; i < pcs.length; i++) {
@@ -262,8 +215,7 @@ export const arrangeChordNotes = (noteIndices, baseOctave = 3, selectedTonic = n
         const abs = octave * 12 + pc;
         arranged.push({
             noteIndex: pc,
-            octave,
-            frequency: getFrequencyFromNote(pc, octave, selectedTonic)
+            octave
         });
         prevAbs = abs;
     }
