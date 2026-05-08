@@ -79,7 +79,7 @@ The visual follow-along loop runs to completion before `playSequence` is called.
 `startPlayback` captures `activeTrack.chords` at call time. The `setInterval` callback references this stale snapshot.
 
 **Change:**
-- Add refs for all values read inside the interval: `chordsRef`, `cycleBpmRef`, `rootNoteRef`, `playbackModeRef`, `arpeggiationDelayRef`, `chordNoteDurationRef`.
+- Add refs for values that should update live during playback: `chordsRef`, `rootNoteRef`, `playbackModeRef`, `arpeggiationDelayRef`, `chordNoteDurationRef`, `cycleLoopRef`.
 - Keep each ref in sync via `useEffect`s that update `ref.current` when the corresponding state changes.
 - Inside the `setInterval` callback, read from refs instead of closed-over state.
 - `cycleBpm` change during playback: the current interval keeps its pace until the user stops and restarts. Changing BPM mid-playback does not restart the interval (this matches DAW behavior where BPM changes take effect on next play). Document this as intentional.

@@ -1082,9 +1082,10 @@ const rootNoteRef = React.useRef(rootNote);
 const playbackModeRef = React.useRef(playbackMode);
 const arpeggiationDelayRef = React.useRef(arpeggiationDelay);
 const chordNoteDurationRef = React.useRef(chordNoteDuration);
-const cycleBpmRef = React.useRef(cycleBpm);
 const cycleLoopRef = React.useRef(cycleLoop);
 ```
+
+Note: `cycleBpm` is intentionally NOT stored in a ref. BPM determines the `setInterval` timing which is fixed at interval creation. Changing BPM mid-playback has no effect — the user must stop and restart. This matches standard DAW behavior.
 
 Add sync effects after the state declarations (before any other useEffects):
 
@@ -1094,11 +1095,10 @@ useEffect(() => { rootNoteRef.current = rootNote; }, [rootNote]);
 useEffect(() => { playbackModeRef.current = playbackMode; }, [playbackMode]);
 useEffect(() => { arpeggiationDelayRef.current = arpeggiationDelay; }, [arpeggiationDelay]);
 useEffect(() => { chordNoteDurationRef.current = chordNoteDuration; }, [chordNoteDuration]);
-useEffect(() => { cycleBpmRef.current = cycleBpm; }, [cycleBpm]);
 useEffect(() => { cycleLoopRef.current = cycleLoop; }, [cycleLoop]);
 ```
 
-Update `startPlayback` to read from refs:
+Update `startPlayback` to read from refs. `cycleBpm` and `cycleBeats` are captured once at interval creation (intentional — BPM changes apply on next start):
 
 ```js
 const startPlayback = async () => {
@@ -1114,6 +1114,7 @@ const startPlayback = async () => {
     updateActiveTrack({ isPlaying: true, currentBeat: 0 });
 
     const beatMs = (60 / cycleBpm) * 1000;
+    const totalBeats = cycleBeats;
     let beatIdx = 0;
 
     playbackIntervalRef.current = setInterval(() => {
@@ -1130,7 +1131,7 @@ const startPlayback = async () => {
             playChord(voiced, currentDuration, delay);
         });
 
-        beatIdx = (beatIdx + 1) % cycleBeats;
+        beatIdx = (beatIdx + 1) % totalBeats;
         updateActiveTrack({ currentBeat: beatIdx });
 
         if (beatIdx === 0 && !cycleLoopRef.current) {
@@ -1245,7 +1246,17 @@ useEffect(() => {
 
 This also addresses Issue #21 (tanpura cleanup on unmount).
 
-- [ ] **Step 5: Verify and commit**
+- [ ] **Step 5: Remove unused imports**
+
+After the `playChalan` rewrite, `playSequence` may no longer be used in ChordTool.jsx. Check:
+
+```bash
+rg "playSequence" src/pages/ChordTool.jsx
+```
+
+If the only hit is the import line, remove `playSequence` from the import statement. The function remains exported from `audioEngine.js` for other potential consumers — just remove the unused import from ChordTool.
+
+- [ ] **Step 6: Verify and commit**
 
 ```bash
 npm run build
@@ -1257,6 +1268,7 @@ Test manually:
 - Play Aaroh Chalan — visual highlights should sync with audio.
 - Click Aaroh Chalan, then immediately click Avroh Chalan — first one cancels cleanly.
 - Save chords, refresh — they persist.
+- Change BPM during playback — no effect until stop/restart (intentional).
 
 ```bash
 git add src/pages/ChordTool.jsx
