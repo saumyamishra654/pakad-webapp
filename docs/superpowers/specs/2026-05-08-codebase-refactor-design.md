@@ -424,10 +424,10 @@ Remove the if/else entirely — always call `playChord` with the appropriate del
 
 **File:** `src/utils/musicTheory.js:246`
 
-**Change:** Add an optional `sort` parameter (default `true` to preserve existing behavior). Set it to `false` in the `playCustomChord` and `handleChordClick` callers where input order should be preserved for future inversion support.
+**Change:** Add an optional `sort` parameter (default `true` to preserve existing behavior). Set it to `false` in callers where input order should be preserved for future inversion support. Note: `selectedTonic` was already removed from this signature by Issue #12.
 
 ```js
-export const arrangeChordNotes = (noteIndices, baseOctave = 3, selectedTonic = null, sort = true) => {
+export const arrangeChordNotes = (noteIndices, baseOctave = 3, sort = true) => {
     if (!noteIndices || noteIndices.length === 0) return [];
     const pcs = sort ? [...noteIndices].sort((a, b) => a - b) : [...noteIndices];
     // ... rest unchanged
