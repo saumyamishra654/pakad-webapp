@@ -35,11 +35,11 @@ const ChordTool = () => {
 
     // Settings
     const [selectedChordType, setSelectedChordType] = useState('all');
-    const [allowOutsideNotes] = useState(false);
-    const [maxOutside] = useState(1);
+    const [allowOutsideNotes, setAllowOutsideNotes] = useState(false);
+    const [maxOutside, setMaxOutside] = useState(1);
     const [isTanpuraPlaying, setIsTanpuraPlaying] = useState(false);
     const [isTanpuraLoading, setIsTanpuraLoading] = useState(false);
-    const [showKeyboard] = useState(true);
+    const [showKeyboard, setShowKeyboard] = useState(true);
 
     // New Modes & Interaction
     const [isCarnaticMode, setIsCarnaticMode] = useState(false);
@@ -635,6 +635,40 @@ const ChordTool = () => {
                                                 className="form-checkbox h-4 w-4 text-emerald-600 rounded focus:ring-emerald-500"
                                             />
                                             <span className="ml-2 text-xs text-gray-700">Custom Scale</span>
+                                        </label>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <label className="inline-flex items-center">
+                                            <input
+                                                type="checkbox"
+                                                checked={allowOutsideNotes}
+                                                onChange={e => setAllowOutsideNotes(e.target.checked)}
+                                                className="form-checkbox h-4 w-4 text-red-600 rounded focus:ring-red-500"
+                                            />
+                                            <span className="ml-2 text-xs text-gray-700">Outside Notes</span>
+                                        </label>
+                                        {allowOutsideNotes && (
+                                            <select
+                                                value={maxOutside}
+                                                onChange={e => setMaxOutside(parseInt(e.target.value))}
+                                                className="p-1 text-xs border border-gray-300 rounded"
+                                                title="Maximum notes outside the raga per chord"
+                                            >
+                                                {[1, 2, 3].map(n => (
+                                                    <option key={n} value={n}>max {n}</option>
+                                                ))}
+                                            </select>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <label className="inline-flex items-center">
+                                            <input
+                                                type="checkbox"
+                                                checked={showKeyboard}
+                                                onChange={e => setShowKeyboard(e.target.checked)}
+                                                className="form-checkbox h-4 w-4 text-gray-600 rounded focus:ring-gray-500"
+                                            />
+                                            <span className="ml-2 text-xs text-gray-700">Keyboard</span>
                                         </label>
                                     </div>
                                 </div>
