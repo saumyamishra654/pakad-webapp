@@ -334,18 +334,15 @@ const ChordTool = () => {
         playNote((swarIndex + rootNote) % 12, 4);
     };
 
-    const handleChordClick = (chord, mode = 'unison') => {
+    const handleChordClick = (chord, mode = playbackMode) => {
         // Arrange chord notes in appropriate octaves
         const arranged = transposeVoicing(arrangeChordNotes(chord.notes, 3), rootNote);
 
         // Set active notes for visual feedback
         setActiveNotes(chord.notes.map(n => (n + rootNote) % 12));
 
-        if (mode === 'melody' || arpeggiationDelay > 0) {
-            playChord(arranged, chordNoteDuration, arpeggiationDelay);
-        } else {
-            playChord(arranged, chordNoteDuration, 0);
-        }
+        const delay = mode === 'melody' ? arpeggiationDelay : 0;
+        playChord(arranged, chordNoteDuration, delay);
 
         setTimeout(() => setActiveNotes([]), 1000);
     };
