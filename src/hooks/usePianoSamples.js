@@ -10,12 +10,13 @@ import { AVAILABLE_OCTAVES } from '../utils/noteHelpers.js';
 // Decoded buffers shared by every page, keyed by base path; holds the in-flight promise
 // so concurrent callers share one load
 const sampleCache = new Map();
+const SAMPLE_RETRY_MS = 30000;
 
 /**
  * Hook to load and play piano samples
  * @param {AudioContext} audioContext - Web Audio context from useAudio
  * @param {string} basePath - Path to piano samples (default respects Vite base URL)
- * @returns {Object} - { isReady, isLoading, error, playNote, playChord, playSequence, loadSamples, ensureReady }
+ * @returns {Object} - { isReady, isLoading, error, playNote, playChord, playSequence, loadSamples, ensureReady, hasSamples }
  */
 export function usePianoSamples(audioContext, basePath = PIANO_BASE_PATH) {
     const [isReady, setIsReady] = useState(false);
@@ -23,11 +24,11 @@ export function usePianoSamples(audioContext, basePath = PIANO_BASE_PATH) {
     const [error, setError] = useState(null);
     const buffersRef = useRef({});
 
-    // Lazy load (idempotent); resolves true when at least some samples are playable
-    const loadSamples = useCallback(async () => {
-        if (!audioContext) return false;
-        if (Object.keys(buffersRef.current).length > 0) return true;
+    const completeRef = useRef(false);   // every note/octave loaded
+    const lastAttemptRef = useRef(0);
 
+    const runLoad = useCallback(async () => {
+        lastAttemptRef.current = Date.now();
         let pending = sampleCache.get(basePath);
         if (!pending) {
             pending = loadPianoSamples(audioContext, basePath);
@@ -38,33 +39,50 @@ export function usePianoSamples(audioContext, basePath = PIANO_BASE_PATH) {
         setError(null);
 
         try {
-            const buffers = await pending;
-            const loaded = Object.keys(buffers).length > 0;
-            if (!loaded) sampleCache.delete(basePath); // allow a retry later
-            buffersRef.current = buffers;
+            const fresh = await pending;
+            // Merge so a retry only fills in what was missing
+            const buffers = { ...buffersRef.current };
+            for (const [index, noteMap] of Object.entries(fresh)) {
+                buffers[index] = { ...buffers[index], ...noteMap };
+            }
 
+            const loaded = Object.keys(buffers).length > 0;
             const complete = Object.keys(buffers).length === 12 &&
                 Object.values(buffers).every(noteMap =>
                     AVAILABLE_OCTAVES.every(oct => !!noteMap[oct])
                 );
-            if (loaded && !complete) {
-                console.warn('Some piano samples failed to load');
-            }
+            if (!complete) sampleCache.delete(basePath); // let a later call retry the missing files
+            if (loaded && !complete) console.warn('Some piano samples failed to load');
             if (!loaded) setError('Failed to load samples');
 
+            buffersRef.current = buffers;
+            completeRef.current = complete;
             setIsReady(loaded);
             return loaded;
         } catch (err) {
             console.error('Failed to load piano samples:', err);
             sampleCache.delete(basePath);
             setError(err.message || 'Failed to load samples');
-            buffersRef.current = {};
-            setIsReady(false);
-            return false;
+            return Object.keys(buffersRef.current).length > 0;
         } finally {
             setIsLoading(false);
         }
     }, [audioContext, basePath]);
+
+    // Lazy load (idempotent); resolves true when at least some samples are playable
+    const loadSamples = useCallback(async () => {
+        if (!audioContext) return false;
+        if (completeRef.current) return true;
+        if (Object.keys(buffersRef.current).length > 0) {
+            // Partially loaded: play what we have, retry the missing files in the background
+            if (Date.now() - lastAttemptRef.current > SAMPLE_RETRY_MS) runLoad();
+            return true;
+        }
+        return runLoad();
+    }, [audioContext, runLoad]);
+
+    // Synchronous check, for callers that must not wait on a load (e.g. sequencer ticks)
+    const hasSamples = useCallback(() => Object.keys(buffersRef.current).length > 0, []);
 
     // Resume the context (autoplay policy) and make sure samples are loaded before playing
     const ensureReady = useCallback(async () => {
@@ -151,7 +169,8 @@ export function usePianoSamples(audioContext, basePath = PIANO_BASE_PATH) {
         playChordArpeggiated,
         playSequence,
         loadSamples,
-        ensureReady
+        ensureReady,
+        hasSamples
     };
 }
 

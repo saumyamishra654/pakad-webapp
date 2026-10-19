@@ -27,8 +27,16 @@ const DEFAULT_PROGRESSIONS = [1, 2, 3, 4].map(id => ({ id, name: String(id), cho
 function loadSavedProgressions() {
     try {
         const parsed = JSON.parse(localStorage.getItem('pakad_progressions'));
-        if (Array.isArray(parsed) && parsed.length === 4) {
-            return parsed.map(p => ({ ...p, chords: p.chords || [], isPlaying: false, currentBeat: -1 }));
+        // Track ids must be 1-4 (playback and editing look tracks up by id)
+        if (Array.isArray(parsed) && parsed.length === 4 && parsed.every((p, i) => p?.id === i + 1)) {
+            return parsed.map(p => ({
+                ...p,
+                chords: Array.isArray(p.chords)
+                    ? p.chords.filter(c => Array.isArray(c?.chord?.notes) && Number.isFinite(c.beat) && c.beat >= 0)
+                    : [],
+                isPlaying: false,
+                currentBeat: -1
+            }));
         }
     } catch {
         // Ignore storage errors
@@ -40,7 +48,7 @@ function loadSavedProgressions() {
  * ChordTool main page component
  */
 export function ChordTool() {
-    const [searchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useSearchParams();
 
     // Core state
     const [isCarnatic, setIsCarnatic] = useState(false);
@@ -98,11 +106,12 @@ export function ChordTool() {
     }, []);
 
     // Rhythm/beat state
+    // Committed values are always valid numbers; the inputs edit drafts that commit on blur/Enter
+    // (so a half-typed "1" of "12" never reaches playback)
     const [beats, setBeats] = useState(8);
     const [bpm, setBpm] = useState(120);
-    // Inputs may be blank while typing; fall back to sane values
-    const effectiveBeats = Math.max(2, Math.min(18, Number(beats) || 8));
-    const effectiveBpm = Math.max(40, Math.min(240, Number(bpm) || 120));
+    const [beatsDraft, setBeatsDraft] = useState('8');
+    const [bpmDraft, setBpmDraft] = useState('120');
 
     const [loop, setLoop] = useState(true);
 
@@ -139,7 +148,7 @@ export function ChordTool() {
     // Audio
     const { audioContext } = useAudio();
 
-    const { playNote, isLoading: isPianoLoading, ensureReady } = usePianoSamples(audioContext);
+    const { playNote, isLoading: isPianoLoading, ensureReady, hasSamples } = usePianoSamples(audioContext);
     const { isPlaying: isTanpuraPlaying, isLoading: isTanpuraLoading, toggle: toggleTanpura, changeTonic } = useTanpura();
 
     // Get raga list
@@ -183,8 +192,12 @@ export function ChordTool() {
 
     // Auto-select first raga if none selected AND no URL param
     useEffect(() => {
-        // Don't auto-select if we're trying to load from URL
-        if (searchParams.get('raga')) return;
+        // Don't auto-select if a valid ?raga= link is being applied
+        const ragaParam = searchParams.get('raga');
+        if (ragaParam) {
+            const name = decodeURIComponent(ragaParam);
+            if (HINDUSTANI_RAGAS.some(r => r.name === name) || MELAKARTA_72.some(r => r.name === name)) return;
+        }
 
         if (!selectedRagaName && ragaList.length > 0) {
             setTimeout(() => {
@@ -361,14 +374,20 @@ export function ChordTool() {
     const handleModeChange = useCallback((carnatic) => {
         setIsCarnatic(carnatic);
         setSelectedRagaName(''); // Reset selection
-    }, []);
+        // A ?raga= link would otherwise keep blocking auto-selection in the new mode
+        if (searchParams.get('raga')) setSearchParams({}, { replace: true });
+    }, [searchParams, setSearchParams]);
 
     // Play a chord (isUnison=true for all notes at once, false for melody/arpeggiated)
+    const playRequestRef = useRef(0);
     const handlePlayChord = useCallback(async (chord, isUnison = true) => {
+        const request = ++playRequestRef.current;
         if (!(await ensureReady())) return;
+        // Requests made while samples were loading would otherwise all sound at once
+        if (request !== playRequestRef.current) return;
 
         const arranged = arrangeChordNotes(chord.notes, 4);
-        const duration = chordNoteDuration || 0.8;
+        const duration = Number.isFinite(chordNoteDuration) && chordNoteDuration > 0 ? chordNoteDuration : 0.8;
 
         if (isUnison) {
             // Play all notes at once
@@ -381,7 +400,7 @@ export function ChordTool() {
             }
         } else {
             // Play notes as a melody (arpeggiated)
-            const delay = (arpeggiationDelay || 0.08) * 1000; // Convert to ms
+            const delay = (Number.isFinite(arpeggiationDelay) ? Math.max(0, arpeggiationDelay) : 0.08) * 1000; // Convert to ms
             arranged.forEach(({ noteIndex, octave }, i) => {
                 // Apply tonic offset and recalculate both note and octave
                 const totalSemitones = noteIndex + selectedTonic + octave * 12;
@@ -446,7 +465,7 @@ export function ChordTool() {
     // Download progression as MIDI
     const handleDownloadMidi = useCallback(() => {
         // Chords left beyond the cycle (after lowering Beats) are hidden, so don't export them
-        const inCycle = activeProgression.chords.filter(c => c.beat < effectiveBeats);
+        const inCycle = activeProgression.chords.filter(c => c.beat < beats);
         if (inCycle.length === 0) {
             alert('No chords within the current cycle to export.');
             return;
@@ -470,7 +489,7 @@ export function ChordTool() {
                 : `chord_progression_${activeProgressionId}`;
             downloadMidi(midiData, filename);
         }
-    }, [activeProgression, activeProgressionId, effectiveBeats, selectedTonic, midiTempo, midiNoteLengthBeats, midiGapBeats, midiVelocity, midiChannel, midiProgram, selectedRagaName]);
+    }, [activeProgression, activeProgressionId, beats, selectedTonic, midiTempo, midiNoteLengthBeats, midiGapBeats, midiVelocity, midiChannel, midiProgram, selectedRagaName]);
 
     // Playback: latest chords/settings are read through a ref so edits apply without restarting the loop
     const playbackRef = useRef({});
@@ -487,7 +506,7 @@ export function ChordTool() {
         const tick = () => {
             const { chords, handlePlayChord: play, rhythmPlaybackMode: mode, loop: shouldLoop } = playbackRef.current;
             let beat = playbackBeatRef.current;
-            if (beat >= effectiveBeats) {
+            if (beat >= beats) {
                 if (!shouldLoop) {
                     clearInterval(interval);
                     updateProgression(id, { isPlaying: false, currentBeat: -1 });
@@ -497,7 +516,11 @@ export function ChordTool() {
             }
 
             const item = chords.find(c => Math.floor(c.beat) === beat);
-            if (item) play(item.chord, mode === 'unison');
+            if (!hasSamples()) {
+                ensureReady(); // still loading: skip this beat rather than queue it
+            } else if (item) {
+                play(item.chord, mode === 'unison');
+            }
 
             updateProgression(id, { currentBeat: beat });
             playbackBeatRef.current = beat + 1;
@@ -509,10 +532,10 @@ export function ChordTool() {
             playbackBeatRef.current = 0;
             tick();
         }
-        interval = setInterval(tick, 60000 / effectiveBpm);
+        interval = setInterval(tick, 60000 / bpm);
 
         return () => clearInterval(interval);
-    }, [activeProgression.isPlaying, activeProgressionId, effectiveBpm, effectiveBeats, updateProgression]);
+    }, [activeProgression.isPlaying, activeProgressionId, bpm, beats, updateProgression, hasSamples, ensureReady]);
 
     // Update tanpura when tonic changes (only if already playing)
     // Use a ref to track previous tonic to only react to actual changes
@@ -1344,17 +1367,15 @@ export function ChordTool() {
                                     type="number"
                                     min="2"
                                     max="18"
-                                    value={beats}
-                                    onChange={(e) => {
-                                        // Allow free typing (clamping per keystroke made e.g. "16" impossible to enter)
-                                        const val = e.target.value;
-                                        if (val === '') setBeats('');
-                                        else {
-                                            const num = parseInt(val);
-                                            if (!isNaN(num)) setBeats(num);
-                                        }
+                                    value={beatsDraft}
+                                    onChange={(e) => setBeatsDraft(e.target.value)}
+                                    onBlur={() => {
+                                        const num = parseInt(beatsDraft, 10);
+                                        const next = Number.isFinite(num) ? Math.max(2, Math.min(18, num)) : beats;
+                                        setBeats(next);
+                                        setBeatsDraft(String(next));
                                     }}
-                                    onBlur={() => setBeats(effectiveBeats)}
+                                    onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
                                     className="w-16 px-2 py-1 border border-gray-600 rounded text-sm bg-gray-700 text-white"
                                 />
                             </label>
@@ -1366,17 +1387,15 @@ export function ChordTool() {
                                     type="number"
                                     min="40"
                                     max="240"
-                                    value={bpm}
-                                    onChange={(e) => {
-                                        // Allow free typing (clamping per keystroke made e.g. "16" impossible to enter)
-                                        const val = e.target.value;
-                                        if (val === '') setBpm('');
-                                        else {
-                                            const num = parseInt(val);
-                                            if (!isNaN(num)) setBpm(num);
-                                        }
+                                    value={bpmDraft}
+                                    onChange={(e) => setBpmDraft(e.target.value)}
+                                    onBlur={() => {
+                                        const num = parseInt(bpmDraft, 10);
+                                        const next = Number.isFinite(num) ? Math.max(40, Math.min(240, num)) : bpm;
+                                        setBpm(next);
+                                        setBpmDraft(String(next));
                                     }}
-                                    onBlur={() => setBpm(effectiveBpm)}
+                                    onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
                                     className="w-16 px-2 py-1 border border-gray-600 rounded text-sm bg-gray-700 text-white"
                                 />
                             </label>
@@ -1449,7 +1468,7 @@ export function ChordTool() {
                                         : 'bg-green-500 hover:bg-green-600 text-white'
                                         }`}
                                 >
-                                    {activeProgression.isPlaying ? '⏸ Pause' : '▶ Play'}
+                                    {activeProgression.isPlaying ? '⏹ Stop' : '▶ Play'}
                                 </button>
                                 <button
                                     onClick={handleClear}
@@ -1539,7 +1558,7 @@ export function ChordTool() {
                                     </label>
                                     <label className="flex flex-col gap-1">
                                         <span className="text-gray-400">Velocity</span>
-                                        <input type="number" min="0" max="127" value={midiVelocity} onChange={e => setMidiVelocity(parseInt(e.target.value) || 96)} className="px-2 py-1 border border-gray-600 rounded bg-gray-700 text-white" />
+                                        <input type="number" min="0" max="127" value={midiVelocity} onChange={e => { const n = parseInt(e.target.value, 10); setMidiVelocity(Number.isNaN(n) ? 96 : n); }} className="px-2 py-1 border border-gray-600 rounded bg-gray-700 text-white" />
                                     </label>
                                 </div>
                             </div>
@@ -1547,7 +1566,7 @@ export function ChordTool() {
 
                         {/* Timeline Grid */}
                         <TimelineGrid
-                            beats={effectiveBeats}
+                            beats={beats}
                             chords={activeProgression.chords}
                             onChordPlace={handleChordPlace}
                             onChordRemove={handleChordRemove}
