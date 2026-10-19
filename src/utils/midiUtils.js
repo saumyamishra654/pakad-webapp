@@ -67,7 +67,8 @@ export const buildMidiFromChords = ({
         let endTick = startTick + noteLenTicks;
         if (i + 1 < sortedChords.length) {
             const nextStartTick = Math.round(sortedChords[i + 1].beat * beatDurTicks);
-            endTick = Math.min(endTick, nextStartTick - gapTicks);
+            const effectiveGap = Math.min(gapTicks, Math.floor((nextStartTick - startTick) / 2));
+            endTick = Math.min(endTick, nextStartTick - effectiveGap);
         }
         endTick = Math.max(endTick, startTick + 1);
 
