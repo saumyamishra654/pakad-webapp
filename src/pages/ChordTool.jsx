@@ -442,8 +442,13 @@ const ChordTool = () => {
     };
 
     const handleDownloadMIDI = () => {
+        const exportChords = activeTrack.chords.filter(c => c.beat < cycleBeats);
+        if (exportChords.length === 0) {
+            alert('No chords within the current cycle to export.');
+            return;
+        }
         const bytes = buildMidiFromChords({
-            chords: activeTrack.chords.filter(c => c.beat < cycleBeats),
+            chords: exportChords,
             tempoBPM: Math.min(240, Math.max(40, cycleBpm || 120)),
             velocity: midiVelocity,
             channel: midiChannel,
