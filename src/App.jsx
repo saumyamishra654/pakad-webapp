@@ -38,7 +38,6 @@ class ErrorBoundary extends React.Component {
 }
 
 function App() {
-  console.log("App component rendering");
   return (
     <ErrorBoundary>
       <Router>

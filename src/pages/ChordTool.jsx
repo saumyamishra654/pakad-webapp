@@ -9,14 +9,14 @@ import {
     availableChordsAllowingOutside,
     attachWesternNames,
     filterChordsByNote,
-    CHORD_TYPES
+    CHORD_TYPES,
+    swarNames
 } from '../utils/musicTheory';
 import { playNote, playChord, playTanpura, stopTanpura, playSequence, audioEngine } from '../utils/audioEngine';
 import { arrangeNotesAscending, arrangeNotesDescending, arrangeChordNotes } from '../utils/musicTheory';
 import { buildMidiFromChords, downloadMidi, downloadProjectJson } from '../utils/midiUtils';
 
 const ChordTool = () => {
-    console.log("ChordTool component rendering");
     const [hindustaniRagas, setHindustaniRagas] = useState([]);
     const [melakartaRagas, setMelakartaRagas] = useState([]);
     const [ragas, setRagas] = useState([]);
@@ -263,8 +263,6 @@ const ChordTool = () => {
     }, [selectedRaga, selectedChordType, allowOutsideNotes, maxOutside, rootNote, isCarnaticMode, separateAarohAvroh, selectedNoteFilter, noteFilterMode, customScaleMode, customNotePattern, customAarohPattern, customAvrohPattern]);
 
     // Custom Chord Builder helpers
-    const SWAR_NAMES = ['Sa', 'Re♭', 'Re', 'Ga♭', 'Ga', 'Ma', 'Ma♯', 'Pa', 'Dha♭', 'Dha', 'Ni♭', 'Ni'];
-
     const customChordNotes = useMemo(() => {
         return customIntervalsAbs.map(interval => (customChordRoot + interval) % 12);
     }, [customChordRoot, customIntervalsAbs]);
@@ -920,7 +918,7 @@ const ChordTool = () => {
                                                     onChange={(e) => setCustomChordRoot(parseInt(e.target.value))}
                                                     className="w-full p-2 text-sm bg-gray-800 border border-gray-600 rounded-lg text-gray-200"
                                                 >
-                                                    {SWAR_NAMES.map((s, idx) => (
+                                                    {swarNames.map((s, idx) => (
                                                         <option key={idx} value={idx}>{s}</option>
                                                     ))}
                                                 </select>
@@ -970,7 +968,7 @@ const ChordTool = () => {
                                                 </div>
                                                 <div className="text-gray-300 font-medium">
                                                     <strong className="text-purple-300">Notes:</strong>{' '}
-                                                    {customChordNotes.map(n => SWAR_NAMES[n]).join(' - ')}
+                                                    {customChordNotes.map(n => swarNames[n]).join(' - ')}
                                                 </div>
                                                 <div className="flex gap-1 flex-wrap mt-2">
                                                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${customChordValidation.all ? 'bg-green-900/50 text-green-300 border border-green-700' : 'bg-red-900/50 text-red-300 border border-red-700'}`}>
