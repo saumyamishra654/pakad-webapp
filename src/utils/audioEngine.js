@@ -209,6 +209,7 @@ export const stopAll = () => {
 // Tanpura logic using HTML Audio element for better loading
 let tanpuraAudioElement = null;
 let tanpuraFileName = null;
+let tanpuraRequestId = 0;
 
 const getTanpuraFileName = (tonicIndex) => {
     if (tonicIndex === null || tonicIndex === undefined) return 'C.mp3';
@@ -240,6 +241,7 @@ const loadTanpuraFile = async (fileName) => {
 };
 
 export const playTanpura = async (rootIndex, volume = 0.5) => {
+    const reqId = ++tanpuraRequestId;
     try {
         const fileName = getTanpuraFileName(rootIndex);
 
@@ -252,16 +254,22 @@ export const playTanpura = async (rootIndex, volume = 0.5) => {
             }
 
             const audio = await loadTanpuraFile(fileName);
+            if (reqId !== tanpuraRequestId) { audio.pause(); return; } // superseded by a newer request or a stop
             audio.volume = volume;
+            if (tanpuraAudioElement && tanpuraAudioElement !== audio) {
+                tanpuraAudioElement.pause();
+            }
             tanpuraAudioElement = audio;
             tanpuraFileName = fileName;
 
             // Play the loaded audio
             await audio.play();
+            if (reqId !== tanpuraRequestId) audio.pause();
         } else {
             // Resume existing audio
             tanpuraAudioElement.volume = volume;
             await tanpuraAudioElement.play();
+            if (reqId !== tanpuraRequestId) tanpuraAudioElement.pause();
         }
     } catch (error) {
         console.error('Could not load tanpura file:', error);
@@ -270,6 +278,7 @@ export const playTanpura = async (rootIndex, volume = 0.5) => {
 };
 
 export const stopTanpura = () => {
+    ++tanpuraRequestId;
     if (tanpuraAudioElement) {
         try {
             tanpuraAudioElement.pause();
