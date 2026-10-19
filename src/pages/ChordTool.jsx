@@ -13,7 +13,7 @@ import {
     swarNames
 } from '../utils/musicTheory';
 import { playNote, playChord, playTanpura, stopTanpura, playSequence, audioEngine } from '../utils/audioEngine';
-import { arrangeNotesAscending, arrangeNotesDescending, arrangeChordNotes } from '../utils/musicTheory';
+import { arrangeNotesAscending, arrangeNotesDescending, arrangeChordNotes, transposeVoicing } from '../utils/musicTheory';
 import { buildMidiFromChords, downloadMidi, downloadProjectJson } from '../utils/midiUtils';
 
 const ChordTool = () => {
@@ -299,7 +299,7 @@ const ChordTool = () => {
     };
 
     const playCustomChord = () => {
-        const voiced = arrangeChordNotes(customChordNotes, 3);
+        const voiced = transposeVoicing(arrangeChordNotes(customChordNotes, 3), rootNote);
         const delay = playbackMode === 'unison' ? 0 : arpeggiationDelay;
         playChord(voiced, chordNoteDuration, delay);
     };
@@ -316,7 +316,7 @@ const ChordTool = () => {
 
     const handleChordClick = (chord, mode = 'unison') => {
         // Arrange chord notes in appropriate octaves
-        const arranged = arrangeChordNotes(chord.notes, 3);
+        const arranged = transposeVoicing(arrangeChordNotes(chord.notes, 3), rootNote);
 
         // Set active notes for visual feedback
         setActiveNotes(chord.notes.map(n => (n + rootNote) % 12));
@@ -345,7 +345,7 @@ const ChordTool = () => {
             await new Promise(r => setTimeout(r, 450));
         }
 
-        playSequence(arranged, 0.5, 0.1);
+        playSequence(transposeVoicing(arranged, rootNote), 0.5, 0.1);
         setTimeout(() => setActiveNotes([]), 500);
     };
 

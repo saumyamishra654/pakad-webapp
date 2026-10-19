@@ -221,3 +221,12 @@ export const arrangeChordNotes = (noteIndices, baseOctave = 3) => {
     }
     return arranged;
 };
+
+// Shift an arranged voicing ({noteIndex, octave}[]) up by `offset` semitones, preserving voicing shape
+export const transposeVoicing = (voiced, offset) => {
+    if (!offset) return voiced;
+    return voiced.map(({ noteIndex, octave }) => {
+        const abs = octave * 12 + noteIndex + offset;
+        return { noteIndex: abs % 12, octave: Math.floor(abs / 12) };
+    });
+};
