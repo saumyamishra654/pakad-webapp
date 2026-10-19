@@ -34,23 +34,34 @@ function bpmToMidiTempo(bpm) {
     return Math.round(60000000 / bpm);
 }
 
+const TICKS_PER_BEAT = 480; // Standard MIDI resolution
+
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+// Only non-numbers fall back to defaults; 0 is a real value that gets clamped
+const num = (v, fallback) => (Number.isFinite(Number(v)) ? Number(v) : fallback);
+
+function tempoEvent(tempo) {
+    const microsecondsPerBeat = bpmToMidiTempo(clamp(num(tempo, 120), 20, 300));
+    return {
+        delta: 0,
+        type: 'meta',
+        data: [0x51, 0x03,
+            (microsecondsPerBeat >> 16) & 0xff,
+            (microsecondsPerBeat >> 8) & 0xff,
+            microsecondsPerBeat & 0xff
+        ]
+    };
+}
+
+function trackNameEvent(name) {
+    const bytes = Array.from(new TextEncoder().encode(String(name))).slice(0, 127);
+    return { delta: 0, type: 'meta', data: [0x03, bytes.length, ...bytes] };
+}
+
 /**
- * Build a MIDI file from a chord progression
- * @param {Object} options - Configuration options
- * @param {Array} options.progression - Array of chord objects with notes
- * @param {number} options.tempo - BPM (default 120)
- * @param {number} options.noteLengthBeats - Note duration in beats (default 3.2)
- * @param {number} options.gapBeats - Gap between chords in beats (default 0.4)
- * @param {number} options.velocity - MIDI velocity 1-127 (default 96)
- * @param {number} options.channel - MIDI channel 1-16 (default 1)
- * @param {number} options.program - MIDI program/instrument 0-127 (default 0)
- * @param {number} options.baseOctave - Base octave for notes (default 4)
- * @param {number} options.tonic - Semitones to transpose by (selected tonic, 0 = C)
- * @returns {Uint8Array|null} - MIDI file bytes or null if empty
+ * Program change + note events for one progression (no tempo, no end-of-track)
  */
-export function buildMidiFromProgression({
-    progression,
-    tempo = 120,
+function progressionEvents(progression, {
     noteLengthBeats = 3.2,
     gapBeats = 0.4,
     velocity = 96,
@@ -59,42 +70,19 @@ export function buildMidiFromProgression({
     baseOctave = 4,
     tonic = 0
 }) {
-    if (!progression || progression.length === 0) return null;
-
-    const ticksPerBeat = 480; // Standard MIDI resolution
     const midiChannel = (channel - 1) & 0x0f; // Convert 1-16 to 0-15
-    const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
-    // Only non-numbers fall back to defaults; 0 is a real value that gets clamped
-    const num = (v, fallback) => (Number.isFinite(Number(v)) ? Number(v) : fallback);
-    const bpm = clamp(num(tempo, 120), 20, 300);
     const vel = clamp(Math.round(num(velocity, 96)), 1, 127);
     const lengthBeats = Math.max(0, num(noteLengthBeats, 0));
     const gap = Math.max(0, num(gapBeats, 0));
 
-    // Build track events
-    const events = [];
-
-    // Tempo meta event
-    const microsecondsPerBeat = bpmToMidiTempo(bpm);
-    events.push({
-        delta: 0,
-        type: 'meta',
-        data: [0x51, 0x03,
-            (microsecondsPerBeat >> 16) & 0xff,
-            (microsecondsPerBeat >> 8) & 0xff,
-            microsecondsPerBeat & 0xff
-        ]
-    });
-
-    // Program change
-    events.push({
+    const events = [{
         delta: 0,
         type: 'channel',
         data: [0xc0 | midiChannel, clamp(Math.round(num(program, 0)), 0, 127)]
-    });
+    }];
 
     // Place each chord at its beat (items without a beat are spaced sequentially)
-    const placed = progression
+    const placed = (progression || [])
         .map((item, i) => ({
             notes: (item.chord || item).notes || [],
             beat: Number.isFinite(item.beat) && item.beat >= 0 ? item.beat : i * (lengthBeats + gap)
@@ -105,19 +93,19 @@ export function buildMidiFromProgression({
     // Absolute-time note events, converted to deltas afterwards
     const timed = [];
     placed.forEach((item, i) => {
-        const startTick = Math.round(item.beat * ticksPerBeat);
-        let endTick = startTick + Math.round(lengthBeats * ticksPerBeat);
+        const startTick = Math.round(item.beat * TICKS_PER_BEAT);
+        let endTick = startTick + Math.round(lengthBeats * TICKS_PER_BEAT);
         const next = placed[i + 1];
         if (next) {
             // gap = silence before the next chord, capped so a chord never shrinks to nothing
-            const nextTick = Math.round(next.beat * ticksPerBeat);
-            const gapTicks = Math.min(Math.round(gap * ticksPerBeat), Math.floor((nextTick - startTick) / 2));
+            const nextTick = Math.round(next.beat * TICKS_PER_BEAT);
+            const gapTicks = Math.min(Math.round(gap * TICKS_PER_BEAT), Math.floor((nextTick - startTick) / 2));
             endTick = Math.min(endTick, nextTick - gapTicks);
         }
         endTick = Math.max(endTick, startTick + 1);
 
         for (const { midiNote } of arrangeChordNotes(item.notes, baseOctave)) {
-            const note = clamp(midiNote + tonic, 0, 127);
+            const note = clamp(midiNote + num(tonic, 0), 0, 127);
             timed.push({ tick: startTick, on: true, note });
             timed.push({ tick: endTick, on: false, note });
         }
@@ -135,16 +123,12 @@ export function buildMidiFromProgression({
         prevTick = ev.tick;
     }
 
-    // End of track
-    events.push({
-        delta: 0,
-        type: 'meta',
-        data: [0x2f, 0x00]
-    });
+    return { events, hasNotes: placed.length > 0 };
+}
 
-    // Build track data
+function trackChunk(events) {
     const trackData = [];
-    for (const event of events) {
+    for (const event of [...events, { delta: 0, type: 'meta', data: [0x2f, 0x00] }]) { // + end of track
         trackData.push(...writeVLQ(event.delta));
         if (event.type === 'meta') {
             trackData.push(0xff, ...event.data);
@@ -152,26 +136,61 @@ export function buildMidiFromProgression({
             trackData.push(...event.data);
         }
     }
-
-    // Build MIDI file
-    const header = [
-        // "MThd" chunk
-        0x4d, 0x54, 0x68, 0x64, // MThd
-        0x00, 0x00, 0x00, 0x06, // Header length (6)
-        0x00, 0x00,             // Format 0 (single track)
-        0x00, 0x01,             // Number of tracks (1)
-        (ticksPerBeat >> 8) & 0xff, ticksPerBeat & 0xff // Ticks per beat
-    ];
-
-    const trackHeader = [
+    return [
         0x4d, 0x54, 0x72, 0x6b, // MTrk
         (trackData.length >> 24) & 0xff,
         (trackData.length >> 16) & 0xff,
         (trackData.length >> 8) & 0xff,
-        trackData.length & 0xff
+        trackData.length & 0xff,
+        ...trackData
     ];
+}
 
-    return new Uint8Array([...header, ...trackHeader, ...trackData]);
+function fileBytes(format, tracks) {
+    const header = [
+        0x4d, 0x54, 0x68, 0x64, // MThd
+        0x00, 0x00, 0x00, 0x06, // Header length (6)
+        0x00, format,
+        (tracks.length >> 8) & 0xff, tracks.length & 0xff,
+        (TICKS_PER_BEAT >> 8) & 0xff, TICKS_PER_BEAT & 0xff
+    ];
+    return new Uint8Array([...header, ...tracks.flat()]);
+}
+
+/**
+ * Build a MIDI file from a chord progression
+ * @param {Object} options - Configuration options
+ * @param {Array} options.progression - Array of chord objects with notes
+ * @param {number} options.tempo - BPM (default 120)
+ * @param {number} options.noteLengthBeats - Note duration in beats (default 3.2)
+ * @param {number} options.gapBeats - Gap between chords in beats (default 0.4)
+ * @param {number} options.velocity - MIDI velocity 1-127 (default 96)
+ * @param {number} options.channel - MIDI channel 1-16 (default 1)
+ * @param {number} options.program - MIDI program/instrument 0-127 (default 0)
+ * @param {number} options.baseOctave - Base octave for notes (default 4)
+ * @param {number} options.tonic - Semitones to transpose by (selected tonic, 0 = C)
+ * @returns {Uint8Array|null} - MIDI file bytes (format 0) or null if empty
+ */
+export function buildMidiFromProgression({ progression, tempo = 120, ...options }) {
+    if (!progression || progression.length === 0) return null;
+    const { events } = progressionEvents(progression, options);
+    return fileBytes(0, [trackChunk([tempoEvent(tempo), ...events])]);
+}
+
+/**
+ * Build a multi-track (format 1) MIDI file, one track per progression
+ * @param {Object} options - Same as buildMidiFromProgression, but with `tracks` instead of `progression`
+ * @param {Array<{name: string, progression: Array}>} options.tracks - Tracks to export
+ * @returns {Uint8Array|null} - MIDI file bytes or null if no track has notes
+ */
+export function buildMidiFromTracks({ tracks, tempo = 120, ...options }) {
+    const built = (tracks || [])
+        .map(track => ({ name: track.name, ...progressionEvents(track.progression, options) }))
+        .filter(track => track.hasNotes);
+    if (built.length === 0) return null;
+
+    const conductor = trackChunk([tempoEvent(tempo)]);
+    return fileBytes(1, [conductor, ...built.map(t => trackChunk([trackNameEvent(t.name), ...t.events]))]);
 }
 
 /**
@@ -209,6 +228,7 @@ export function exportProgressionToMidi(options, filename = 'progression') {
 
 export default {
     buildMidiFromProgression,
+    buildMidiFromTracks,
     downloadMidi,
     exportProgressionToMidi
 };
