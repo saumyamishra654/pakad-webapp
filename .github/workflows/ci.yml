@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches-ignore: [main] # main is checked by the deploy workflow
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npx eslint src
+
+      - name: Test
+        run: npx vitest run
