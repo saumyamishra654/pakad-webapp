@@ -213,14 +213,17 @@ export function RagaQuery() {
 
     // Handle piano key click for note selection
     const handlePianoKeyClick = useCallback((noteIndex) => {
-        // Use the current note selection context
+        // Sa is in every raga (the note grid hides it too); excluding it would empty the results
+        if (noteIndex === 0) return;
         if (separateNoteSelection) {
-            // In separate mode, clicking adds to general selection for now
-            handleNoteToggle(noteIndex, setSelectedNotes, setExcludedNotes, selectedNotes, excludedNotes);
+            // The filter only reads the aaroh/avroh sets in this mode, so a key applies to both
+            handleNoteToggle(noteIndex, setSelectedAarohNotes, setExcludedAarohNotes, selectedAarohNotes, excludedAarohNotes);
+            handleNoteToggle(noteIndex, setSelectedAvrohNotes, setExcludedAvrohNotes, selectedAvrohNotes, excludedAvrohNotes);
         } else {
             handleNoteToggle(noteIndex, setSelectedNotes, setExcludedNotes, selectedNotes, excludedNotes);
         }
-    }, [separateNoteSelection, handleNoteToggle, selectedNotes, excludedNotes]);
+    }, [separateNoteSelection, handleNoteToggle, selectedNotes, excludedNotes,
+        selectedAarohNotes, excludedAarohNotes, selectedAvrohNotes, excludedAvrohNotes]);
 
     // Note selector grid
     const renderNoteSelector = (selected, excluded, onToggle, title) => (
