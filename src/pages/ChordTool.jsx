@@ -89,6 +89,7 @@ const ChordTool = () => {
     });
     const [activeTrackId, setActiveTrackId] = useState(1);
     const playbackIntervalRef = React.useRef(null);
+    const chalanRunRef = React.useRef(0);
     const playingTrackIdRef = React.useRef(null);
     // Latest values for the playback loop (assigned every render; avoids stale closures)
     const latestRef = React.useRef({});
@@ -349,21 +350,24 @@ const ChordTool = () => {
 
     const playChalan = async (mode) => {
         if (!selectedRaga) return;
+        const runId = ++chalanRunRef.current;
 
         const sequence = mode === 'avroha' ? selectedRaga.avrohaChalan : selectedRaga.aarohaChalan;
         const arranged = mode === 'avroha'
             ? arrangeNotesDescending(sequence, 4, true, 3)
             : arrangeNotesAscending(sequence, 3);
+        const voiced = transposeVoicing(arranged, rootNote);
 
-        // Visual follow along
-        for (const note of arranged) {
-            const absNote = (note.noteIndex + (rootNote || 0)) % 12;
-            setActiveNotes([absNote]);
-            await new Promise(r => setTimeout(r, 450));
+        // Start audio first (not awaited); highlights follow on the same 0.5s + 0.1s grid
+        playSequence(voiced, 0.5, 0.1);
+
+        for (const n of voiced) {
+            if (chalanRunRef.current !== runId) break;
+            setActiveNotes([{ pc: n.noteIndex, oct: n.octave }]);
+            await new Promise(r => setTimeout(r, 600));
         }
 
-        playSequence(transposeVoicing(arranged, rootNote), 0.5, 0.1);
-        setTimeout(() => setActiveNotes([]), 500);
+        if (chalanRunRef.current === runId) setActiveNotes([]);
     };
 
     const toggleTanpura = async () => {
