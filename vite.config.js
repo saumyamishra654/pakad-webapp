@@ -9,7 +9,7 @@ export default defineConfig({
   // Standard build options (uses index.html by default)
   base: './', // Use relative paths for GitHub Pages & Electron support
   build: {
-    outDir: 'docs', // Build to docs/ for GitHub Pages "folder" deployment
+    outDir: 'docs', // Build output: deployed by .github/workflows/deploy.yml, used as Capacitor's webDir
   },
   plugins: [
     react(),

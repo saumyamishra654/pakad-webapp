@@ -12,3 +12,6 @@ ios/
 # Logs
 *.log
 npm-debug.log*
+
+# Build output (GitHub Pages deploys it from the Actions workflow; Capacitor reads the local build)
+docs/
