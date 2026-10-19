@@ -45,6 +45,7 @@ function bpmToMidiTempo(bpm) {
  * @param {number} options.channel - MIDI channel 1-16 (default 1)
  * @param {number} options.program - MIDI program/instrument 0-127 (default 0)
  * @param {number} options.baseOctave - Base octave for notes (default 4)
+ * @param {number} options.tonic - Semitones to transpose by (selected tonic, 0 = C)
  * @returns {Uint8Array|null} - MIDI file bytes or null if empty
  */
 export function buildMidiFromProgression({
@@ -55,18 +56,24 @@ export function buildMidiFromProgression({
     velocity = 96,
     channel = 1,
     program = 0,
-    baseOctave = 4
+    baseOctave = 4,
+    tonic = 0
 }) {
     if (!progression || progression.length === 0) return null;
 
     const ticksPerBeat = 480; // Standard MIDI resolution
     const midiChannel = (channel - 1) & 0x0f; // Convert 1-16 to 0-15
+    const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+    const bpm = clamp(Number(tempo) || 120, 20, 300);
+    const vel = clamp(Math.round(Number(velocity) || 96), 1, 127);
+    const lengthBeats = Math.max(0, Number(noteLengthBeats) || 0);
+    const gap = Math.max(0, Number(gapBeats) || 0);
 
     // Build track events
     const events = [];
 
     // Tempo meta event
-    const microsecondsPerBeat = bpmToMidiTempo(tempo);
+    const microsecondsPerBeat = bpmToMidiTempo(bpm);
     events.push({
         delta: 0,
         type: 'meta',
@@ -81,46 +88,54 @@ export function buildMidiFromProgression({
     events.push({
         delta: 0,
         type: 'channel',
-        data: [0xc0 | midiChannel, program & 0x7f]
+        data: [0xc0 | midiChannel, clamp(Number(program) || 0, 0, 127)]
     });
 
+    // Place each chord at its beat (items without a beat are spaced sequentially)
+    const placed = progression
+        .map((item, i) => ({
+            notes: (item.chord || item).notes || [],
+            beat: Number.isFinite(item.beat) ? item.beat : i * (lengthBeats + gap)
+        }))
+        .filter(item => item.notes.length > 0)
+        .sort((a, b) => a.beat - b.beat);
 
-    const noteLengthTicks = Math.round(noteLengthBeats * ticksPerBeat);
-    const gapTicks = Math.round(gapBeats * ticksPerBeat);
-
-    for (const item of progression) {
-        const chord = item.chord || item;
-        const notes = chord.notes || [];
-
-        if (notes.length === 0) {
-            continue;
+    // Absolute-time note events, converted to deltas afterwards
+    const timed = [];
+    placed.forEach((item, i) => {
+        const startTick = Math.round(item.beat * ticksPerBeat);
+        let endTick = startTick + Math.round(lengthBeats * ticksPerBeat);
+        const next = placed[i + 1];
+        if (next) {
+            // gap = silence before the next chord, capped so a chord never shrinks to nothing
+            const nextTick = Math.round(next.beat * ticksPerBeat);
+            const gapTicks = Math.min(Math.round(gap * ticksPerBeat), Math.floor((nextTick - startTick) / 2));
+            endTick = Math.min(endTick, nextTick - gapTicks);
         }
+        endTick = Math.max(endTick, startTick + 1);
 
-        // Arrange notes for proper voicing
-        const arranged = arrangeChordNotes(notes, baseOctave);
-
-        // Note-on events (simultaneous)
-        for (let i = 0; i < arranged.length; i++) {
-            events.push({
-                delta: i === 0 ? 0 : 0, // All start at same time
-                type: 'channel',
-                data: [0x90 | midiChannel, arranged[i].midiNote & 0x7f, velocity & 0x7f]
-            });
+        for (const { midiNote } of arrangeChordNotes(item.notes, baseOctave)) {
+            const note = clamp(midiNote + tonic, 0, 127);
+            timed.push({ tick: startTick, on: true, note });
+            timed.push({ tick: endTick, on: false, note });
         }
+    });
+    // Note-offs before note-ons at the same tick so repeated notes retrigger cleanly
+    timed.sort((a, b) => a.tick - b.tick || (a.on === b.on ? 0 : a.on ? 1 : -1));
 
-        // Note-off events (after noteLengthTicks)
-        for (let i = 0; i < arranged.length; i++) {
-            events.push({
-                delta: i === 0 ? noteLengthTicks : 0,
-                type: 'channel',
-                data: [0x80 | midiChannel, arranged[i].midiNote & 0x7f, 0]
-            });
-        }
+    let prevTick = 0;
+    for (const ev of timed) {
+        events.push({
+            delta: ev.tick - prevTick,
+            type: 'channel',
+            data: ev.on ? [0x90 | midiChannel, ev.note, vel] : [0x80 | midiChannel, ev.note, 0]
+        });
+        prevTick = ev.tick;
     }
 
     // End of track
     events.push({
-        delta: gapTicks,
+        delta: 0,
         type: 'meta',
         data: [0x2f, 0x00]
     });
