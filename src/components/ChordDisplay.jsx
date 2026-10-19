@@ -113,7 +113,7 @@ const ChordDisplay = ({ chords, separateAarohAvroh, onChordClick }) => {
                     <div>
                         <ChordSection 
                             title="Aaroh Chords" 
-                            chords={inRagaChords.filter(c => c.source === 'Aaroh' || c.source === 'Both')} 
+                            chords={inRagaChords.filter(c => c.source === 'Aaroha' || c.source === 'Both')} 
                             onPlay={onChordClick} 
                         />
                     </div>
