@@ -172,7 +172,12 @@ const ChordTool = () => {
     const lastSavedRef = React.useRef(null);
     useEffect(() => {
         try {
-            const serialized = JSON.stringify(rhythmProgressions.map(({ isPlaying: _isPlaying, currentBeat: _currentBeat, ...rest }) => rest));
+            const serialized = JSON.stringify(rhythmProgressions.map(t => {
+                const rest = { ...t };
+                delete rest.isPlaying;
+                delete rest.currentBeat;
+                return rest;
+            }));
             if (serialized === lastSavedRef.current) return;
             lastSavedRef.current = serialized;
             localStorage.setItem('samvad_progressions', serialized);
