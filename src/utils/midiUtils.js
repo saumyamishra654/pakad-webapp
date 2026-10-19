@@ -50,37 +50,45 @@ export const buildMidiFromChords = ({
     const p = Math.max(0, Math.min(127, Number(program) || 0));
     pushEvent(0, [0xC0 | ch, p]);
 
-    // Sort chords by beat for proper timing
-    const sortedChords = [...chords].sort((a, b) => a.beat - b.beat);
-    let currentTick = 0;
+    const vel = Math.max(1, Math.min(127, Number(velocity) || 96));
+    const noteLenTicks = Math.max(1, Math.round(Number(noteLengthBeats) * beatDurTicks));
+    const gapTicks = Math.max(0, Math.round(Number(gapBeats) * beatDurTicks));
 
-    for (const item of sortedChords) {
-        const chord = item.chord;
-        if (!chord || !Array.isArray(chord.notes) || chord.notes.length === 0) continue;
+    // Valid chords sorted by beat
+    const sortedChords = chords
+        .filter(item => item.chord && Array.isArray(item.chord.notes) && item.chord.notes.length > 0)
+        .sort((a, b) => a.beat - b.beat);
 
-        const targetTick = Math.floor(item.beat * beatDurTicks);
-        const delta = Math.max(0, targetTick - currentTick);
+    // Build absolute-tick events
+    const absEvents = [];
+    sortedChords.forEach((item, i) => {
+        const startTick = Math.round(item.beat * beatDurTicks);
+        let endTick = startTick + noteLenTicks;
+        if (i + 1 < sortedChords.length) {
+            const nextStartTick = Math.round(sortedChords[i + 1].beat * beatDurTicks);
+            endTick = Math.min(endTick, nextStartTick - gapTicks);
+        }
+        endTick = Math.max(endTick, startTick + 1);
 
-        // Calculate absolute MIDI notes
-        // Note: each note is pitch-class + tonicOffset, shifted to correct octave
-        const midiNotes = chord.notes.map(n => {
+        item.chord.notes.forEach(n => {
+            // Each note is pitch-class + tonicOffset, shifted to correct octave
             const pitch = (n + tonicOffset) % 12;
             const octaveShift = Math.floor((n + tonicOffset) / 12);
-            return (baseOctave + octaveShift + 1) * 12 + pitch;
+            const m = Math.max(0, Math.min(127, (baseOctave + octaveShift + 1) * 12 + pitch));
+            absEvents.push({ tick: startTick, kind: 'on', note: m });
+            absEvents.push({ tick: endTick, kind: 'off', note: m });
         });
+    });
 
-        const vel = Math.max(1, Math.min(127, Number(velocity) || 96));
-        // Use noteLengthBeats for chord duration (converted to ticks)
-        const chordDurTicks = Math.max(1, Math.round(Number(noteLengthBeats) * beatDurTicks));
-        const gapTicks = Math.max(0, Math.round(Number(gapBeats) * beatDurTicks));
+    // Sort by tick; note-offs before note-ons at the same tick (stable sort keeps chord order)
+    absEvents.sort((a, b) => a.tick - b.tick || (a.kind === b.kind ? 0 : a.kind === 'off' ? -1 : 1));
 
-        // Note ON
-        midiNotes.forEach((m, idx) => pushEvent(idx === 0 ? delta : 0, [0x90 | ch, Math.max(0, Math.min(127, m)), vel]));
-        currentTick = targetTick;
-
-        // Note OFF after duration
-        midiNotes.forEach((m, idx) => pushEvent(idx === 0 ? chordDurTicks : 0, [0x80 | ch, Math.max(0, Math.min(127, m)), 64]));
-        currentTick += chordDurTicks + gapTicks;
+    let prevTick = 0;
+    for (const ev of absEvents) {
+        const delta = ev.tick - prevTick;
+        prevTick = ev.tick;
+        if (ev.kind === 'on') pushEvent(delta, [0x90 | ch, ev.note, vel]);
+        else pushEvent(delta, [0x80 | ch, ev.note, 64]);
     }
 
     // End of track

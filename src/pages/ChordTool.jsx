@@ -410,7 +410,7 @@ const ChordTool = () => {
 
     const handleDownloadMIDI = () => {
         const bytes = buildMidiFromChords({
-            chords: activeTrack.chords,
+            chords: activeTrack.chords.filter(c => c.beat < cycleBeats),
             tempoBPM: cycleBpm,
             velocity: midiVelocity,
             channel: midiChannel,
