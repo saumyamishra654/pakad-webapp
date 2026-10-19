@@ -124,7 +124,20 @@ export function countNotes(pattern) {
 }
 
 /**
+ * Whether two 12-slot presence patterns contain different notes (slot by slot;
+ * sorting the arrays first would only compare how many notes each has)
+ * @param {number[]} a - 12-element pattern
+ * @param {number[]} b - 12-element pattern
+ * @returns {boolean}
+ */
+export function patternsDiffer(a, b) {
+    return Array.from({ length: 12 }, (_, i) => i).some(i => !!a?.[i] !== !!b?.[i]);
+}
+
+/**
  * Count distinct swaras (Sa, Re, Ga, Ma, Pa, Dha, Ni) present, for jati classification
+ * of Hindustani patterns. Not for melakartas: their enharmonic swaras (e.g. G1 = R2) share
+ * a pitch class, so count those with countNotes or use getJatiCount.
  * @param {number[]} pattern - 12-element pattern
  * @returns {number} - 1-7
  */
@@ -132,6 +145,16 @@ export function countSwaras(pattern) {
     // Variants of one swara (e.g. komal + shuddha Ga from a "Gg" token) count once
     const SWARA_GROUPS = [[0], [1, 2], [3, 4], [5, 6], [7], [8, 9], [10, 11]];
     return SWARA_GROUPS.filter(group => group.some(pc => pattern[pc])).length;
+}
+
+/**
+ * Note count used for jati (Audav/Shadav/Sampoorna)
+ * @param {number[]} pattern - 12-element pattern
+ * @param {string} type - 'hindustani' or 'carnatic'
+ * @returns {number}
+ */
+export function getJatiCount(pattern, type) {
+    return type === 'carnatic' ? countNotes(pattern) : countSwaras(pattern);
 }
 
 /**
@@ -220,6 +243,8 @@ export default {
     patternToString,
     countNotes,
     countSwaras,
+    getJatiCount,
+    patternsDiffer,
     patternToPitchClasses,
     pitchClassesToPattern,
     isSubset,

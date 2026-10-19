@@ -9,10 +9,10 @@ import { HINDUSTANI_RAGAS } from '../data/ragaData.js';
 import { MELAKARTA_72 } from '../data/melakartaData.js';
 import { NotePatternBadges } from '../components/common/NoteBadge.jsx';
 import { PianoKeyboard } from '../components/common/PianoKeyboard.jsx';
-import { getDisplayLabels, countNotes, countSwaras, hammingDistance, patternToPitchClasses, pitchClassesToPattern } from '../utils/noteHelpers.js';
+import { getDisplayLabels, countNotes, getJatiCount, hammingDistance, patternToPitchClasses, pitchClassesToPattern } from '../utils/noteHelpers.js';
 import { useAudio } from '../hooks/useAudio.js';
 import { usePianoSamples } from '../hooks/usePianoSamples.js';
-import { arrangeNotesAscending, arrangeNotesDescending } from '../utils/audioHelpers.js';
+import { buildChalan } from '../utils/chalan.js';
 
 // Carnatic 16-swara to 12-TET pitch class mapping
 const CARNATIC_TO_12TET = {
@@ -125,7 +125,7 @@ export function RagaQuery() {
         // Scale type filter
         if (scaleType !== 'all') {
             const targetCount = parseInt(scaleType);
-            filtered = filtered.filter(r => countSwaras(r.notePattern) === targetCount);
+            filtered = filtered.filter(r => getJatiCount(r.notePattern, r.type) === targetCount);
         }
 
         // Note filtering
@@ -189,24 +189,8 @@ export function RagaQuery() {
     const playRaga = useCallback(async (raga) => {
         if (!(await ensureReady())) return;
 
-        const baseOctave = 4;
-        const aarohPcs = patternToPitchClasses(raga.aarohPattern || raga.notePattern);
-        const avrohPcs = patternToPitchClasses(raga.avrohPattern || raga.notePattern);
-
-        // Arrange notes ascending for aaroh
-        const aarohArranged = arrangeNotesAscending(aarohPcs, baseOctave);
-
-        // Add higher Sa at the end of aaroh
-        const highSaOctave = aarohArranged.length > 0
-            ? Math.max(...aarohArranged.map(n => n.octave)) + 1
-            : baseOctave + 1;
-        const aarohSequence = [...aarohArranged, { noteIndex: 0, octave: highSaOctave }];
-
-        // Arrange notes descending for avroh (starting from high Sa)
-        const avrohSequence = arrangeNotesDescending(avrohPcs, highSaOctave, true, baseOctave);
-
-        // Combine sequences with a small gap
-        const fullSequence = [...aarohSequence, ...avrohSequence];
+        const patterns = { aaroh: raga.aarohPattern, avroh: raga.avrohPattern, all: raga.notePattern };
+        const fullSequence = buildChalan(patterns, 'full', { step: 0.35, pause: 0 });
 
         playSequence(fullSequence, 0.35);
     }, [ensureReady, playSequence]);
@@ -277,9 +261,9 @@ export function RagaQuery() {
 
     // Helper to get formatted Jati string
     const getJatiString = (raga) => {
-        // Jati counts swaras, so komal + shuddha of one swara (e.g. "Gg") counts once
-        const aarohCount = countSwaras(raga.aarohPattern || raga.notePattern);
-        const avrohCount = countSwaras(raga.avrohPattern || raga.notePattern);
+        // Hindustani jati counts swaras, so komal + shuddha of one swara (e.g. "Gg") counts once
+        const aarohCount = getJatiCount(raga.aarohPattern || raga.notePattern, raga.type);
+        const avrohCount = getJatiCount(raga.avrohPattern || raga.notePattern, raga.type);
         const aarohLabel = getJatiLabel(aarohCount);
         const avrohLabel = getJatiLabel(avrohCount);
         if (!aarohLabel || !avrohLabel) return '';
