@@ -172,7 +172,7 @@ const ChordTool = () => {
     const lastSavedRef = React.useRef(null);
     useEffect(() => {
         try {
-            const serialized = JSON.stringify(rhythmProgressions.map(({ isPlaying, currentBeat, ...rest }) => rest));
+            const serialized = JSON.stringify(rhythmProgressions.map(({ isPlaying: _isPlaying, currentBeat: _currentBeat, ...rest }) => rest));
             if (serialized === lastSavedRef.current) return;
             lastSavedRef.current = serialized;
             localStorage.setItem('samvad_progressions', serialized);
@@ -187,35 +187,8 @@ const ChordTool = () => {
         ...CHORD_TYPES
     ], []);
 
-    // Compute counts per chord type
-    const countsByType = useMemo(() => {
-        if (!selectedRaga) return {};
-
-        const counts = {};
-        const pattern = selectedRaga.pattern;
-
-        chordTypes.forEach(ct => {
-            if (ct.id === 'all') {
-                let sum = 0;
-                CHORD_TYPES.forEach(realType => {
-                    const normalChords = availableChordsForPattern(pattern, realType.id, false, isCarnaticMode);
-                    const extendedChords = availableChordsForPattern(pattern, realType.id, true, isCarnaticMode);
-                    sum += normalChords.length + extendedChords.length;
-                });
-                counts[ct.id] = sum;
-            } else {
-                const normalChords = availableChordsForPattern(pattern, ct.id, false, isCarnaticMode);
-                const extendedChords = availableChordsForPattern(pattern, ct.id, true, isCarnaticMode);
-                counts[ct.id] = normalChords.length + extendedChords.length;
-            }
-        });
-
-        return counts;
-    }, [selectedRaga, isCarnaticMode, chordTypes]);
-
-    // Calculate chords
-    const chords = useMemo(() => {
-        // Determine which pattern to use
+    // Pattern(s) the chord list is generated from (shared by chords and countsByType)
+    const patternsToProcess = useMemo(() => {
         const useCustomScale = customScaleMode && (
             customNotePattern.some(n => n === 1) ||
             customAarohPattern.some(n => n === 1) ||
@@ -224,25 +197,53 @@ const ChordTool = () => {
 
         if (!useCustomScale && !selectedRaga) return [];
 
-        let allChords = [];
-        let patternsToProcess = [];
-
         if (useCustomScale) {
-            // Use custom scale patterns
             if (separateAarohAvroh) {
-                // Separate Aaroha and Avroha patterns for custom scale
-                patternsToProcess.push({ pattern: customAarohPattern, label: 'Aaroha' });
-                patternsToProcess.push({ pattern: customAvrohPattern, label: 'Avroha' });
-            } else {
-                // Single full pattern
-                patternsToProcess.push({ pattern: customNotePattern, label: 'Custom' });
+                return [
+                    { pattern: customAarohPattern, label: 'Aaroha' },
+                    { pattern: customAvrohPattern, label: 'Avroha' }
+                ];
             }
-        } else if (separateAarohAvroh && selectedRaga.aarohaPattern && selectedRaga.avrohaPattern) {
-            patternsToProcess.push({ pattern: selectedRaga.aarohaPattern, label: 'Aaroha' });
-            patternsToProcess.push({ pattern: selectedRaga.avrohaPattern, label: 'Avroha' });
-        } else {
-            patternsToProcess.push({ pattern: selectedRaga.pattern, label: 'Full' });
+            return [{ pattern: customNotePattern, label: 'Custom' }];
         }
+        if (separateAarohAvroh && selectedRaga.aarohaPattern && selectedRaga.avrohaPattern) {
+            return [
+                { pattern: selectedRaga.aarohaPattern, label: 'Aaroha' },
+                { pattern: selectedRaga.avrohaPattern, label: 'Avroha' }
+            ];
+        }
+        return [{ pattern: selectedRaga.pattern, label: 'Full' }];
+    }, [selectedRaga, customScaleMode, customNotePattern, customAarohPattern, customAvrohPattern, separateAarohAvroh]);
+
+    // Compute counts per chord type (matches the chords actually displayed, minus outside chords / note filter)
+    const countsByType = useMemo(() => {
+        if (patternsToProcess.length === 0) return {};
+
+        const counts = {};
+        let total = 0;
+
+        CHORD_TYPES.forEach(realType => {
+            const seen = new Set();
+            patternsToProcess.forEach(({ pattern }) => {
+                [false, true].forEach(ext => {
+                    availableChordsForPattern(pattern, realType.id, ext, isCarnaticMode).forEach(c => {
+                        seen.add(`${c.root}-${ext ? 'ext' : 'base'}`);
+                    });
+                });
+            });
+            counts[realType.id] = seen.size;
+            total += seen.size;
+        });
+
+        counts.all = total;
+        return counts;
+    }, [patternsToProcess, isCarnaticMode]);
+
+    // Calculate chords
+    const chords = useMemo(() => {
+        if (patternsToProcess.length === 0) return [];
+
+        let allChords = [];
 
         patternsToProcess.forEach(({ pattern, label }) => {
             let normalChords = availableChordsForPattern(pattern, selectedChordType, false, isCarnaticMode);
@@ -276,7 +277,7 @@ const ChordTool = () => {
         }
 
         return attachWesternNames(filteredChords, rootNote);
-    }, [selectedRaga, selectedChordType, allowOutsideNotes, maxOutside, rootNote, isCarnaticMode, separateAarohAvroh, selectedNoteFilter, noteFilterMode, customScaleMode, customNotePattern, customAarohPattern, customAvrohPattern]);
+    }, [patternsToProcess, selectedChordType, allowOutsideNotes, maxOutside, rootNote, isCarnaticMode, selectedNoteFilter, noteFilterMode]);
 
     // Custom Chord Builder helpers
     const customChordNotes = useMemo(() => {
