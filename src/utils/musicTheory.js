@@ -39,6 +39,7 @@ export const getExtendedIntervals = (baseIntervals, extend) => {
     if (!extend || !baseIntervals || baseIntervals.length < 3) return baseIntervals || [];
     const highest = Math.max(...baseIntervals);
     const add = (highest + 3) % 12;
+    if (baseIntervals.some(x => x % 12 === add)) return baseIntervals; // would duplicate a pitch class
     return [...baseIntervals, add];
 };
 
@@ -97,6 +98,8 @@ export const filterChordsByNote = (chords, selectedNote, mode) => {
     return chords.filter(c => c.root === selectedNote);
 };
 
+const EXT_LABELS = ['1', '♭9', '9', '♯9', '3', '11', '♯11', '5', '♭13', '13', '♭7', '7'];
+
 export const attachWesternNames = (chords, tonicIndex) => {
     if (tonicIndex === null || tonicIndex === undefined) return chords;
     const qualityFromId = (id) => {
@@ -118,7 +121,11 @@ export const attachWesternNames = (chords, tonicIndex) => {
     return chords.map(chord => {
         const rootWesternIndex = (chord.root + tonicIndex) % 12;
         const rootNote = westernNotesFlat[rootWesternIndex];
-        const quality = qualityFromId(chord.type?.id);
+        let quality = qualityFromId(chord.type?.id);
+        if (chord.isExtended) {
+            const added = (chord.notes[chord.notes.length - 1] - chord.root + 12) % 12;
+            quality += `(add ${EXT_LABELS[added]})`;
+        }
         const westernChordNotes = chord.notes.map(n => westernNotesFlat[(n + tonicIndex) % 12]);
         return { ...chord, westernName: `${rootNote}${quality}: ${westernChordNotes.join(' - ')}` };
     });

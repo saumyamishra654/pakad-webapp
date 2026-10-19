@@ -233,7 +233,7 @@ const ChordTool = () => {
             patternsToProcess.forEach(({ pattern }) => {
                 [false, true].forEach(ext => {
                     availableChordsForPattern(pattern, realType.id, ext, isCarnaticMode).forEach(c => {
-                        seen.add(`${c.root}-${ext ? 'ext' : 'base'}`);
+                        seen.add(`${c.root}-${c.isExtended ? 'ext' : 'base'}`);
                     });
                 });
             });
