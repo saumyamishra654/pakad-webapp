@@ -56,6 +56,12 @@ const ChordTool = () => {
     const [customNotePattern, setCustomNotePattern] = useState([1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]); // Initialize with just Sa
     const [customAarohPattern, setCustomAarohPattern] = useState([1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]); // Custom Aaroha
     const [customAvrohPattern, setCustomAvrohPattern] = useState([1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]); // Custom Avroha
+    // Union of notes for the custom scale (Aaroh + Avroh when separate)
+    const customFullPattern = useMemo(() => (
+        separateAarohAvroh
+            ? customAarohPattern.map((v, i) => (v || customAvrohPattern[i]) ? 1 : 0)
+            : customNotePattern
+    ), [separateAarohAvroh, customAarohPattern, customAvrohPattern, customNotePattern]);
     // Custom Chord Builder
     const [showCustomChordBuilder, setShowCustomChordBuilder] = useState(false);
     const [customChordRoot, setCustomChordRoot] = useState(0); // Root note index (0-11)
@@ -293,7 +299,7 @@ const ChordTool = () => {
     const customChordValidation = useMemo(() => {
         if (!selectedRaga && !customScaleMode) return { all: false, aaroh: false, avroh: false };
 
-        const pattern = customScaleMode ? customNotePattern : selectedRaga?.pattern || [];
+        const pattern = customScaleMode ? customFullPattern : selectedRaga?.pattern || [];
         const aarohPattern = customScaleMode ? customAarohPattern : selectedRaga?.aarohaPattern || [];
         const avrohPattern = customScaleMode ? customAvrohPattern : selectedRaga?.avrohaPattern || [];
 
@@ -302,7 +308,7 @@ const ChordTool = () => {
         const avrohValid = customChordNotes.every(note => avrohPattern[note] === 1);
 
         return { all: allValid, aaroh: aarohValid, avroh: avrohValid };
-    }, [customChordNotes, selectedRaga, customScaleMode, customNotePattern, customAarohPattern, customAvrohPattern]);
+    }, [customChordNotes, selectedRaga, customScaleMode, customFullPattern, customAarohPattern, customAvrohPattern]);
 
     const addInterval = (semitones) => {
         setCustomIntervalsAbs(prev => [...prev, prev[prev.length - 1] + semitones]);
@@ -872,7 +878,7 @@ const ChordTool = () => {
                                     activeNotes={activeNotes}
                                     onNoteClick={handleNoteClick}
                                     showRagaNotes={showRagaNotesOnKeyboard}
-                                    ragaNotes={customScaleMode ? customNotePattern : (selectedRaga?.pattern || [])}
+                                    ragaNotes={customScaleMode ? customFullPattern : (selectedRaga?.pattern || [])}
                                 />
                                 <div className="mt-4 flex justify-end">
                                     <label className="inline-flex items-center cursor-pointer">
@@ -1041,11 +1047,7 @@ const ChordTool = () => {
                                 {/* Raga Circle */}
                                 <div className="flex-1 p-6 bg-gradient-to-b from-gray-900/50 to-gray-800/50 rounded-xl border border-gray-700">
                                     <RagaCircle
-                                        notes={customScaleMode
-                                            ? (separateAarohAvroh
-                                                ? customAarohPattern.map((v, i) => (v || customAvrohPattern[i]) ? 1 : 0)
-                                                : customNotePattern)
-                                            : selectedRaga.pattern}
+                                        notes={customScaleMode ? customFullPattern : selectedRaga.pattern}
                                         title={customScaleMode ? 'Custom Scale - Chord Circle' : `${selectedRaga.name} - Chord Circle`}
                                         availableChords={chords}
                                         isCarnaticMode={isCarnaticMode}
