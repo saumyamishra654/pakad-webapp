@@ -5,37 +5,28 @@
 
 import { useState, useEffect, useCallback } from 'react';
 
+// One AudioContext for the whole app: each page mounting its own leaks contexts
+// (browsers cap how many can exist) and splits the decoded sample cache
+let sharedContext = null;
+
+function getSharedContext() {
+    if (!sharedContext) {
+        try {
+            sharedContext = new (window.AudioContext || window.webkitAudioContext)();
+        } catch (e) {
+            console.warn('WebAudio not available:', e);
+        }
+    }
+    return sharedContext;
+}
+
 /**
  * Hook to manage AudioContext with browser autoplay policy handling
  * @returns {Object} - { audioContext, isReady, resume, suspend }
  */
 export function useAudio() {
-    const [audioContext, setAudioContext] = useState(null);
-    const [isReady, setIsReady] = useState(false);
-
-    // Initialize AudioContext on mount
-    useEffect(() => {
-        try {
-            const ctx = new (window.AudioContext || window.webkitAudioContext)();
-            setTimeout(() => {
-                setAudioContext(ctx);
-            }, 0);
-
-            // Check if context is already running
-            if (ctx.state === 'running') {
-                setTimeout(() => {
-                    setIsReady(true);
-                }, 0);
-            }
-        } catch (e) {
-            console.warn('WebAudio not available:', e);
-        }
-
-        // Cleanup on unmount
-        return () => {
-            // Note: We don't close the context to avoid issues with hot reload
-        };
-    }, []);
+    const [audioContext] = useState(getSharedContext);
+    const [isReady, setIsReady] = useState(() => audioContext?.state === 'running');
 
     // Resume audio context (needed for autoplay policy)
     const resume = useCallback(async () => {

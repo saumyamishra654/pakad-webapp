@@ -5,6 +5,11 @@
 
 import { pitchClassToFrequency, SAMPLE_NOTE_NAMES, NOTE_SUFFIX_BY_OCTAVE, AVAILABLE_OCTAVES } from './noteHelpers.js';
 
+// Asset paths must respect Vite's base ('./' for GitHub Pages / Electron), not the domain root
+export const ASSET_BASE = import.meta.env?.BASE_URL ?? '/';
+export const PIANO_BASE_PATH = `${ASSET_BASE}Piano`;
+export const TANPURA_BASE_PATH = `${ASSET_BASE}tanpura`;
+
 /**
  * Fetch and decode an audio sample
  * @param {AudioContext} ctx - Web Audio context
@@ -13,7 +18,7 @@ import { pitchClassToFrequency, SAMPLE_NOTE_NAMES, NOTE_SUFFIX_BY_OCTAVE, AVAILA
  * @param {string} basePath - Base path for samples (default "/Piano")
  * @returns {Promise<AudioBuffer|null>}
  */
-export async function fetchSampleBuffer(ctx, noteName, suffix = '', basePath = '/Piano') {
+export async function fetchSampleBuffer(ctx, noteName, suffix = '', basePath = PIANO_BASE_PATH) {
     // Optimization: Hardcode to .mp3 and specific note names to avoid 404s
     const encoded = encodeURIComponent(`${noteName}${suffix}`);
     const url = `${basePath}/${encoded}.mp3`;
@@ -38,7 +43,7 @@ export async function fetchSampleBuffer(ctx, noteName, suffix = '', basePath = '
  * @param {string} basePath - Base path for samples
  * @returns {Promise<Object>} - Map of noteIndex -> {octave -> AudioBuffer}
  */
-export async function loadPianoSamples(ctx, basePath = '/Piano') {
+export async function loadPianoSamples(ctx, basePath = PIANO_BASE_PATH) {
     const buffers = {};
 
     await Promise.all(SAMPLE_NOTE_NAMES.map(async (noteName, index) => {

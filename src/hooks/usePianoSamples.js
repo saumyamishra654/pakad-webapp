@@ -4,53 +4,75 @@
  */
 
 import { useState, useRef, useCallback } from 'react';
-import { loadPianoSamples, playNote as playNoteAudio } from '../utils/audioHelpers.js';
+import { loadPianoSamples, playNote as playNoteAudio, PIANO_BASE_PATH } from '../utils/audioHelpers.js';
 import { AVAILABLE_OCTAVES } from '../utils/noteHelpers.js';
+
+// Decoded buffers shared by every page, keyed by base path; holds the in-flight promise
+// so concurrent callers share one load
+const sampleCache = new Map();
 
 /**
  * Hook to load and play piano samples
  * @param {AudioContext} audioContext - Web Audio context from useAudio
- * @param {string} basePath - Path to piano samples (default "/Piano")
- * @returns {Object} - { isReady, isLoading, error, playNote, playChord, playSequence }
+ * @param {string} basePath - Path to piano samples (default respects Vite base URL)
+ * @returns {Object} - { isReady, isLoading, error, playNote, playChord, playSequence, loadSamples, ensureReady }
  */
-export function usePianoSamples(audioContext, basePath = '/Piano') {
+export function usePianoSamples(audioContext, basePath = PIANO_BASE_PATH) {
     const [isReady, setIsReady] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
     const buffersRef = useRef({});
 
-    // Lazy load function
+    // Lazy load (idempotent); resolves true when at least some samples are playable
     const loadSamples = useCallback(async () => {
-        if (!audioContext || isReady || isLoading || buffersRef.current['C']) return;
+        if (!audioContext) return false;
+        if (Object.keys(buffersRef.current).length > 0) return true;
+
+        let pending = sampleCache.get(basePath);
+        if (!pending) {
+            pending = loadPianoSamples(audioContext, basePath);
+            sampleCache.set(basePath, pending);
+        }
 
         setIsLoading(true);
         setError(null);
 
         try {
-            const buffers = await loadPianoSamples(audioContext, basePath);
+            const buffers = await pending;
+            const loaded = Object.keys(buffers).length > 0;
+            if (!loaded) sampleCache.delete(basePath); // allow a retry later
             buffersRef.current = buffers;
 
-            // Check if all octaves loaded for all notes
-            const allReady = Object.keys(buffers).length === 12 &&
+            const complete = Object.keys(buffers).length === 12 &&
                 Object.values(buffers).every(noteMap =>
                     AVAILABLE_OCTAVES.every(oct => !!noteMap[oct])
                 );
-
-            setIsReady(allReady);
-            if (!allReady) {
+            if (loaded && !complete) {
                 console.warn('Some piano samples failed to load');
             }
+            if (!loaded) setError('Failed to load samples');
+
+            setIsReady(loaded);
+            return loaded;
         } catch (err) {
             console.error('Failed to load piano samples:', err);
+            sampleCache.delete(basePath);
             setError(err.message || 'Failed to load samples');
             buffersRef.current = {};
             setIsReady(false);
+            return false;
         } finally {
             setIsLoading(false);
         }
-    }, [audioContext, basePath, isReady, isLoading]);
+    }, [audioContext, basePath]);
 
-    // No auto-loading useEffect anymore!
+    // Resume the context (autoplay policy) and make sure samples are loaded before playing
+    const ensureReady = useCallback(async () => {
+        if (audioContext?.state === 'suspended') {
+            try { await audioContext.resume(); } catch { /* ignore */ }
+        }
+        return loadSamples();
+    }, [audioContext, loadSamples]);
 
     // Play a single note
     const playNote = useCallback((noteIndex, octave = 4, duration = 0.5, delay = 0, volume = 1) => {
@@ -128,7 +150,8 @@ export function usePianoSamples(audioContext, basePath = '/Piano') {
         playChord,
         playChordArpeggiated,
         playSequence,
-        loadSamples
+        loadSamples,
+        ensureReady
     };
 }
 

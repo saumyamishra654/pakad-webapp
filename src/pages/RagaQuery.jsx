@@ -74,8 +74,8 @@ export function RagaQuery() {
 
 
     // Audio
-    const { audioContext, resume } = useAudio();
-    const { playSequence, isReady: pianoReady } = usePianoSamples(audioContext);
+    const { audioContext } = useAudio();
+    const { playSequence, ensureReady } = usePianoSamples(audioContext);
 
     // Get raga list based on mode
     const ragaList = useMemo(() => {
@@ -187,10 +187,7 @@ export function RagaQuery() {
 
     // Play raga aaroh + avroh with proper octave arrangement
     const playRaga = useCallback(async (raga) => {
-        if (!pianoReady) {
-            await resume();
-            return;
-        }
+        if (!(await ensureReady())) return;
 
         const baseOctave = 4;
         const aarohPcs = patternToPitchClasses(raga.aarohPattern || raga.notePattern);
@@ -212,7 +209,7 @@ export function RagaQuery() {
         const fullSequence = [...aarohSequence, ...avrohSequence];
 
         playSequence(fullSequence, 0.35);
-    }, [pianoReady, resume, playSequence]);
+    }, [ensureReady, playSequence]);
 
     // Handle piano key click for note selection
     const handlePianoKeyClick = useCallback((noteIndex) => {
