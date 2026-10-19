@@ -314,6 +314,11 @@ const ChordTool = () => {
         setTimeout(() => setActiveNotes([]), 500);
     };
 
+    const handleCircleNoteClick = (swarIndex) => {
+        setSelectedNoteFilter(prev => (prev === swarIndex ? null : swarIndex));
+        playNote((swarIndex + rootNote) % 12, 4);
+    };
+
     const handleChordClick = (chord, mode = 'unison') => {
         // Arrange chord notes in appropriate octaves
         const arranged = transposeVoicing(arrangeChordNotes(chord.notes, 3), rootNote);
@@ -1008,7 +1013,7 @@ const ChordTool = () => {
                                         separateAarohAvroh={separateAarohAvroh}
                                         aarohaPattern={customScaleMode ? customAarohPattern : selectedRaga.aarohaPattern}
                                         avrohaPattern={customScaleMode ? customAvrohPattern : selectedRaga.avrohaPattern}
-                                        onNoteClick={handleNoteClick}
+                                        onNoteClick={handleCircleNoteClick}
                                         selectedNote={selectedNoteFilter}
                                     />
                                     <div className="mt-4 flex justify-center gap-4">
