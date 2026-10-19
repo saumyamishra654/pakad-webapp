@@ -12,7 +12,7 @@ export const getAudioContext = () => {
 };
 
 
-const getNoteFilename = async (noteIndex, octave, ctx) => {
+const loadNoteBuffer = async (noteIndex, octave, ctx) => {
     // noteIndex: 0-11 (C to B)
     // octave: 3, 4, 5 (supported by current samples: m12, base, p12)
 
@@ -61,6 +61,21 @@ const getNoteFilename = async (noteIndex, octave, ctx) => {
     return null;
 };
 
+const getNoteFilename = (noteIndex, octave, ctx) => {
+    // Cache the promise so concurrent requests share one fetch
+    const key = `${noteIndex}${octave === 3 ? '_m12' : octave === 4 ? '' : octave < 4 ? '_m12' : '_p12'}`;
+    if (!bufferCache[key]) {
+        bufferCache[key] = loadNoteBuffer(noteIndex, octave, ctx).then(result => {
+            if (!result) delete bufferCache[key]; // allow retry later
+            return result;
+        }, error => {
+            delete bufferCache[key];
+            throw error;
+        });
+    }
+    return bufferCache[key];
+};
+
 export const playNote = async (noteIndex, octave = 4, duration = 2, volume = 1.0) => {
     const ctx = getAudioContext();
     if (ctx.state === 'suspended') await ctx.resume();
@@ -86,12 +101,7 @@ export const playNote = async (noteIndex, octave = 4, duration = 2, volume = 1.0
         return;
     }
 
-    const { url, buffer } = result;
-
-    // Cache the buffer
-    if (!bufferCache[url]) {
-        bufferCache[url] = buffer;
-    }
+    const { buffer } = result;
 
     const source = ctx.createBufferSource();
     source.buffer = buffer;
@@ -117,37 +127,40 @@ export const playNote = async (noteIndex, octave = 4, duration = 2, volume = 1.0
 export const playChord = async (notes, duration = 3, delay = 0, volume = 0.6) => {
     // notes: array of { noteIndex, octave } or just noteIndex (assume octave 4)
     const ctx = getAudioContext();
-    const now = ctx.currentTime;
+    if (ctx.state === 'suspended') await ctx.resume();
 
-    const promises = notes.map((n, i) => {
+    // Load all buffers first so scheduling isn't skewed by fetch/decode time
+    const results = await Promise.all(notes.map(n => {
         const idx = typeof n === 'object' ? n.noteIndex : n;
         const oct = typeof n === 'object' ? n.octave : 4;
+        return getNoteFilename(idx, oct, ctx);
+    }));
 
-        // We call playNote but with a custom startTime offset for arpeggiation
-        return (async () => {
-            const result = await getNoteFilename(idx, oct, ctx);
-            if (!result) return;
+    const now = ctx.currentTime;
+    const nodes = [];
 
-            const source = ctx.createBufferSource();
-            source.buffer = result.buffer;
+    results.forEach((result, i) => {
+        if (!result) return;
 
-            const gainNode = ctx.createGain();
-            gainNode.gain.value = volume;
+        const source = ctx.createBufferSource();
+        source.buffer = result.buffer;
 
-            const startAt = now + (i * delay);
-            gainNode.gain.setValueAtTime(volume, startAt);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, startAt + duration);
+        const gainNode = ctx.createGain();
+        gainNode.gain.value = volume;
 
-            source.connect(gainNode);
-            gainNode.connect(ctx.destination);
+        const startAt = now + (i * delay);
+        gainNode.gain.setValueAtTime(volume, startAt);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, startAt + duration);
 
-            source.start(startAt);
-            source.stop(startAt + duration + 0.5);
-            return { source, gainNode };
-        })();
+        source.connect(gainNode);
+        gainNode.connect(ctx.destination);
+
+        source.start(startAt);
+        source.stop(startAt + duration + 0.5);
+        nodes.push({ source, gainNode });
     });
 
-    return Promise.all(promises);
+    return nodes;
 };
 
 export const playSequence = async (notes, noteDuration = 0.6, gap = 0.1, volume = 0.8) => {
@@ -155,13 +168,16 @@ export const playSequence = async (notes, noteDuration = 0.6, gap = 0.1, volume 
     const ctx = getAudioContext();
     if (ctx.state === 'suspended') await ctx.resume();
 
-    let currentTime = ctx.currentTime;
-
-    for (const note of notes) {
+    // Load all buffers first, then schedule against a single clock reading
+    const results = await Promise.all(notes.map(note => {
         const idx = typeof note === 'object' ? note.noteIndex : note;
         const oct = typeof note === 'object' ? note.octave : 4;
+        return getNoteFilename(idx, oct, ctx);
+    }));
 
-        const result = await getNoteFilename(idx, oct, ctx);
+    let currentTime = ctx.currentTime;
+
+    for (const result of results) {
         if (result) {
             const source = ctx.createBufferSource();
             source.buffer = result.buffer;
