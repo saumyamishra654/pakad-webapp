@@ -35,11 +35,11 @@ const ChordTool = () => {
 
     // Settings
     const [selectedChordType, setSelectedChordType] = useState('all');
-    const [allowOutsideNotes, setAllowOutsideNotes] = useState(false);
-    const [maxOutside, setMaxOutside] = useState(1);
+    const [allowOutsideNotes] = useState(false);
+    const [maxOutside] = useState(1);
     const [isTanpuraPlaying, setIsTanpuraPlaying] = useState(false);
     const [isTanpuraLoading, setIsTanpuraLoading] = useState(false);
-    const [showKeyboard, setShowKeyboard] = useState(true);
+    const [showKeyboard] = useState(true);
 
     // New Modes & Interaction
     const [isCarnaticMode, setIsCarnaticMode] = useState(false);
@@ -128,13 +128,13 @@ const ChordTool = () => {
     useEffect(() => {
         if (isCarnaticMode) {
             setRagas(melakartaRagas);
-            if (melakartaRagas.length > 0 && (!selectedRaga || !selectedRaga.isMelakarta)) {
-                setSelectedRaga(melakartaRagas[0]);
+            if (melakartaRagas.length > 0) {
+                setSelectedRaga(prev => (prev?.isMelakarta ? prev : melakartaRagas[0]));
             }
         } else {
             setRagas(hindustaniRagas);
-            if (hindustaniRagas.length > 0 && (!selectedRaga || selectedRaga.isMelakarta)) {
-                setSelectedRaga(hindustaniRagas[0]);
+            if (hindustaniRagas.length > 0) {
+                setSelectedRaga(prev => (prev && !prev.isMelakarta ? prev : hindustaniRagas[0]));
             }
         }
     }, [isCarnaticMode, hindustaniRagas, melakartaRagas]);
@@ -153,8 +153,9 @@ const ChordTool = () => {
     }, [selectedRaga]);
 
     // Initialize custom scale patterns from selected raga when entering custom mode
-    useEffect(() => {
-        if (customScaleMode && selectedRaga) {
+    const handleCustomScaleToggle = (enabled) => {
+        setCustomScaleMode(enabled);
+        if (enabled && selectedRaga) {
             // Copy the selected raga's patterns to custom patterns
             if (selectedRaga.pattern) {
                 setCustomNotePattern([...selectedRaga.pattern]);
@@ -166,7 +167,7 @@ const ChordTool = () => {
                 setCustomAvrohPattern([...selectedRaga.avrohaPattern]);
             }
         }
-    }, [customScaleMode]); // Only run when customScaleMode changes, not when raga changes
+    };
 
     // Persist progressions (strip transient playback state; skip write if unchanged)
     const lastSavedRef = React.useRef(null);
@@ -360,7 +361,7 @@ const ChordTool = () => {
 
         const sequence = mode === 'avroha' ? selectedRaga.avrohaChalan : selectedRaga.aarohaChalan;
         const arranged = mode === 'avroha'
-            ? arrangeNotesDescending(sequence, 4, true, 3)
+            ? arrangeNotesDescending(sequence, 4, true)
             : arrangeNotesAscending(sequence, 3);
         const voiced = transposeVoicing(arranged, rootNote);
 
@@ -614,7 +615,7 @@ const ChordTool = () => {
                                             <input
                                                 type="checkbox"
                                                 checked={customScaleMode}
-                                                onChange={e => setCustomScaleMode(e.target.checked)}
+                                                onChange={e => handleCustomScaleToggle(e.target.checked)}
                                                 className="form-checkbox h-4 w-4 text-emerald-600 rounded focus:ring-emerald-500"
                                             />
                                             <span className="ml-2 text-xs text-gray-700">Custom Scale</span>

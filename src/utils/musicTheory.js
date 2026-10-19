@@ -153,7 +153,7 @@ export const arrangeNotesAscending = (noteIndices, baseOctave = 3) => {
     return arrangedNotes;
 };
 
-export const arrangeNotesDescending = (noteIndices, startingOctave = 4, includeLowerSa = true, baseLowerOctave = 3) => {
+export const arrangeNotesDescending = (noteIndices, startingOctave = 4, includeLowerSa = true) => {
     if (!noteIndices || noteIndices.length === 0) return [];
 
     const arranged = [];

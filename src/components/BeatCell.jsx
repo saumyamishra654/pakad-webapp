@@ -7,8 +7,7 @@ const BeatCell = memo(({
     isBreakpoint,
     onDrop,
     onPlayArpeggio,
-    onRemoveChord,
-    currentBeat // Used for debugging or display if needed, but mainly isCurrentBeat covers the state
+    onRemoveChord
 }) => {
     return (
         <div

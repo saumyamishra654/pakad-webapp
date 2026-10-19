@@ -8,7 +8,9 @@ const ProgressionTimeline = ({
     onPlayArpeggio,
     customBreakpoints = '4-4'
 }) => {
-    const getBreakpointPositions = () => {
+    const trackChords = activeTrack.chords;
+
+    const breakpointPositions = useMemo(() => {
         try {
             const parts = customBreakpoints.split('-').map(p => parseInt(p)).filter(p => !isNaN(p));
             let current = 0;
@@ -18,19 +20,17 @@ const ProgressionTimeline = ({
                 positions.push(current - 1);
             }
             return positions;
-        } catch (e) {
+        } catch {
             return [];
         }
-    };
-
-    const breakpointPositions = useMemo(getBreakpointPositions, [customBreakpoints]);
+    }, [customBreakpoints]);
 
     // Performance Optimization: Create a lookup map for chords by beat
     // This avoids filtering the entire chord list for every beat render O(N) -> O(1)
     const chordsByBeat = useMemo(() => {
         const map = new Map();
-        if (activeTrack && activeTrack.chords) {
-            activeTrack.chords.forEach(item => {
+        if (trackChords) {
+            trackChords.forEach(item => {
                 const beatIndex = Math.floor(item.beat);
                 if (!map.has(beatIndex)) {
                     map.set(beatIndex, []);
@@ -39,7 +39,7 @@ const ProgressionTimeline = ({
             });
         }
         return map;
-    }, [activeTrack.chords]);
+    }, [trackChords]);
 
     const handleDrop = useCallback((e, beatIndex) => {
         e.preventDefault();
@@ -49,7 +49,7 @@ const ProgressionTimeline = ({
             const chord = JSON.parse(data);
 
             // Filter out any existing chords at this beat position
-            const updatedChords = activeTrack.chords.filter(
+            const updatedChords = trackChords.filter(
                 item => Math.floor(item.beat) !== beatIndex
             );
 
@@ -65,13 +65,13 @@ const ProgressionTimeline = ({
         } catch (err) {
             console.error("Drop error:", err);
         }
-    }, [activeTrack.chords, onUpdateTrack]);
+    }, [trackChords, onUpdateTrack]);
 
     const handleRemoveChord = useCallback((chordId) => {
         onUpdateTrack({
-            chords: activeTrack.chords.filter(c => c.id !== chordId)
+            chords: trackChords.filter(c => c.id !== chordId)
         });
-    }, [activeTrack.chords, onUpdateTrack]);
+    }, [trackChords, onUpdateTrack]);
 
     // Responsive layout logic
     const beatsPerRow = cycleBeats <= 10 ? cycleBeats : Math.ceil(cycleBeats / 2);

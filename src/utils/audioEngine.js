@@ -51,7 +51,7 @@ const loadNoteBuffer = async (noteIndex, octave, ctx) => {
 
                 const audioBuffer = await ctx.decodeAudioData(arrayBuffer.slice(0));
                 return { url, buffer: audioBuffer };
-            } catch (error) {
+            } catch {
                 // Try next variant/extension
                 continue;
             }
