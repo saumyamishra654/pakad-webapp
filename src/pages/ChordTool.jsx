@@ -322,9 +322,12 @@ const ChordTool = () => {
     };
 
     const playCustomChord = () => {
-        const voiced = transposeVoicing(arrangeChordNotes(customChordNotes, 3), rootNote);
+        const voiced = customIntervalsAbs.map(i => {
+            const abs = customChordRoot + i;
+            return { noteIndex: abs % 12, octave: 3 + Math.floor(abs / 12) };
+        });
         const delay = playbackMode === 'unison' ? 0 : arpeggiationDelay;
-        playChord(voiced, chordNoteDuration, delay);
+        playChord(transposeVoicing(voiced, rootNote), chordNoteDuration, delay);
     };
 
     // Handle interactions

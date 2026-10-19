@@ -76,6 +76,12 @@ const getNoteFilename = (noteIndex, octave, ctx) => {
     return bufferCache[key];
 };
 
+// Samples exist for octaves 3-5; map others to the nearest sample plus detune
+const resolveSampleOctave = (oct) => {
+    const sampleOctave = Math.min(5, Math.max(3, oct));
+    return { sampleOctave, detune: (oct - sampleOctave) * 1200 };
+};
+
 export const playNote = async (noteIndex, octave = 4, duration = 2, volume = 1.0) => {
     const ctx = getAudioContext();
     if (ctx.state === 'suspended') await ctx.resume();
@@ -133,8 +139,9 @@ export const playChord = async (notes, duration = 3, delay = 0, volume = 0.6) =>
     const results = await Promise.all(notes.map(n => {
         const idx = typeof n === 'object' ? n.noteIndex : n;
         const oct = typeof n === 'object' ? n.octave : 4;
-        return getNoteFilename(idx, oct, ctx);
+        return getNoteFilename(idx, resolveSampleOctave(oct).sampleOctave, ctx);
     }));
+    const detunes = notes.map(n => resolveSampleOctave(typeof n === 'object' ? n.octave : 4).detune);
 
     const now = ctx.currentTime;
     const nodes = [];
@@ -144,6 +151,7 @@ export const playChord = async (notes, duration = 3, delay = 0, volume = 0.6) =>
 
         const source = ctx.createBufferSource();
         source.buffer = result.buffer;
+        source.detune.value = detunes[i];
 
         const gainNode = ctx.createGain();
         gainNode.gain.value = volume;
@@ -172,16 +180,19 @@ export const playSequence = async (notes, noteDuration = 0.6, gap = 0.1, volume 
     const results = await Promise.all(notes.map(note => {
         const idx = typeof note === 'object' ? note.noteIndex : note;
         const oct = typeof note === 'object' ? note.octave : 4;
-        return getNoteFilename(idx, oct, ctx);
+        return getNoteFilename(idx, resolveSampleOctave(oct).sampleOctave, ctx);
     }));
+    const detunes = notes.map(note => resolveSampleOctave(typeof note === 'object' ? note.octave : 4).detune);
 
     const startTime = ctx.currentTime;
     let currentTime = startTime;
 
-    for (const result of results) {
+    for (let i = 0; i < results.length; i++) {
+        const result = results[i];
         if (result) {
             const source = ctx.createBufferSource();
             source.buffer = result.buffer;
+            source.detune.value = detunes[i];
 
             const gainNode = ctx.createGain();
             gainNode.gain.value = volume;
