@@ -192,6 +192,7 @@ export const stopAll = () => {
 
 // Tanpura logic using HTML Audio element for better loading
 let tanpuraAudioElement = null;
+let tanpuraFileName = null;
 
 const getTanpuraFileName = (tonicIndex) => {
     if (tonicIndex === null || tonicIndex === undefined) return 'C.mp3';
@@ -200,43 +201,26 @@ const getTanpuraFileName = (tonicIndex) => {
 };
 
 const loadTanpuraFile = async (fileName) => {
-    // Try different naming conventions if the primary file doesn't exist
-    const namingVariants = [
-        fileName, // original (e.g., "Db.mp3")
-        fileName.replace('b', '#'), // sharp notation (e.g., "D#.mp3") 
-        fileName.replace('#', 's'), // s for sharp (e.g., "Ds.mp3")
-        'C.mp3' // fallback to C
-    ];
+    const audio = new Audio(`/tanpura/${fileName}`);
+    audio.loop = true;
+    audio.preload = 'metadata';
+    audio.volume = 0.5;
 
-    for (const variant of namingVariants) {
-        try {
-            const audio = new Audio(`/tanpura/${variant}`);
-            audio.loop = true;
-            audio.preload = 'metadata';
-            audio.volume = 0.5;
+    // Test if file exists by trying to load metadata
+    await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('Timeout')), 5000);
+        audio.addEventListener('canplaythrough', () => {
+            clearTimeout(timeout);
+            resolve();
+        }, { once: true });
+        audio.addEventListener('error', (e) => {
+            clearTimeout(timeout);
+            reject(e);
+        }, { once: true });
+        audio.load();
+    });
 
-            // Test if file exists by trying to load metadata
-            await new Promise((resolve, reject) => {
-                const timeout = setTimeout(() => reject(new Error('Timeout')), 5000);
-                audio.addEventListener('canplaythrough', () => {
-                    clearTimeout(timeout);
-                    resolve();
-                }, { once: true });
-                audio.addEventListener('error', (e) => {
-                    clearTimeout(timeout);
-                    reject(e);
-                }, { once: true });
-                audio.load();
-            });
-
-            return audio;
-        } catch (error) {
-            console.log(`Tanpura file ${variant} not found, trying next variant...`);
-            continue;
-        }
-    }
-
-    throw new Error('No tanpura file found for any naming variant');
+    return audio;
 };
 
 export const playTanpura = async (rootIndex, volume = 0.5) => {
@@ -244,7 +228,7 @@ export const playTanpura = async (rootIndex, volume = 0.5) => {
         const fileName = getTanpuraFileName(rootIndex);
 
         // Create new audio element if needed or if tonic changed
-        if (!tanpuraAudioElement || !tanpuraAudioElement.src.includes(fileName.replace('.mp3', ''))) {
+        if (!tanpuraAudioElement || tanpuraFileName !== fileName) {
             // Stop current audio if playing
             if (tanpuraAudioElement) {
                 tanpuraAudioElement.pause();
@@ -254,6 +238,7 @@ export const playTanpura = async (rootIndex, volume = 0.5) => {
             const audio = await loadTanpuraFile(fileName);
             audio.volume = volume;
             tanpuraAudioElement = audio;
+            tanpuraFileName = fileName;
 
             // Play the loaded audio
             await audio.play();
