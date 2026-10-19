@@ -94,6 +94,7 @@ const SequencerControls = ({
                             type="number" min="2" max="32" step="1"
                             value={cycleBeats}
                             onChange={(e) => onSetCycleBeats(parseInt(e.target.value) || 8)}
+                            onBlur={(e) => onSetCycleBeats(Math.min(32, Math.max(2, parseInt(e.target.value) || 8)))}
                             className="w-full px-2 py-1.5 bg-gray-900 border border-gray-600 rounded text-sm text-gray-200 text-center"
                         />
                     </div>
@@ -104,6 +105,7 @@ const SequencerControls = ({
                             type="number" min="40" max="240" step="1"
                             value={cycleBpm}
                             onChange={(e) => onSetCycleBpm(parseInt(e.target.value) || 120)}
+                            onBlur={(e) => onSetCycleBpm(Math.min(240, Math.max(40, parseInt(e.target.value) || 120)))}
                             className="w-full px-2 py-1.5 bg-gray-900 border border-gray-600 rounded text-sm text-gray-200 text-center"
                         />
                     </div>

@@ -434,7 +434,7 @@ const ChordTool = () => {
     const handleDownloadMIDI = () => {
         const bytes = buildMidiFromChords({
             chords: activeTrack.chords.filter(c => c.beat < cycleBeats),
-            tempoBPM: cycleBpm,
+            tempoBPM: Math.min(240, Math.max(40, cycleBpm || 120)),
             velocity: midiVelocity,
             channel: midiChannel,
             program: midiProgram,
@@ -485,8 +485,9 @@ const ChordTool = () => {
         const trackId = activeTrackId;
         playingTrackIdRef.current = trackId;
         // BPM and cycle length are captured at start; changes apply on next Play
-        const beatMs = (60 / cycleBpm) * 1000;
-        const totalBeats = cycleBeats;
+        const bpm = Math.min(240, Math.max(40, cycleBpm || 120));
+        const totalBeats = Math.min(32, Math.max(2, cycleBeats || 8));
+        const beatMs = (60 / bpm) * 1000;
 
         let beatIdx = 0;
         let hasPlayedOnce = false;

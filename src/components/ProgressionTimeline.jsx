@@ -74,15 +74,16 @@ const ProgressionTimeline = ({
     }, [trackChords, onUpdateTrack]);
 
     // Responsive layout logic
-    const beatsPerRow = cycleBeats <= 10 ? cycleBeats : Math.ceil(cycleBeats / 2);
-    const rows = cycleBeats <= 10 ? 1 : 2;
+    const safeBeats = Math.max(0, cycleBeats);
+    const beatsPerRow = safeBeats <= 10 ? safeBeats : Math.ceil(safeBeats / 2);
+    const rows = safeBeats <= 10 ? 1 : 2;
 
     return (
         <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700 shadow-inner">
             <div className="space-y-4">
                 {Array.from({ length: rows }).map((_, rowIndex) => {
                     const startBeat = rowIndex * beatsPerRow;
-                    const endBeat = Math.min(startBeat + beatsPerRow, cycleBeats);
+                    const endBeat = Math.min(startBeat + beatsPerRow, safeBeats);
                     const beatsInRow = endBeat - startBeat;
 
                     return (
@@ -91,7 +92,7 @@ const ProgressionTimeline = ({
                                 const beatIndex = startBeat + indexInRow;
                                 const isCurrentBeat = activeTrack.isPlaying && activeTrack.currentBeat === beatIndex;
                                 const chordsOnBeat = chordsByBeat.get(beatIndex) || [];
-                                const isBreakpoint = breakpointPositions.includes(beatIndex) && beatIndex !== cycleBeats - 1;
+                                const isBreakpoint = breakpointPositions.includes(beatIndex) && beatIndex !== safeBeats - 1;
 
                                 return (
                                     <BeatCell

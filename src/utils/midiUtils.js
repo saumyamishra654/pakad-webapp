@@ -34,7 +34,8 @@ export const buildMidiFromChords = ({
     if (!chords || chords.length === 0) return null;
 
     const TPQ = 480; // ticks per quarter
-    const tempoUS = Math.round(60000000 / tempoBPM);
+    const bpm = Math.min(300, Math.max(20, Number(tempoBPM) || 120));
+    const tempoUS = Math.round(60000000 / bpm);
     const beatDurTicks = TPQ; // 1 beat = 1 quarter note
 
     const events = [];
