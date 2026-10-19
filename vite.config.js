@@ -16,7 +16,8 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['Piano/**/*', 'tanpura/**/*'],
+      // Tanpura files are ~30 MB each: cache them on first play (runtimeCaching below), not on install
+      includeAssets: ['Piano/**/*'],
       manifest: {
         name: 'Samvad - Raga Chord Tool',
         short_name: 'Samvad',
