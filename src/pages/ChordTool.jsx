@@ -257,7 +257,7 @@ const ChordTool = () => {
         const chordMap = new Map();
 
         allChords.forEach(chord => {
-            const key = `${chord.root}-${chord.type.name}-${chord.isExtended ? 'ext' : 'base'}`;
+            const key = `${chord.root}-${chord.type.id}-${chord.isExtended ? 'ext' : 'base'}-${chord.outsideCount ? 'out' : 'in'}`;
             if (chordMap.has(key)) {
                 const existing = chordMap.get(key);
                 if (existing.source !== chord.source && existing.source !== 'Both') {
