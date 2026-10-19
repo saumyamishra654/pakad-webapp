@@ -22,6 +22,20 @@ import { useAudio } from '../hooks/useAudio.js';
 import { usePianoSamples } from '../hooks/usePianoSamples.js';
 import { useTanpura } from '../hooks/useTanpura.js';
 
+const DEFAULT_PROGRESSIONS = [1, 2, 3, 4].map(id => ({ id, name: String(id), chords: [], isPlaying: false, currentBeat: -1 }));
+
+function loadSavedProgressions() {
+    try {
+        const parsed = JSON.parse(localStorage.getItem('pakad_progressions'));
+        if (Array.isArray(parsed) && parsed.length === 4) {
+            return parsed.map(p => ({ ...p, chords: p.chords || [], isPlaying: false, currentBeat: -1 }));
+        }
+    } catch {
+        // Ignore storage errors
+    }
+    return DEFAULT_PROGRESSIONS;
+}
+
 /**
  * ChordTool main page component
  */
@@ -60,15 +74,16 @@ export function ChordTool() {
     const [customIntervalsAbs, setCustomIntervalsAbs] = useState([0]); // Absolute intervals from root
 
     // Multiple rhythm progressions (4 tabs like original)
-    const [rhythmProgressions, setRhythmProgressions] = useState([
-        { id: 1, name: '1', chords: [], isPlaying: false, currentBeat: 0 },
-        { id: 2, name: '2', chords: [], isPlaying: false, currentBeat: 0 },
-        { id: 3, name: '3', chords: [], isPlaying: false, currentBeat: 0 },
-        { id: 4, name: '4', chords: [], isPlaying: false, currentBeat: 0 }
-    ]);
+    // Restored synchronously so the save effect never overwrites saved data with defaults
+    const [rhythmProgressions, setRhythmProgressions] = useState(loadSavedProgressions);
     const [activeProgressionId, setActiveProgressionId] = useState(1);
 
-    const nextChordIdRef = useRef(1);
+    const nextChordIdRef = useRef(null);
+    if (nextChordIdRef.current === null) {
+        nextChordIdRef.current = rhythmProgressions
+            .flatMap(p => p.chords || [])
+            .reduce((m, c) => Math.max(m, c.id || 0), 0) + 1;
+    }
 
     // Get active progression
     const activeProgression = useMemo(() => {
@@ -85,6 +100,9 @@ export function ChordTool() {
     // Rhythm/beat state
     const [beats, setBeats] = useState(8);
     const [bpm, setBpm] = useState(120);
+    // Inputs may be blank while typing; fall back to sane values
+    const effectiveBeats = Math.max(2, Math.min(18, Number(beats) || 8));
+    const effectiveBpm = Math.max(40, Math.min(240, Number(bpm) || 120));
 
     const [loop, setLoop] = useState(true);
 
@@ -95,29 +113,14 @@ export function ChordTool() {
     const [customBreakpoints, setCustomBreakpoints] = useState('');
     const [breakpointError, setBreakpointError] = useState('');
 
-    // localStorage persistence for progressions
+    // localStorage persistence for progressions (playback state is not persisted)
+    const lastSavedRef = useRef(null);
     useEffect(() => {
         try {
-            const raw = localStorage.getItem('pakad_progressions');
-            if (raw) {
-                const parsed = JSON.parse(raw);
-                if (Array.isArray(parsed) && parsed.length === 4) {
-                    setTimeout(() => {
-                        setRhythmProgressions(parsed.map(p => ({ ...p, isPlaying: false, currentBeat: 0 })));
-                    }, 0);
-                    // Ensure ID counter is ahead
-                    const maxId = parsed.flatMap(p => p.chords || []).reduce((m, c) => Math.max(m, c.id || 0), 0);
-                    nextChordIdRef.current = maxId + 1;
-                }
-            }
-        } catch {
-            // Ignore storage errors
-        }
-    }, []);
-
-    useEffect(() => {
-        try {
-            localStorage.setItem('pakad_progressions', JSON.stringify(rhythmProgressions));
+            const data = JSON.stringify(rhythmProgressions.map(p => ({ id: p.id, name: p.name, chords: p.chords })));
+            if (data === lastSavedRef.current) return; // currentBeat ticks don't need a write
+            lastSavedRef.current = data;
+            localStorage.setItem('pakad_progressions', data);
         } catch {
             // Ignore storage errors
         }
@@ -134,10 +137,10 @@ export function ChordTool() {
     const [midiChannel] = useState(1);
 
     // Audio
-    const { audioContext, resume } = useAudio();
+    const { audioContext } = useAudio();
 
-    const { playNote, isReady: pianoReady, isLoading: isPianoLoading, loadSamples } = usePianoSamples(audioContext);
-    const { isPlaying: isTanpuraPlaying, toggle: toggleTanpura, changeTonic } = useTanpura();
+    const { playNote, isLoading: isPianoLoading, ensureReady } = usePianoSamples(audioContext);
+    const { isPlaying: isTanpuraPlaying, isLoading: isTanpuraLoading, toggle: toggleTanpura, changeTonic } = useTanpura();
 
     // Get raga list
     const ragaList = useMemo(() => {
@@ -201,12 +204,9 @@ export function ChordTool() {
     // Auto-set separateAarohAvroh when raga has different aaroh/avroh patterns
     useEffect(() => {
         if (selectedRaga && !customScaleMode) {
-            // Sort both patterns to compare notes regardless of order
-            const aarohSorted = [...selectedRaga.aarohPattern].sort();
-            const avrohSorted = [...selectedRaga.avrohPattern].sort();
-            const aarohStr = JSON.stringify(aarohSorted);
-            const avrohStr = JSON.stringify(avrohSorted);
-            if (aarohStr !== avrohStr) {
+            // Patterns are 12-slot presence arrays, so compare them slot by slot
+            const differ = selectedRaga.aarohPattern.some((v, i) => v !== selectedRaga.avrohPattern[i]);
+            if (differ) {
                 setTimeout(() => {
                     setSeparateAarohAvroh(prev => {
                         if (prev !== true) return true;
@@ -365,11 +365,7 @@ export function ChordTool() {
 
     // Play a chord (isUnison=true for all notes at once, false for melody/arpeggiated)
     const handlePlayChord = useCallback(async (chord, isUnison = true) => {
-        if (!pianoReady) {
-            await resume();
-            // Trigger lazy load
-            await loadSamples();
-        }
+        if (!(await ensureReady())) return;
 
         const arranged = arrangeChordNotes(chord.notes, 4);
         const duration = chordNoteDuration || 0.8;
@@ -394,7 +390,7 @@ export function ChordTool() {
                 setTimeout(() => playNote(transposedNote, transposedOctave, duration * 0.6, 0, 0.6), i * delay);
             });
         }
-    }, [pianoReady, resume, playNote, selectedTonic, chordNoteDuration, arpeggiationDelay, loadSamples]);
+    }, [ensureReady, playNote, selectedTonic, chordNoteDuration, arpeggiationDelay]);
 
     // Add chord to progression
     const handleChordPlace = useCallback((beatIndex, chord) => {
@@ -424,13 +420,22 @@ export function ChordTool() {
     }, [activeProgression, activeProgressionId, updateProgression]);
 
     // Playback controls
+    const playbackStartRef = useRef(false); // set by Play so the loop knows to start at beat 0
+    const playbackBeatRef = useRef(0);      // next beat to play
     const handlePlayPause = useCallback(() => {
         if (activeProgression.isPlaying) {
             updateProgression(activeProgressionId, { isPlaying: false, currentBeat: -1 });
         } else {
-            updateProgression(activeProgressionId, { isPlaying: true, currentBeat: 0 });
+            playbackStartRef.current = true;
+            updateProgression(activeProgressionId, { isPlaying: true, currentBeat: -1 });
         }
     }, [activeProgression, activeProgressionId, updateProgression]);
+
+    // Switching tracks stops playback so a hidden track never keeps playing
+    const handleSelectProgression = useCallback((id) => {
+        setRhythmProgressions(prev => prev.map(p => (p.isPlaying ? { ...p, isPlaying: false, currentBeat: -1 } : p)));
+        setActiveProgressionId(id);
+    }, []);
 
 
 
@@ -440,10 +445,16 @@ export function ChordTool() {
 
     // Download progression as MIDI
     const handleDownloadMidi = useCallback(() => {
-        if (activeProgression.chords.length === 0) return;
+        // Chords left beyond the cycle (after lowering Beats) are hidden, so don't export them
+        const inCycle = activeProgression.chords.filter(c => c.beat < effectiveBeats);
+        if (inCycle.length === 0) {
+            alert('No chords within the current cycle to export.');
+            return;
+        }
 
         const midiData = buildMidiFromProgression({
-            progression: activeProgression.chords,
+            progression: inCycle,
+            tonic: selectedTonic,
             tempo: midiTempo,
             noteLengthBeats: midiNoteLengthBeats,
             gapBeats: midiGapBeats,
@@ -459,59 +470,56 @@ export function ChordTool() {
                 : `chord_progression_${activeProgressionId}`;
             downloadMidi(midiData, filename);
         }
-    }, [activeProgression, activeProgressionId, midiTempo, midiNoteLengthBeats, midiGapBeats, midiVelocity, midiChannel, midiProgram, selectedRagaName]);
+    }, [activeProgression, activeProgressionId, effectiveBeats, selectedTonic, midiTempo, midiNoteLengthBeats, midiGapBeats, midiVelocity, midiChannel, midiProgram, selectedRagaName]);
 
-    // Playback interval for active progression
+    // Playback: latest chords/settings are read through a ref so edits apply without restarting the loop
+    const playbackRef = useRef({});
+    useEffect(() => {
+        playbackRef.current = { chords: activeProgression.chords, handlePlayChord, rhythmPlaybackMode, loop };
+    });
+
     useEffect(() => {
         if (!activeProgression.isPlaying) return;
 
-        const msPerBeat = 60000 / bpm;
+        const id = activeProgressionId;
+        let interval = null;
 
-        // Play chord at beat 0 immediately when playback starts
-        const chordAtBeat0 = activeProgression.chords.find(c => Math.floor(c.beat) === 0);
-        if (chordAtBeat0 && activeProgression.currentBeat === 0) {
-            const isUnison = rhythmPlaybackMode === 'unison';
-            handlePlayChord(chordAtBeat0.chord, isUnison);
+        const tick = () => {
+            const { chords, handlePlayChord: play, rhythmPlaybackMode: mode, loop: shouldLoop } = playbackRef.current;
+            let beat = playbackBeatRef.current;
+            if (beat >= effectiveBeats) {
+                if (!shouldLoop) {
+                    clearInterval(interval);
+                    updateProgression(id, { isPlaying: false, currentBeat: -1 });
+                    return;
+                }
+                beat = 0;
+            }
+
+            const item = chords.find(c => Math.floor(c.beat) === beat);
+            if (item) play(item.chord, mode === 'unison');
+
+            updateProgression(id, { currentBeat: beat });
+            playbackBeatRef.current = beat + 1;
+        };
+
+        // Fresh start plays beat 0 now; a restart for a tempo change continues where it was
+        if (playbackStartRef.current) {
+            playbackStartRef.current = false;
+            playbackBeatRef.current = 0;
+            tick();
         }
-
-        const interval = setInterval(() => {
-            setRhythmProgressions(prev => prev.map(p => {
-                if (p.id !== activeProgressionId || !p.isPlaying) return p;
-
-                const next = p.currentBeat + 1;
-                if (next >= beats) {
-                    if (loop) {
-                        // Loop back and play chord at beat 0
-                        const chordAt0 = p.chords.find(c => Math.floor(c.beat) === 0);
-                        if (chordAt0) {
-                            const isUnison = rhythmPlaybackMode === 'unison';
-                            handlePlayChord(chordAt0.chord, isUnison);
-                        }
-                        return { ...p, currentBeat: 0 };
-                    }
-                    return { ...p, isPlaying: false, currentBeat: -1 };
-                }
-
-                // Play chord at this beat
-                const chordAtBeat = p.chords.find(c => Math.floor(c.beat) === next);
-                if (chordAtBeat) {
-                    const isUnison = rhythmPlaybackMode === 'unison';
-                    handlePlayChord(chordAtBeat.chord, isUnison);
-                }
-
-                return { ...p, currentBeat: next };
-            }));
-        }, msPerBeat);
+        interval = setInterval(tick, 60000 / effectiveBpm);
 
         return () => clearInterval(interval);
-    }, [activeProgression.isPlaying, activeProgression.currentBeat, activeProgression.chords, activeProgressionId, bpm, beats, loop, handlePlayChord, rhythmPlaybackMode]);
+    }, [activeProgression.isPlaying, activeProgressionId, effectiveBpm, effectiveBeats, updateProgression]);
 
     // Update tanpura when tonic changes (only if already playing)
     // Use a ref to track previous tonic to only react to actual changes
     const prevTonicRef = useRef(selectedTonic);
     useEffect(() => {
         // Only change tonic if it actually changed and tanpura is playing
-        if (prevTonicRef.current !== selectedTonic && isTanpuraPlaying) {
+        if (prevTonicRef.current !== selectedTonic && (isTanpuraPlaying || isTanpuraLoading)) {
             changeTonic(selectedTonic, true); // true = autoPlay after changing
         }
         prevTonicRef.current = selectedTonic;
@@ -671,8 +679,8 @@ export function ChordTool() {
                 <div className="flex flex-wrap items-center justify-center gap-3 mt-4 pt-4 border-t border-gray-600">
                     {/* Play Aaroh */}
                     <button
-                        onClick={() => {
-                            if (!pianoReady) { resume(); return; }
+                        onClick={async () => {
+                            if (!(await ensureReady())) return;
                             const patterns = getCurrentPatterns();
                             const aarohPcs = patternToPitchClasses(patterns.aaroh.length ? patterns.aaroh : patterns.all);
                             const baseOctave = 4;
@@ -701,8 +709,8 @@ export function ChordTool() {
 
                     {/* Play Avroh */}
                     <button
-                        onClick={() => {
-                            if (!pianoReady) { resume(); return; }
+                        onClick={async () => {
+                            if (!(await ensureReady())) return;
                             const patterns = getCurrentPatterns();
                             const avrohPcs = patternToPitchClasses(patterns.avroh.length ? patterns.avroh : patterns.all);
                             const baseOctave = 4;
@@ -732,8 +740,8 @@ export function ChordTool() {
 
                     {/* Play Full Raga */}
                     <button
-                        onClick={() => {
-                            if (!pianoReady) { resume(); return; }
+                        onClick={async () => {
+                            if (!(await ensureReady())) return;
                             const patterns = getCurrentPatterns();
                             const baseOctave = 4;
 
@@ -941,7 +949,12 @@ export function ChordTool() {
                         highlightedNotes={showRagaNotesOnKeyboard ? patternToPitchClasses(getCurrentPatterns().all) : []}
                         isCarnatic={isCarnatic}
                         tonic={selectedTonic}
-                        onNoteClick={(noteIndex, octave) => playNote((noteIndex + selectedTonic) % 12, octave, 0.5)}
+                        onNoteClick={async (noteIndex, octave) => {
+                            if (!(await ensureReady())) return;
+                            // Carry into the next octave so keys above the tonic still rise in pitch
+                            const total = octave * 12 + noteIndex + selectedTonic;
+                            playNote(total % 12, Math.floor(total / 12), 0.5);
+                        }}
                         swarLabels={showRagaNotesOnKeyboard ? getCurrentPatterns().all.map((p, i) => p ? i : null) : null}
                     />
                 </div>
@@ -1112,10 +1125,12 @@ export function ChordTool() {
                                 </div>
                             </div>
                             <button
-                                onClick={() => {
-                                    if (!pianoReady) { resume(); return; }
-                                    customNotesAll.forEach((n, i) => {
-                                        setTimeout(() => playNote((n + selectedTonic) % 12, 4, 0.8), i * 80);
+                                onClick={async () => {
+                                    if (!(await ensureReady())) return;
+                                    // Voice from the stacked intervals so compound intervals (e.g. 9ths) keep their octave
+                                    customIntervalsAbs.forEach((interval, i) => {
+                                        const total = 4 * 12 + customRoot + interval + selectedTonic;
+                                        setTimeout(() => playNote(total % 12, Math.floor(total / 12), 0.8), i * 80);
                                     });
                                 }}
                                 className="w-full py-2 rounded-lg font-medium bg-pink-600 text-white hover:bg-pink-700"
@@ -1304,7 +1319,7 @@ export function ChordTool() {
                             {rhythmProgressions.map(prog => (
                                 <button
                                     key={prog.id}
-                                    onClick={() => setActiveProgressionId(prog.id)}
+                                    onClick={() => handleSelectProgression(prog.id)}
                                     className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${activeProgressionId === prog.id
                                         ? 'bg-blue-600 text-white'
                                         : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
@@ -1331,13 +1346,15 @@ export function ChordTool() {
                                     max="18"
                                     value={beats}
                                     onChange={(e) => {
+                                        // Allow free typing (clamping per keystroke made e.g. "16" impossible to enter)
                                         const val = e.target.value;
                                         if (val === '') setBeats('');
                                         else {
                                             const num = parseInt(val);
-                                            if (!isNaN(num)) setBeats(Math.max(2, Math.min(18, num)));
+                                            if (!isNaN(num)) setBeats(num);
                                         }
                                     }}
+                                    onBlur={() => setBeats(effectiveBeats)}
                                     className="w-16 px-2 py-1 border border-gray-600 rounded text-sm bg-gray-700 text-white"
                                 />
                             </label>
@@ -1351,13 +1368,15 @@ export function ChordTool() {
                                     max="240"
                                     value={bpm}
                                     onChange={(e) => {
+                                        // Allow free typing (clamping per keystroke made e.g. "16" impossible to enter)
                                         const val = e.target.value;
                                         if (val === '') setBpm('');
                                         else {
                                             const num = parseInt(val);
-                                            if (!isNaN(num)) setBpm(Math.max(40, Math.min(240, num)));
+                                            if (!isNaN(num)) setBpm(num);
                                         }
                                     }}
+                                    onBlur={() => setBpm(effectiveBpm)}
                                     className="w-16 px-2 py-1 border border-gray-600 rounded text-sm bg-gray-700 text-white"
                                 />
                             </label>
@@ -1528,7 +1547,7 @@ export function ChordTool() {
 
                         {/* Timeline Grid */}
                         <TimelineGrid
-                            beats={beats}
+                            beats={effectiveBeats}
                             chords={activeProgression.chords}
                             onChordPlace={handleChordPlace}
                             onChordRemove={handleChordRemove}
