@@ -16,6 +16,13 @@ import { playNote, playChord, playTanpura, stopTanpura, playSequence, audioEngin
 import { arrangeNotesAscending, arrangeNotesDescending, arrangeChordNotes, transposeVoicing } from '../utils/musicTheory';
 import { buildMidiFromChords, downloadMidi, downloadProjectJson } from '../utils/midiUtils';
 
+const DEFAULT_TRACKS = [
+    { id: 1, name: 'T1', chords: [], isPlaying: false, currentBeat: 0 },
+    { id: 2, name: 'T2', chords: [], isPlaying: false, currentBeat: 0 },
+    { id: 3, name: 'T3', chords: [], isPlaying: false, currentBeat: 0 },
+    { id: 4, name: 'T4', chords: [], isPlaying: false, currentBeat: 0 }
+];
+
 const ChordTool = () => {
     const [hindustaniRagas, setHindustaniRagas] = useState([]);
     const [melakartaRagas, setMelakartaRagas] = useState([]);
@@ -66,12 +73,20 @@ const ChordTool = () => {
     const [midiChannel, setMidiChannel] = useState(1);
     const [midiNoteLengthBeats, setMidiNoteLengthBeats] = useState(3.2); // beats per chord
     const [midiGapBeats, setMidiGapBeats] = useState(0.4); // gap between chords in beats
-    const [rhythmProgressions, setRhythmProgressions] = useState([
-        { id: 1, name: 'T1', chords: [], isPlaying: false, currentBeat: 0 },
-        { id: 2, name: 'T2', chords: [], isPlaying: false, currentBeat: 0 },
-        { id: 3, name: 'T3', chords: [], isPlaying: false, currentBeat: 0 },
-        { id: 4, name: 'T4', chords: [], isPlaying: false, currentBeat: 0 }
-    ]);
+    const [rhythmProgressions, setRhythmProgressions] = useState(() => {
+        try {
+            const saved = localStorage.getItem('samvad_progressions');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed)) {
+                    return parsed.map(t => ({ ...t, isPlaying: false, currentBeat: 0 }));
+                }
+            }
+        } catch (e) {
+            console.error("Failed to load progressions:", e);
+        }
+        return DEFAULT_TRACKS;
+    });
     const [activeTrackId, setActiveTrackId] = useState(1);
     const playbackIntervalRef = React.useRef(null);
     const playingTrackIdRef = React.useRef(null);
@@ -152,21 +167,17 @@ const ChordTool = () => {
         }
     }, [customScaleMode]); // Only run when customScaleMode changes, not when raga changes
 
-    // Persist progressions
+    // Persist progressions (strip transient playback state; skip write if unchanged)
+    const lastSavedRef = React.useRef(null);
     useEffect(() => {
         try {
-            const saved = localStorage.getItem('samvad_progressions');
-            if (saved) {
-                const parsed = JSON.parse(saved);
-                if (Array.isArray(parsed)) setRhythmProgressions(parsed);
-            }
+            const serialized = JSON.stringify(rhythmProgressions.map(({ isPlaying, currentBeat, ...rest }) => rest));
+            if (serialized === lastSavedRef.current) return;
+            lastSavedRef.current = serialized;
+            localStorage.setItem('samvad_progressions', serialized);
         } catch (e) {
-            console.error("Failed to load progressions:", e);
+            console.error("Failed to save progressions:", e);
         }
-    }, []);
-
-    useEffect(() => {
-        localStorage.setItem('samvad_progressions', JSON.stringify(rhythmProgressions));
     }, [rhythmProgressions]);
 
     // Chord types with 'all' option
