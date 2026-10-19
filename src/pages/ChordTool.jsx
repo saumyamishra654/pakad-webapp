@@ -74,6 +74,10 @@ const ChordTool = () => {
     ]);
     const [activeTrackId, setActiveTrackId] = useState(1);
     const playbackIntervalRef = React.useRef(null);
+    const playingTrackIdRef = React.useRef(null);
+    // Latest values for the playback loop (assigned every render; avoids stale closures)
+    const latestRef = React.useRef({});
+    latestRef.current = { rhythmProgressions, cycleLoop, playbackMode, arpeggiationDelay, chordNoteDuration, rootNote };
 
     // Load data
     useEffect(() => {
@@ -440,11 +444,13 @@ const ChordTool = () => {
             clearInterval(playbackIntervalRef.current);
             playbackIntervalRef.current = null;
         }
+        playingTrackIdRef.current = null;
         setRhythmProgressions(prev => prev.map(p => ({ ...p, isPlaying: false, currentBeat: 0 })));
     };
 
     const startPlayback = async () => {
-        if (activeTrack.isPlaying) {
+        // Only ever one loop
+        if (playbackIntervalRef.current) {
             stopPlayback();
             return;
         }
@@ -454,27 +460,36 @@ const ChordTool = () => {
             await audioEngine.context.resume();
         }
 
-        updateActiveTrack({ isPlaying: true, currentBeat: 0 });
+        // Guard against a second Start while awaiting resume
+        if (playbackIntervalRef.current) return;
 
+        const trackId = activeTrackId;
+        playingTrackIdRef.current = trackId;
+        // BPM and cycle length are captured at start; changes apply on next Play
         const beatMs = (60 / cycleBpm) * 1000;
+        const totalBeats = cycleBeats;
+
         let beatIdx = 0;
-
-        playbackIntervalRef.current = setInterval(() => {
-            // Play chords on current beat
-            const chordsToPlay = activeTrack.chords.filter(c => Math.floor(c.beat) === beatIdx);
-            chordsToPlay.forEach(item => {
-                const voiced = arrangeChordNotes(item.chord.notes, 3);
-                const delay = playbackMode === 'unison' ? 0 : arpeggiationDelay;
-                playChord(voiced, chordNoteDuration, delay);
-            });
-
-            beatIdx = (beatIdx + 1) % cycleBeats;
-            updateActiveTrack({ currentBeat: beatIdx });
-
-            if (beatIdx === 0 && !cycleLoop) {
+        let hasPlayedOnce = false;
+        const tick = () => {
+            const s = latestRef.current;
+            if (beatIdx === 0 && hasPlayedOnce && !s.cycleLoop) {
                 stopPlayback();
+                return;
             }
-        }, beatMs);
+            const track = s.rhythmProgressions.find(p => p.id === trackId);
+            const delay = s.playbackMode === 'unison' ? 0 : s.arpeggiationDelay;
+            (track?.chords || []).filter(c => Math.floor(c.beat) === beatIdx).forEach(item => {
+                playChord(transposeVoicing(arrangeChordNotes(item.chord.notes, 3), s.rootNote), s.chordNoteDuration, delay);
+            });
+            const shown = beatIdx;
+            setRhythmProgressions(prev => prev.map(p => p.id === trackId ? { ...p, isPlaying: true, currentBeat: shown } : p));
+            beatIdx = (beatIdx + 1) % totalBeats;
+            hasPlayedOnce = true;
+        };
+
+        tick();
+        playbackIntervalRef.current = setInterval(tick, beatMs);
     };
 
     useEffect(() => {
@@ -1056,7 +1071,7 @@ const ChordTool = () => {
                             onSetCycleLoop={setCycleLoop}
                             customBreakpoints={customBreakpoints}
                             onSetCustomBreakpoints={setCustomBreakpoints}
-                            isPlaying={activeTrack.isPlaying}
+                            isPlaying={rhythmProgressions.some(p => p.isPlaying)}
 
                             onStart={startPlayback}
                             onStop={stopPlayback}
