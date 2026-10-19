@@ -64,10 +64,12 @@ export function buildMidiFromProgression({
     const ticksPerBeat = 480; // Standard MIDI resolution
     const midiChannel = (channel - 1) & 0x0f; // Convert 1-16 to 0-15
     const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
-    const bpm = clamp(Number(tempo) || 120, 20, 300);
-    const vel = clamp(Math.round(Number(velocity) || 96), 1, 127);
-    const lengthBeats = Math.max(0, Number(noteLengthBeats) || 0);
-    const gap = Math.max(0, Number(gapBeats) || 0);
+    // Only non-numbers fall back to defaults; 0 is a real value that gets clamped
+    const num = (v, fallback) => (Number.isFinite(Number(v)) ? Number(v) : fallback);
+    const bpm = clamp(num(tempo, 120), 20, 300);
+    const vel = clamp(Math.round(num(velocity, 96)), 1, 127);
+    const lengthBeats = Math.max(0, num(noteLengthBeats, 0));
+    const gap = Math.max(0, num(gapBeats, 0));
 
     // Build track events
     const events = [];
@@ -88,14 +90,14 @@ export function buildMidiFromProgression({
     events.push({
         delta: 0,
         type: 'channel',
-        data: [0xc0 | midiChannel, clamp(Number(program) || 0, 0, 127)]
+        data: [0xc0 | midiChannel, clamp(Math.round(num(program, 0)), 0, 127)]
     });
 
     // Place each chord at its beat (items without a beat are spaced sequentially)
     const placed = progression
         .map((item, i) => ({
             notes: (item.chord || item).notes || [],
-            beat: Number.isFinite(item.beat) ? item.beat : i * (lengthBeats + gap)
+            beat: Number.isFinite(item.beat) && item.beat >= 0 ? item.beat : i * (lengthBeats + gap)
         }))
         .filter(item => item.notes.length > 0)
         .sort((a, b) => a.beat - b.beat);
