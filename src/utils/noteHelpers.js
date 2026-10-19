@@ -124,6 +124,17 @@ export function countNotes(pattern) {
 }
 
 /**
+ * Count distinct swaras (Sa, Re, Ga, Ma, Pa, Dha, Ni) present, for jati classification
+ * @param {number[]} pattern - 12-element pattern
+ * @returns {number} - 1-7
+ */
+export function countSwaras(pattern) {
+    // Variants of one swara (e.g. komal + shuddha Ga from a "Gg" token) count once
+    const SWARA_GROUPS = [[0], [1, 2], [3, 4], [5, 6], [7], [8, 9], [10, 11]];
+    return SWARA_GROUPS.filter(group => group.some(pc => pattern[pc])).length;
+}
+
+/**
  * Get indices of present notes from pattern
  * @param {number[]} pattern - 12-element pattern
  * @returns {number[]} - Array of pitch classes that are present
@@ -208,6 +219,7 @@ export default {
     rotateBinary,
     patternToString,
     countNotes,
+    countSwaras,
     patternToPitchClasses,
     pitchClassesToPattern,
     isSubset,

@@ -11,6 +11,7 @@ import { AVAILABLE_OCTAVES } from '../utils/noteHelpers.js';
 // so concurrent callers share one load
 const sampleCache = new Map();
 const SAMPLE_RETRY_MS = 30000;
+const FAILED_LOAD_RETRY_MS = 5000; // after a load that produced nothing (offline, 404s)
 
 /**
  * Hook to load and play piano samples
@@ -73,6 +74,10 @@ export function usePianoSamples(audioContext, basePath = PIANO_BASE_PATH) {
     const loadSamples = useCallback(async () => {
         if (!audioContext) return false;
         if (completeRef.current) return true;
+        if (lastAttemptRef.current && Object.keys(buffersRef.current).length === 0 &&
+            Date.now() - lastAttemptRef.current < FAILED_LOAD_RETRY_MS) {
+            return false; // don't refetch all samples on every call (e.g. every sequencer beat)
+        }
         if (Object.keys(buffersRef.current).length > 0) {
             // Partially loaded: play what we have, retry the missing files in the background
             if (Date.now() - lastAttemptRef.current > SAMPLE_RETRY_MS) runLoad();

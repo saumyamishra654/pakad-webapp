@@ -14,6 +14,7 @@ import { ChordCard, ChordGrid } from '../components/chords/ChordCard.jsx';
 import { ChordTypeList } from '../components/chords/ChordTypeList.jsx';
 import { PianoKeyboard } from '../components/common/PianoKeyboard.jsx';
 import { TimelineGrid, PlaybackControls } from '../components/rhythm/TimelineGrid.jsx';
+import { EXTENDED_CHORD_TYPES } from '../data/chordTypes.js';
 import { getAvailableChords, getChordsOutsidePattern, countChordsByType, arrangeChordNotes, filterChordsByNote } from '../utils/chordHelpers.js';
 import { getDisplayLabels, patternToPitchClasses, WESTERN_NOTES_SHARP } from '../utils/noteHelpers.js';
 import { arrangeNotesAscending, arrangeNotesDescending } from '../utils/audioHelpers.js';
@@ -54,6 +55,7 @@ export function ChordTool() {
     const [isCarnatic, setIsCarnatic] = useState(false);
     const [selectedRagaName, setSelectedRagaName] = useState('');
     const [selectedTonic, setSelectedTonic] = useState(0); // 0 = C
+    const [noTonic, setNoTonic] = useState(false); // "No Tonic" plays and names as C
 
     // Chord filtering
     const [selectedChordType, setSelectedChordType] = useState('all');
@@ -590,7 +592,11 @@ export function ChordTool() {
                         </label>
                         <select
                             value={selectedRagaName}
-                            onChange={(e) => setSelectedRagaName(e.target.value)}
+                            onChange={(e) => {
+                                setSelectedRagaName(e.target.value);
+                                // Otherwise a ?raga= link keeps blocking auto-selection after "Select…"
+                                if (searchParams.get('raga')) setSearchParams({}, { replace: true });
+                            }}
                             className="w-full p-2 text-xs border border-gray-600 rounded-lg bg-[#334155] text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         >
                             <option value="">Select…</option>
@@ -608,8 +614,13 @@ export function ChordTool() {
                             Tonic:
                         </label>
                         <select
-                            value={selectedTonic}
-                            onChange={(e) => setSelectedTonic(parseInt(e.target.value))}
+                            value={noTonic ? '' : selectedTonic}
+                            onChange={(e) => {
+                                // parseInt('') is NaN, which broke names, playback, MIDI and tanpura
+                                const none = e.target.value === '';
+                                setNoTonic(none);
+                                setSelectedTonic(none ? 0 : parseInt(e.target.value, 10));
+                            }}
                             className="w-25 p-2 text-xs border border-gray-600 rounded-lg bg-[#334155] text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         >
                             <option value="">No Tonic</option>
@@ -1019,7 +1030,12 @@ export function ChordTool() {
                             onSelect={setSelectedChordType}
                             counts={chordData.counts}
                             showExtended={showExtended}
-                            onToggleExtended={setShowExtended}
+                            onToggleExtended={(checked) => {
+                                setShowExtended(checked);
+                                if (!checked && EXTENDED_CHORD_TYPES.some(t => t.id === selectedChordType)) {
+                                    setSelectedChordType('all');
+                                }
+                            }}
                         />
                     </div>
 
@@ -1546,19 +1562,19 @@ export function ChordTool() {
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                                     <label className="flex flex-col gap-1">
                                         <span className="text-gray-400">Tempo</span>
-                                        <input type="number" value={midiTempo} onChange={e => setMidiTempo(parseInt(e.target.value) || 120)} className="px-2 py-1 border border-gray-600 rounded bg-gray-700 text-white" />
+                                        <input type="number" value={midiTempo} onChange={e => setMidiTempo(e.target.value)} onBlur={() => setMidiTempo(v => { const n = parseInt(v); return Number.isFinite(n) ? Math.max(20, Math.min(300, n)) : 120; })} className="px-2 py-1 border border-gray-600 rounded bg-gray-700 text-white" />
                                     </label>
                                     <label className="flex flex-col gap-1">
                                         <span className="text-gray-400">Note Length</span>
-                                        <input type="number" step="0.1" value={midiNoteLengthBeats} onChange={e => setMidiNoteLengthBeats(parseFloat(e.target.value) || 1)} className="px-2 py-1 border border-gray-600 rounded bg-gray-700 text-white" />
+                                        <input type="number" step="0.1" value={midiNoteLengthBeats} onChange={e => setMidiNoteLengthBeats(e.target.value)} onBlur={() => setMidiNoteLengthBeats(v => { const n = parseFloat(v); return Number.isFinite(n) ? Math.max(0.1, Math.min(32, n)) : 3.2; })} className="px-2 py-1 border border-gray-600 rounded bg-gray-700 text-white" />
                                     </label>
                                     <label className="flex flex-col gap-1">
                                         <span className="text-gray-400">Gap</span>
-                                        <input type="number" step="0.1" value={midiGapBeats} onChange={e => setMidiGapBeats(parseFloat(e.target.value) || 0)} className="px-2 py-1 border border-gray-600 rounded bg-gray-700 text-white" />
+                                        <input type="number" step="0.1" value={midiGapBeats} onChange={e => setMidiGapBeats(e.target.value)} onBlur={() => setMidiGapBeats(v => { const n = parseFloat(v); return Number.isFinite(n) ? Math.max(0, Math.min(32, n)) : 0.4; })} className="px-2 py-1 border border-gray-600 rounded bg-gray-700 text-white" />
                                     </label>
                                     <label className="flex flex-col gap-1">
                                         <span className="text-gray-400">Velocity</span>
-                                        <input type="number" min="0" max="127" value={midiVelocity} onChange={e => { const n = parseInt(e.target.value, 10); setMidiVelocity(Number.isNaN(n) ? 96 : n); }} className="px-2 py-1 border border-gray-600 rounded bg-gray-700 text-white" />
+                                        <input type="number" min="1" max="127" value={midiVelocity} onChange={e => setMidiVelocity(e.target.value)} onBlur={() => setMidiVelocity(v => { const n = parseInt(v, 10); return Number.isFinite(n) ? Math.max(1, Math.min(127, n)) : 96; })} className="px-2 py-1 border border-gray-600 rounded bg-gray-700 text-white" />
                                     </label>
                                 </div>
                             </div>
@@ -1591,36 +1607,15 @@ export function ChordTool() {
                                         const noteLabels = chord.notes.map(n => labels[n]).join(' - ');
 
                                         // getPianoKeyPositions logic from original index.html
-                                        const getPianoKeys = () => {
-                                            if (!chord.notes || chord.notes.length === 0) return [];
-                                            const tonicOffset = selectedTonic !== null ? selectedTonic : 0;
-                                            const baseOctave = 4;
-
-                                            // Get the root note (first note in the chord)
-                                            const rootNote = (chord.notes[0] + tonicOffset) % 12;
-
-                                            // Arrange chord notes properly starting from root
-                                            const arrangedNotes = [];
-                                            const rootMidi = baseOctave * 12 + rootNote;
-                                            arrangedNotes.push(rootMidi);
-
-                                            // Add other chord notes in the next octave if they would be lower than previous
-                                            for (let i = 1; i < chord.notes.length; i++) {
-                                                const noteIndex = (chord.notes[i] + tonicOffset) % 12;
-                                                let midiNote = baseOctave * 12 + noteIndex;
-
-                                                // If this note is lower than the previous note, move it to next octave
-                                                if (midiNote <= arrangedNotes[arrangedNotes.length - 1]) {
-                                                    midiNote += 12;
-                                                }
-
-                                                arrangedNotes.push(midiNote);
-                                            }
-
-                                            return arrangedNotes;
-                                        };
+                                        // Same voicing as playback/MIDI; keys here are numbered octave * 12 + pitch class
+                                        const getPianoKeys = () => arrangeChordNotes(chord.notes || [], 4)
+                                            .map(({ midiNote }) => midiNote - 12 + selectedTonic);
 
                                         const pianoKeys = getPianoKeys();
+                                        // Draw enough octaves to fit the voicing (high tonics and 9ths reach octave 6)
+                                        const firstOctave = pianoKeys.length ? Math.floor(Math.min(...pianoKeys) / 12) : 4;
+                                        const lastOctave = pianoKeys.length ? Math.max(firstOctave + 1, Math.floor(Math.max(...pianoKeys) / 12)) : 5;
+                                        const octaveOffsets = Array.from({ length: lastOctave - firstOctave + 1 }, (_, i) => i);
 
                                         return (
                                             <div key={idx} className="p-2 bg-gray-800 rounded border border-gray-600">
@@ -1636,12 +1631,12 @@ export function ChordTool() {
                                                 <div className="piano-wrap" style={{ justifyContent: 'flex-start', padding: '2px' }}>
                                                     <div className="piano" style={{ width: `${24 * 7 * 2}px`, height: '60px', display: 'flex' }}>
                                                         {/* 2 full octaves starting from C4 */}
-                                                        {[0, 1].map((octaveIdx) => (
+                                                        {octaveOffsets.map((octaveIdx) => (
                                                             <div key={octaveIdx} style={{ position: 'relative', display: 'inline-block', height: '60px', width: `${24 * 7}px` }}>
                                                                 {/* White keys */}
                                                                 <div style={{ display: 'flex' }}>
                                                                     {[0, 2, 4, 5, 7, 9, 11].map((pc) => {
-                                                                        const midiNote = (4 + octaveIdx) * 12 + pc;
+                                                                        const midiNote = (firstOctave + octaveIdx) * 12 + pc;
                                                                         const isActive = pianoKeys.includes(midiNote);
                                                                         return (
                                                                             <div
@@ -1678,7 +1673,7 @@ export function ChordTool() {
                                                                 {/* Black keys */}
                                                                 <div style={{ position: 'absolute', top: '0', left: '0', display: 'flex' }}>
                                                                     {[1, 3, 6, 8, 10].map((pc, blackIdx) => {
-                                                                        const midiNote = (4 + octaveIdx) * 12 + pc;
+                                                                        const midiNote = (firstOctave + octaveIdx) * 12 + pc;
                                                                         const isActive = pianoKeys.includes(midiNote);
                                                                         const leftOffset = [18, 42, 90, 114, 138][blackIdx];
                                                                         return (
