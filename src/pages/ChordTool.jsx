@@ -365,8 +365,9 @@ const ChordTool = () => {
             : arrangeNotesAscending(sequence, 3);
         const voiced = transposeVoicing(arranged, rootNote);
 
-        // Start audio first (not awaited); highlights follow on the same 0.5s + 0.1s grid
-        playSequence(voiced, 0.5, 0.1);
+        // Wait for buffers to load so highlights start with the audio (same 0.5s + 0.1s grid)
+        await playSequence(voiced, 0.5, 0.1);
+        if (chalanRunRef.current !== runId) return;
 
         for (const n of voiced) {
             if (chalanRunRef.current !== runId) break;

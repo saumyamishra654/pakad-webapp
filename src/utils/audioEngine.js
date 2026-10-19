@@ -175,7 +175,8 @@ export const playSequence = async (notes, noteDuration = 0.6, gap = 0.1, volume 
         return getNoteFilename(idx, oct, ctx);
     }));
 
-    let currentTime = ctx.currentTime;
+    const startTime = ctx.currentTime;
+    let currentTime = startTime;
 
     for (const result of results) {
         if (result) {
@@ -197,6 +198,8 @@ export const playSequence = async (notes, noteDuration = 0.6, gap = 0.1, volume 
 
         currentTime += (noteDuration + gap);
     }
+
+    return startTime;
 };
 
 export const stopAll = () => {
