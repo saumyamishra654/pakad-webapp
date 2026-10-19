@@ -117,13 +117,15 @@ export function RagaInsights() {
             {filteredResults.murchanna.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">No matches found</div>
             ) : (
-                filteredResults.murchanna.map((group, idx) => {
-                    const isExpanded = expandedItems.has(`murchanna-${idx}`);
+                filteredResults.murchanna.map((group) => {
+                    // Key by raga, not list position, so expansion survives filtering
+                    const itemId = `murchanna-${group.baseRaga.type}-${group.baseRaga.name}`;
+                    const isExpanded = expandedItems.has(itemId);
 
                     return (
-                        <div key={idx} className="bg-white rounded-lg shadow overflow-hidden">
+                        <div key={itemId} className="bg-white rounded-lg shadow overflow-hidden">
                             <button
-                                onClick={() => toggleExpanded(`murchanna-${idx}`)}
+                                onClick={() => toggleExpanded(itemId)}
                                 className="w-full p-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700"
                             >
                                 <div>
@@ -191,13 +193,14 @@ export function RagaInsights() {
             {filteredResults.subsets.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">No matches found</div>
             ) : (
-                filteredResults.subsets.map((rel, idx) => {
-                    const isExpanded = expandedItems.has(`subset-${idx}`);
+                filteredResults.subsets.map((rel) => {
+                    const itemId = `subset-${rel.subset.type}-${rel.subset.name}`;
+                    const isExpanded = expandedItems.has(itemId);
 
                     return (
-                        <div key={idx} className="bg-white rounded-lg shadow overflow-hidden">
+                        <div key={itemId} className="bg-white rounded-lg shadow overflow-hidden">
                             <button
-                                onClick={() => toggleExpanded(`subset-${idx}`)}
+                                onClick={() => toggleExpanded(itemId)}
                                 className="w-full p-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700"
                             >
                                 <div>

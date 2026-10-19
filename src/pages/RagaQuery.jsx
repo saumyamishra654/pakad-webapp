@@ -9,7 +9,7 @@ import { HINDUSTANI_RAGAS } from '../data/ragaData.js';
 import { MELAKARTA_72 } from '../data/melakartaData.js';
 import { NotePatternBadges } from '../components/common/NoteBadge.jsx';
 import { PianoKeyboard } from '../components/common/PianoKeyboard.jsx';
-import { getDisplayLabels, countNotes, hammingDistance, patternToPitchClasses, pitchClassesToPattern } from '../utils/noteHelpers.js';
+import { getDisplayLabels, countNotes, countSwaras, hammingDistance, patternToPitchClasses, pitchClassesToPattern } from '../utils/noteHelpers.js';
 import { useAudio } from '../hooks/useAudio.js';
 import { usePianoSamples } from '../hooks/usePianoSamples.js';
 import { arrangeNotesAscending, arrangeNotesDescending } from '../utils/audioHelpers.js';
@@ -125,7 +125,7 @@ export function RagaQuery() {
         // Scale type filter
         if (scaleType !== 'all') {
             const targetCount = parseInt(scaleType);
-            filtered = filtered.filter(r => countNotes(r.notePattern) === targetCount);
+            filtered = filtered.filter(r => countSwaras(r.notePattern) === targetCount);
         }
 
         // Note filtering
@@ -277,8 +277,9 @@ export function RagaQuery() {
 
     // Helper to get formatted Jati string
     const getJatiString = (raga) => {
-        const aarohCount = countNotes(raga.aarohPattern || raga.notePattern);
-        const avrohCount = countNotes(raga.avrohPattern || raga.notePattern);
+        // Jati counts swaras, so komal + shuddha of one swara (e.g. "Gg") counts once
+        const aarohCount = countSwaras(raga.aarohPattern || raga.notePattern);
+        const avrohCount = countSwaras(raga.avrohPattern || raga.notePattern);
         const aarohLabel = getJatiLabel(aarohCount);
         const avrohLabel = getJatiLabel(avrohCount);
         if (!aarohLabel || !avrohLabel) return '';
@@ -526,7 +527,7 @@ export function RagaQuery() {
                                                 <strong className="text-gray-300">Aaroh:</strong> {getNoteSequence(raga.aarohPattern || raga.notePattern, true)} Sa
                                             </div>
                                             <div className="text-xs text-gray-400">
-                                                <strong className="text-gray-300">Avroh:</strong> {getNoteSequence(raga.avrohPattern || raga.notePattern, false)} Sa
+                                                <strong className="text-gray-300">Avroh:</strong> Sa {getNoteSequence(raga.avrohPattern || raga.notePattern, false)}
                                             </div>
                                         </div>
                                     </div>
