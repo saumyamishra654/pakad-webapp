@@ -151,8 +151,8 @@ export const loadMelakartaRagas = async () => {
             pattern: pattern,
             aarohaPattern: pattern,
             avrohaPattern: pattern,
-            aarohaChalan: sequence,
-            avrohaChalan: [...sequence].reverse(),
+            aarohaChalan: [...sequence, 0],
+            avrohaChalan: [0, ...[...sequence].reverse()],
             aaroha: swaras,
             avroha: swaras,
             isMelakarta: true
