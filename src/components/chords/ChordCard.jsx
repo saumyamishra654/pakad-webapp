@@ -18,6 +18,8 @@ export function ChordCard({
     isExtended = false,
     isOutside = false,
     ragaPattern = null,
+    onSelect,
+    isSelected = false,
     className = ''
 }) {
     if (!chord) return null;
@@ -50,7 +52,7 @@ export function ChordCard({
                 : isOutside
                     ? 'bg-red-900/30 border-red-700'
                     : 'bg-gray-800 border-gray-600'
-                } ${className}`}
+                } ${isSelected ? 'ring-2 ring-yellow-300' : ''} ${className}`}
             draggable
             onDragStart={(e) => {
                 e.dataTransfer.setData('application/json', JSON.stringify(chord));
@@ -89,6 +91,18 @@ export function ChordCard({
                 >
                     ♫ Melody
                 </button>
+                {onSelect && (
+                    // Tap-to-place: drag and drop doesn't work on touch screens
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onSelect(isSelected ? null : chord); }}
+                        className={`px-2 py-1 text-xs rounded transition-colors ${isSelected
+                            ? 'bg-yellow-300 text-black'
+                            : 'bg-gray-600 text-white hover:bg-gray-500'}`}
+                        title="Select, then tap a beat in the progression to place it"
+                    >
+                        {isSelected ? '✕ Cancel' : '+ Add'}
+                    </button>
+                )}
             </div>
         </div>
     );

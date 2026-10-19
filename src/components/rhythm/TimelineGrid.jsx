@@ -18,6 +18,8 @@ export function TimelineGrid({
     currentBeat = -1,
     breakpoints = '',
     isCarnatic = false,
+    onBeatClick, // tap-to-place: called with the beat index when a chord is armed
+    isPlacing = false,
     className = ''
 }) {
     const [dragOverBeat, setDragOverBeat] = useState(null);
@@ -89,6 +91,7 @@ export function TimelineGrid({
                                             }
                                             ${isDragOver ? 'border-dashed border-blue-500 bg-blue-50' : ''}
                                             ${isBreakpoint ? 'border-r-4 border-r-indigo-500' : ''}
+                                            ${isPlacing ? 'cursor-pointer ring-1 ring-yellow-300' : ''}
                                         `}
                                         style={{
                                             minHeight: '70px',
@@ -100,6 +103,7 @@ export function TimelineGrid({
                                         }}
                                         onDragLeave={() => setDragOverBeat(null)}
                                         onDrop={(e) => handleDrop(e, beatIndex)}
+                                        onClick={() => { if (isPlacing && onBeatClick) onBeatClick(beatIndex); }}
                                     >
                                         {/* Beat number at top */}
                                         <div className="text-xs text-gray-500 font-semibold mb-1">
@@ -136,7 +140,7 @@ export function TimelineGrid({
                                                                 e.stopPropagation();
                                                                 if (onChordRemove) onChordRemove(beatIndex, chord.id);
                                                             }}
-                                                            className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-xs opacity-0 group-hover:opacity-100 flex items-center justify-center font-bold transition-opacity shadow-md z-10"
+                                                            className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-xs opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 flex items-center justify-center font-bold transition-opacity shadow-md z-10"
                                                             title="Remove chord"
                                                         >
                                                             ×
