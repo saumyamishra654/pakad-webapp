@@ -39,47 +39,48 @@ const parseSequenceAndPattern = (s) => {
 };
 
 export const loadHindustaniRagas = async () => {
-    try {
-        const response = await fetch('/aarohavroha.csv');
-        const text = await response.text();
-        const data = parseCSV(text);
+    const response = await fetch('/aarohavroha.csv');
+    if (!response.ok) throw new Error(`Failed to load aarohavroha.csv (HTTP ${response.status})`);
+    const text = await response.text();
+    const data = parseCSV(text);
+    // Vite's SPA fallback serves index.html with 200 for missing files, so validate the header
+    const keys = Object.keys(data[0] || {});
+    const hasName = keys.includes('RAGATABLE') || keys.includes('Name') || keys.includes('name');
+    const hasAroha = keys.includes('Aroha') || keys.includes('aroha');
+    if (!hasName || !hasAroha) throw new Error('aarohavroha.csv is missing or malformed (expected RAGATABLE/Name and Aroha columns)');
 
-        // Transform data to match application structure
-        return data.map((row, index) => {
-            const aroha = row.Aroha || row.aroha || '';
-            const avroha = row.Avroh || row.avroha || row.Avroha || '';
-            const arohaChalanStr = row.ArohaChalan || row.arohachalan || '';
-            const avrohaChalanStr = row.AvrohChalan || row.avrohchalan || '';
-            const name = row.RAGATABLE || row.Name || row.name || `Raga ${index}`;
+    // Transform data to match application structure
+    return data.map((row, index) => {
+        const aroha = row.Aroha || row.aroha || '';
+        const avroha = row.Avroh || row.avroha || row.Avroha || '';
+        const arohaChalanStr = row.ArohaChalan || row.arohachalan || '';
+        const avrohaChalanStr = row.AvrohChalan || row.avrohchalan || '';
+        const name = row.RAGATABLE || row.Name || row.name || `Raga ${index}`;
 
-            const arohaData = parseSequenceAndPattern(aroha);
-            const avrohaData = parseSequenceAndPattern(avroha);
-            const arohaChalanData = arohaChalanStr ? parseSequenceAndPattern(arohaChalanStr) : arohaData;
-            const avrohaChalanData = avrohaChalanStr ? parseSequenceAndPattern(avrohaChalanStr) : avrohaData;
+        const arohaData = parseSequenceAndPattern(aroha);
+        const avrohaData = parseSequenceAndPattern(avroha);
+        const arohaChalanData = arohaChalanStr ? parseSequenceAndPattern(arohaChalanStr) : arohaData;
+        const avrohaChalanData = avrohaChalanStr ? parseSequenceAndPattern(avrohaChalanStr) : avrohaData;
 
-            const combinedPattern = arohaData.pattern.map((v, i) => (v || avrohaData.pattern[i]) ? 1 : 0);
+        const combinedPattern = arohaData.pattern.map((v, i) => (v || avrohaData.pattern[i]) ? 1 : 0);
 
-            return {
-                id: `raga-${index}`,
-                name: name,
-                thaat: row.Thaat || row.thaat || '',
-                time: row.Time || row.time || '',
-                vadi: row.Vadi || row.vadi || '',
-                samvadi: row.Samvadi || row.samvadi || '',
-                pattern: combinedPattern,
-                aarohaPattern: arohaData.pattern,
-                avrohaPattern: avrohaData.pattern,
-                aarohaChalan: arohaChalanData.sequence,
-                avrohaChalan: avrohaChalanData.sequence,
-                aaroha: aroha,
-                avroha: avroha,
-                info: row.Info || row.info || ''
-            };
-        });
-    } catch (error) {
-        console.error("Error loading Hindustani ragas:", error);
-        return [];
-    }
+        return {
+            id: `raga-${index}`,
+            name: name,
+            thaat: row.Thaat || row.thaat || '',
+            time: row.Time || row.time || '',
+            vadi: row.Vadi || row.vadi || '',
+            samvadi: row.Samvadi || row.samvadi || '',
+            pattern: combinedPattern,
+            aarohaPattern: arohaData.pattern,
+            avrohaPattern: avrohaData.pattern,
+            aarohaChalan: arohaChalanData.sequence,
+            avrohaChalan: avrohaChalanData.sequence,
+            aaroha: aroha,
+            avroha: avroha,
+            info: row.Info || row.info || ''
+        };
+    });
 };
 
 // Helper to parse Carnatic swaras into a 12-note pattern
@@ -129,36 +130,34 @@ const parseCarnaticSwaras = (swaras) => {
 };
 
 export const loadMelakartaRagas = async () => {
-    try {
-        const response = await fetch('/melakarta_72.csv');
-        const text = await response.text();
-        const data = parseCSV(text);
+    const response = await fetch('/melakarta_72.csv');
+    if (!response.ok) throw new Error(`Failed to load melakarta_72.csv (HTTP ${response.status})`);
+    const text = await response.text();
+    const data = parseCSV(text);
+    const keys = Object.keys(data[0] || {});
+    if (!keys.includes('swaras')) throw new Error('melakarta_72.csv is missing or malformed (expected a swaras column)');
 
-        return data.map(row => {
-            const name = row.name || row.Name || `Melakarta ${row.number}`;
-            const swaras = row.swaras || '';
-            const pattern = parseCarnaticSwaras(swaras);
-            const sequence = [];
-            pattern.forEach((v, i) => { if (v) sequence.push(i); });
+    return data.map(row => {
+        const name = row.name || row.Name || `Melakarta ${row.number}`;
+        const swaras = row.swaras || '';
+        const pattern = parseCarnaticSwaras(swaras);
+        const sequence = [];
+        pattern.forEach((v, i) => { if (v) sequence.push(i); });
 
-            // Melakarta ragas usually have same aroha/avroha
-            return {
-                id: `melakarta-${row.number}`,
-                name: `${row.number}. ${name}`,
-                pattern: pattern,
-                aarohaPattern: pattern,
-                avrohaPattern: pattern,
-                aarohaChalan: sequence,
-                avrohaChalan: [...sequence].reverse(),
-                aaroha: swaras,
-                avroha: swaras,
-                isMelakarta: true
-            };
-        });
-    } catch (error) {
-        console.error("Error loading Melakarta ragas:", error);
-        return [];
-    }
+        // Melakarta ragas usually have same aroha/avroha
+        return {
+            id: `melakarta-${row.number}`,
+            name: `${row.number}. ${name}`,
+            pattern: pattern,
+            aarohaPattern: pattern,
+            avrohaPattern: pattern,
+            aarohaChalan: sequence,
+            avrohaChalan: [...sequence].reverse(),
+            aaroha: swaras,
+            avroha: swaras,
+            isMelakarta: true
+        };
+    });
 };
 
 export const loadAllRagas = async () => {
