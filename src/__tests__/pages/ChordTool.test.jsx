@@ -218,3 +218,19 @@ describe('ChordTool harmonise', () => {
         saved[0].chords.forEach(c => expect(c.chord.notes).toBeDefined());
     });
 });
+
+describe('ChordTool next-chord suggestions', () => {
+    it('hides the strip when no chords are placed', async () => {
+        await renderChordTool();
+        expect(screen.queryByText(/Next for beat/)).toBeNull();
+    });
+
+    it('suggests for the first empty beat and places the clicked suggestion there', async () => {
+        await renderChordTool({ chords: [{ id: 1, chord: C_MAJOR, beat: 0, duration: 1 }] });
+        expect(screen.getByText('Next for beat 2')).toBeTruthy();
+        const strip = screen.getByText('Next for beat 2').parentElement;
+        await click(strip.querySelector('button'));
+        const saved = JSON.parse(localStorage.getItem('pakad_progressions'));
+        expect(saved[0].chords.some(c => c.beat === 1)).toBe(true);
+    });
+});

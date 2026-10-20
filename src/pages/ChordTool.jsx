@@ -17,9 +17,10 @@ import { PianoKeyboard } from '../components/common/PianoKeyboard.jsx';
 import { TimelineGrid } from '../components/rhythm/TimelineGrid.jsx';
 import { PianoChordsView } from '../components/rhythm/PianoChordsView.jsx';
 import { MidiSettingsPanel } from '../components/rhythm/MidiSettingsPanel.jsx';
+import { ChordSuggestions } from '../components/rhythm/ChordSuggestions.jsx';
 import { ProgressionTemplates } from '../components/rhythm/ProgressionTemplates.jsx';
 import { layoutSteps } from '../utils/progressionHelpers.js';
-import { harmonizeLine } from '../utils/harmonyHelpers.js';
+import { harmonizeLine, suggestNextChords } from '../utils/harmonyHelpers.js';
 import { SequencerControls } from '../components/rhythm/SequencerControls.jsx';
 import { EXTENDED_CHORD_TYPES } from '../data/chordTypes.js';
 import { getAvailableChords, getChordsOutsidePattern, countChordsByType, arrangeChordNotes, filterChordsByNote } from '../utils/chordHelpers.js';
@@ -469,6 +470,23 @@ export function ChordTool() {
         handleChordPlace(beatIndex, pendingChord);
         setPendingChord(null);
     }, [pendingChord, handleChordPlace]);
+
+    // Next-chord suggestions: first empty beat after the last placed chord
+    const { suggestionTarget, suggestions } = useMemo(() => {
+        const placed = activeProgression.chords;
+        if (placed.length === 0) return { suggestionTarget: null, suggestions: [] };
+        const last = placed.reduce((a, b) => (b.beat >= a.beat ? b : a));
+        const taken = new Set();
+        placed.forEach(c => { for (let i = 0; i < (c.duration || 1); i++) taken.add(c.beat + i); });
+        let target = last.beat + 1;
+        while (target < beats && taken.has(target)) target++;
+        if (target >= beats) return { suggestionTarget: null, suggestions: [] };
+        const candidates = getAvailableChords(getCurrentPatterns().all, 'all', showExtended);
+        return {
+            suggestionTarget: target,
+            suggestions: suggestNextChords(last.chord, candidates, { towardTonic: target === beats - 1 })
+        };
+    }, [activeProgression.chords, beats, getCurrentPatterns, showExtended]);
 
     // Remove chord from progression
     const handleChordRemove = useCallback((beatIndex, chordId) => {
@@ -1320,6 +1338,16 @@ export function ChordTool() {
                             isPlacing={!!pendingChord}
                             onBeatClick={handleBeatClick}
                         />
+
+                        {suggestionTarget !== null && (
+                            <ChordSuggestions
+                                suggestions={suggestions}
+                                targetBeat={suggestionTarget}
+                                tonic={selectedTonic}
+                                onPlace={(chord) => handleChordPlace(suggestionTarget, chord)}
+                                onPreview={(chord) => handlePlayChord(chord, true)}
+                            />
+                        )}
 
                         <div className="mt-3 text-xs text-gray-500">
                             Drag chords onto the timeline (on a touch screen, tap a chord and then a beat). Hover over a placed chord to remove it.

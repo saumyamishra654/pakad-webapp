@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { harmonizeLine, commonTones, rootMotionScore } from '../../utils/harmonyHelpers.js';
+import { harmonizeLine, commonTones, rootMotionScore, suggestNextChords } from '../../utils/harmonyHelpers.js';
 import { buildChord } from '../../utils/progressionHelpers.js';
 import { getAvailableChords } from '../../utils/chordHelpers.js';
 import { pitchClassesToPattern } from '../../utils/noteHelpers.js';
@@ -39,5 +39,18 @@ describe('harmonyHelpers', () => {
         expect(rootMotionScore(0, 2)).toBe(2); // step
         expect(rootMotionScore(0, 4)).toBe(1); // third
         expect(rootMotionScore(0, 0)).toBe(-5); // repeat
+    });
+
+    it('ranks fifth/fourth motion and shared tones above repeats', () => {
+        const out = suggestNextChords(buildChord(0, 'major'), bilawalChords);
+        expect(out.length).toBeLessThanOrEqual(6);
+        expect(out.some(s => s.chord.root === 0 && s.chord.type === 'major')).toBe(false);
+        expect(out[0].score).toBeGreaterThanOrEqual(out[out.length - 1].score);
+        expect(out[0].reasons.length).toBeGreaterThan(0);
+    });
+    it('pulls toward the Sa chord at the end of a cycle', () => {
+        const out = suggestNextChords(buildChord(7, 'major'), bilawalChords, { towardTonic: true });
+        expect(out[0].chord.root).toBe(0);
+        expect(out[0].reasons).toContain('resolves to Sa');
     });
 });

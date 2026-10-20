@@ -69,3 +69,27 @@ export function harmonizeLine(melody, candidates) {
     }
     return result;
 }
+
+/**
+ * Rank candidate chords as the next chord after `prev`.
+ * @returns {Array<{chord: Object, score: number, reasons: string[]}>}
+ */
+export function suggestNextChords(prev, candidates, { limit = 6, towardTonic = false } = {}) {
+    return candidates
+        .filter(ch => !(ch.root === prev.root && ch.type === prev.type))
+        .map(chord => {
+            const n = commonTones(prev, chord);
+            const d = (chord.root - prev.root + 12) % 12;
+            const tonic = towardTonic && chord.root === 0 && (chord.type === 'major' || chord.type === 'minor');
+            const reasons = [];
+            if (n > 0) reasons.push(`shares ${n} note${n === 1 ? '' : 's'}`);
+            if (d === 5) reasons.push('root up a 4th');
+            else if (d === 7) reasons.push('root down a 4th');
+            else if (d === 1 || d === 2 || d === 10 || d === 11) reasons.push('step');
+            else reasons.push('third');
+            if (tonic) reasons.push('resolves to Sa');
+            return { chord, score: 2 * n + rootMotionScore(prev.root, chord.root) + (tonic ? 4 : 0), reasons };
+        })
+        .sort((a, b) => b.score - a.score)
+        .slice(0, limit);
+}
