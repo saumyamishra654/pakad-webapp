@@ -231,10 +231,10 @@ export function RagaQuery() {
                             disabled={i === 0} // Can't toggle Sa
                             className={`
                 px-2 py-3 rounded-lg text-sm font-medium transition-all flex items-center justify-center
-                ${i === 0 ? 'bg-[#0f172a] text-gray-600 cursor-not-allowed hidden' :
+                ${i === 0 ? 'bg-gray-900 text-gray-600 cursor-not-allowed hidden' :
                                     isExcluded ? 'bg-red-900/50 text-red-200 border border-red-800' :
                                         isSelected ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' :
-                                            'bg-[#1e293b] text-gray-300 hover:bg-[#334155] border border-gray-700/50 hover:border-gray-600'
+                                            'bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700/50 hover:border-gray-600'
                                 }
               `}
                         >
@@ -342,7 +342,7 @@ export function RagaQuery() {
 
                 {/* Filters */}
                 {/* Filters */}
-                <div className="bg-[#071126] rounded-xl shadow-lg p-6 mb-8">
+                <div className="bg-gray-900 rounded-xl shadow-lg p-6 mb-8">
                     <div className="flex flex-col lg:flex-row gap-8">
                         {/* Left Column: Inputs & Toggles */}
                         <div className="lg:w-1/3 space-y-5">
@@ -356,7 +356,7 @@ export function RagaQuery() {
                                     value={searchQuery}
                                     onChange={e => setSearchQuery(e.target.value)}
                                     placeholder="Enter raga name..."
-                                    className="w-full px-4 py-2.5 rounded-lg bg-[#0f172a] border border-gray-800 text-white placeholder-gray-600 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                    className="w-full px-4 py-2.5 rounded-lg bg-gray-900 border border-gray-800 text-white placeholder-gray-600 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                                 />
                             </div>
 
@@ -368,7 +368,7 @@ export function RagaQuery() {
                                 <select
                                     value={scaleType}
                                     onChange={e => setScaleType(e.target.value)}
-                                    className="w-full px-4 py-2.5 rounded-lg bg-[#0f172a] border border-gray-800 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                    className="w-full px-4 py-2.5 rounded-lg bg-gray-900 border border-gray-800 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                                 >
                                     <option value="all">Any Scale Type</option>
                                     <option value="5">Audav (5 notes)</option>
@@ -385,7 +385,7 @@ export function RagaQuery() {
                                 <select
                                     value={searchMode}
                                     onChange={e => setSearchMode(e.target.value)}
-                                    className="w-full px-4 py-2.5 rounded-lg bg-[#0f172a] border border-gray-800 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                    className="w-full px-4 py-2.5 rounded-lg bg-gray-900 border border-gray-800 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                                 >
                                     <option value="contains">Contains selected notes</option>
                                     <option value="exact">Exact match</option>
@@ -422,7 +422,7 @@ export function RagaQuery() {
 
                         {/* Right Column: Note Selector */}
                         <div className="lg:w-2/3">
-                            <div className="bg-[#0b1226] rounded-xl p-5 border border-gray-800/50 h-full">
+                            <div className="bg-gray-900 rounded-xl p-5 border border-gray-800/50 h-full">
                                 <h3 className="text-sm font-medium text-gray-400 mb-4">Select Notes (Swaras):</h3>
                                 <p className="text-xs text-gray-500 mb-4">Sa is always included. Click once to include, twice to exclude.</p>
 
@@ -464,7 +464,7 @@ export function RagaQuery() {
                 </div>
 
                 {/* Results Section */}
-                <div className="bg-[#071126] rounded-xl shadow-lg p-6 min-h-[500px]">
+                <div className="bg-gray-900 rounded-xl shadow-lg p-6 min-h-[500px]">
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="text-lg font-semibold text-white">
                             Results ({filteredResults.length})
@@ -480,11 +480,11 @@ export function RagaQuery() {
                             {filteredResults.map(raga => (
                                 <div
                                     key={raga.name}
-                                    className="flex items-center justify-between p-4 bg-[#071126] border border-[#1f2937] rounded-lg hover:bg-[#0b1226] transition-colors"
+                                    className="flex items-center justify-between p-4 bg-gray-900 border border-gray-700 rounded-lg hover:bg-gray-800 transition-colors"
                                 >
                                     <div className="flex-1">
                                         <div className="flex items-center gap-3">
-                                            <span className="font-semibold text-[#e5e7eb]">
+                                            <span className="font-semibold text-gray-100">
                                                 {raga.name}
                                             </span>
                                             {isCarnatic && raga.number && (

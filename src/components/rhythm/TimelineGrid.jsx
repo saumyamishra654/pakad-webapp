@@ -62,7 +62,7 @@ export function TimelineGrid({
     const rows = beats <= 10 ? 1 : 2;
 
     return (
-        <div className={`border-2 border-gray-300 rounded-lg p-4 bg-gray-50 ${className}`}>
+        <div className={`rounded-lg border border-gray-800 bg-gray-950/60 p-3 sm:p-4 ${className}`}>
             <div className="space-y-2">
                 {Array.from({ length: rows }).map((_, rowIndex) => {
                     const startBeat = rowIndex * beatsPerRow;
@@ -81,17 +81,18 @@ export function TimelineGrid({
                                 return (
                                     <div
                                         key={beatIndex}
+                                        data-beat={beatIndex}
                                         className={`
-                                            border-2 rounded p-1 transition-all flex-1 min-w-0 relative group
+                                            border rounded-md p-1 transition-colors flex-1 min-w-0 relative group
                                             ${isPlaying
-                                                ? 'bg-yellow-200 border-yellow-400'
+                                                ? 'bg-blue-500/15 border-blue-500'
                                                 : isFirstBeat
-                                                    ? 'bg-blue-50 border-blue-300'
-                                                    : 'bg-white border-gray-300'
+                                                    ? 'bg-gray-900 border-gray-600'
+                                                    : 'bg-gray-900 border-gray-800'
                                             }
-                                            ${isDragOver ? 'border-dashed border-blue-500 bg-blue-50' : ''}
-                                            ${isBreakpoint ? 'border-r-4 border-r-indigo-500' : ''}
-                                            ${isPlacing ? 'cursor-pointer ring-1 ring-yellow-300' : ''}
+                                            ${isDragOver ? 'border-dashed !border-blue-500 !bg-blue-500/10' : ''}
+                                            ${isBreakpoint ? 'border-r-2 border-r-gray-500' : ''}
+                                            ${isPlacing ? 'cursor-pointer hover:!border-blue-500' : ''}
                                         `}
                                         style={{
                                             minHeight: '70px',
@@ -106,7 +107,7 @@ export function TimelineGrid({
                                         onClick={() => { if (isPlacing && onBeatClick) onBeatClick(beatIndex); }}
                                     >
                                         {/* Beat number at top */}
-                                        <div className="text-xs text-gray-500 font-semibold mb-1">
+                                        <div className="text-[11px] text-gray-500 font-medium mb-1 tabular-nums">
                                             {beatIndex + 1}
                                         </div>
 
@@ -121,7 +122,7 @@ export function TimelineGrid({
 
                                                 return (
                                                     <div
-                                                        className="bg-white border rounded px-1 py-1 text-xs relative group shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+                                                        className="bg-gray-800 border border-gray-700 rounded px-1.5 py-1 text-xs relative group"
                                                         style={{ borderColor: bgColor }}
                                                         title="Click remove button to delete"
                                                     >
@@ -130,7 +131,7 @@ export function TimelineGrid({
                                                                 className="w-2 h-2 rounded-full flex-shrink-0"
                                                                 style={{ backgroundColor: bgColor }}
                                                             />
-                                                            <span className="font-medium text-gray-800 truncate text-xs">
+                                                            <span className="font-medium text-gray-100 truncate text-xs">
                                                                 {westernName || `${rootLabel} ${typeName}`}
                                                             </span>
                                                         </div>
@@ -140,7 +141,7 @@ export function TimelineGrid({
                                                                 e.stopPropagation();
                                                                 if (onChordRemove) onChordRemove(beatIndex, chord.id);
                                                             }}
-                                                            className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-xs opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 flex items-center justify-center font-bold transition-opacity shadow-md z-10"
+                                                            className="absolute -top-1 -right-1 w-4 h-4 bg-gray-600 hover:bg-red-500 text-white rounded-full text-xs opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 flex items-center justify-center font-bold transition-opacity shadow-md z-10"
                                                             title="Remove chord"
                                                         >
                                                             <svg viewBox="0 0 10 10" className="w-2 h-2" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
@@ -153,7 +154,7 @@ export function TimelineGrid({
 
                                             {/* Empty state - plus icon */}
                                             {!chord && (
-                                                <div className="text-gray-300 text-lg text-center">+</div>
+                                                <div className="text-gray-600 text-lg text-center">+</div>
                                             )}
                                         </div>
                                     </div>
@@ -164,15 +165,12 @@ export function TimelineGrid({
                 })}
             </div>
 
-            {/* Legend */}
-            <div className="flex items-center gap-4 mt-3 text-xs text-gray-500">
-                <span>Drag chords to beats</span>
-                {breakpoints && (
-                    <span className="px-2 py-0.5 bg-gray-100 rounded">
-                        Pattern: {breakpoints}
-                    </span>
-                )}
-            </div>
+            {/* Beat grouping */}
+            {breakpoints && (
+                <div className="mt-3 text-xs text-gray-500">
+                    Grouping: <span className="text-gray-400 tabular-nums">{breakpoints}</span>
+                </div>
+            )}
         </div>
     );
 }

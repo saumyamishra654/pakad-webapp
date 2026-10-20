@@ -36,8 +36,10 @@ export function RagaInsights() {
 
     // Filters
     const [searchQuery, setSearchQuery] = useState('');
-    const [subsetQuery, setSubsetQuery] = useState('');     // Subsets tab: the smaller raga
-    const [supersetQuery, setSupersetQuery] = useState(''); // Subsets tab: the larger raga(s)
+    // Subsets tab: "subsets of X" lists the smaller ragas contained in X; "supersets of X" lists
+    // the larger ragas that contain X
+    const [subsetsOfQuery, setSubsetsOfQuery] = useState('');
+    const [supersetsOfQuery, setSupersetsOfQuery] = useState('');
     const [systemFilter, setSystemFilter] = useState('all');
     const [scaleTypeFilter, setScaleTypeFilter] = useState('all');
     const [showOnlyMatches, setShowOnlyMatches] = useState(false);
@@ -54,13 +56,13 @@ export function RagaInsights() {
             murchanna: filterAnalysisResults(murchannaGroups, filters),
             // Subsets has its own subset/superset search bars instead of the general one
             subsets: filterAnalysisResults(subsetRelations, { ...filters, searchQuery: '' })
-                .filter(rel => !subsetQuery.trim() || matchesName(rel.subset, subsetQuery))
-                .map(rel => (supersetQuery.trim()
-                    ? { ...rel, supersets: rel.supersets.filter(s => matchesName(s, supersetQuery)) }
+                .filter(rel => !supersetsOfQuery.trim() || matchesName(rel.subset, supersetsOfQuery))
+                .map(rel => (subsetsOfQuery.trim()
+                    ? { ...rel, supersets: rel.supersets.filter(s => matchesName(s, subsetsOfQuery)) }
                     : rel))
                 .filter(rel => rel.supersets.length > 0)
         };
-    }, [sameNotesGroups, murchannaGroups, subsetRelations, searchQuery, subsetQuery, supersetQuery, systemFilter, scaleTypeFilter, showOnlyMatches]);
+    }, [sameNotesGroups, murchannaGroups, subsetRelations, searchQuery, subsetsOfQuery, supersetsOfQuery, systemFilter, scaleTypeFilter, showOnlyMatches]);
 
     const toggleExpanded = (id) => {
         setExpandedItems(prev => {
@@ -76,8 +78,8 @@ export function RagaInsights() {
 
     const clearFilters = () => {
         setSearchQuery('');
-        setSubsetQuery('');
-        setSupersetQuery('');
+        setSubsetsOfQuery('');
+        setSupersetsOfQuery('');
         setSystemFilter('all');
         setScaleTypeFilter('all');
         setShowOnlyMatches(false);
@@ -90,7 +92,7 @@ export function RagaInsights() {
                 <div className="text-center py-8 text-gray-500">No matches found</div>
             ) : (
                 filteredResults.sameNotes.map((group, idx) => (
-                    <div key={idx} className="bg-white rounded-lg shadow p-4">
+                    <div key={idx} className="rounded-xl border border-gray-800 bg-gray-900 p-4">
                         <div className="flex items-start justify-between">
                             <div>
                                 <div className="flex flex-wrap gap-2 mb-2">
@@ -130,10 +132,10 @@ export function RagaInsights() {
                     const isExpanded = expandedItems.has(itemId);
 
                     return (
-                        <div key={itemId} className="bg-white rounded-lg shadow overflow-hidden">
+                        <div key={itemId} className="rounded-xl border border-gray-800 bg-gray-900 overflow-hidden">
                             <button
                                 onClick={() => toggleExpanded(itemId)}
-                                className="w-full p-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700"
+                                className="w-full p-4 text-left flex items-center justify-between gap-3 hover:bg-gray-800/60 transition-colors"
                             >
                                 <div>
                                     <span className="font-semibold text-gray-800 dark:text-white">
@@ -162,10 +164,10 @@ export function RagaInsights() {
                             </button>
 
                             {isExpanded && (
-                                <div className="border-t border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-900/50">
+                                <div className="border-t border-gray-800 p-4 bg-gray-950/50">
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                                         {group.murchannas.map((m, i) => (
-                                            <div key={i} className="bg-white dark:bg-gray-800 p-3 rounded border dark:border-gray-700">
+                                            <div key={i} className="bg-gray-900 p-3 rounded-md border border-gray-800">
                                                 <div className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
                                                     +{m.rotation} semitones
                                                 </div>
@@ -202,13 +204,14 @@ export function RagaInsights() {
             ) : (
                 filteredResults.subsets.map((rel) => {
                     const itemId = `subset-${rel.subset.type}-${rel.subset.name}`;
-                    const isExpanded = expandedItems.has(itemId);
+                    // When searching supersets of a raga, the answer is the expanded list, so show it
+                    const isExpanded = expandedItems.has(itemId) || !!supersetsOfQuery.trim();
 
                     return (
-                        <div key={itemId} className="bg-white rounded-lg shadow overflow-hidden">
+                        <div key={itemId} className="rounded-xl border border-gray-800 bg-gray-900 overflow-hidden">
                             <button
                                 onClick={() => toggleExpanded(itemId)}
-                                className="w-full p-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700"
+                                className="w-full p-4 text-left flex items-center justify-between gap-3 hover:bg-gray-800/60 transition-colors"
                             >
                                 <div>
                                     <span className="font-semibold text-gray-800 dark:text-white">
@@ -237,13 +240,13 @@ export function RagaInsights() {
                             </button>
 
                             {isExpanded && (
-                                <div className="border-t border-gray-200 dark:border-gray-700 p-4 bg-orange-50 dark:bg-orange-900/20">
-                                    <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-3">
+                                <div className="border-t border-gray-800 p-4 bg-gray-950/50">
+                                    <h4 className="text-xs font-medium uppercase tracking-wide text-gray-400 mb-3">
                                         Found in these larger ragas:
                                     </h4>
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                                         {rel.supersets.slice(0, 12).map((superset, i) => (
-                                            <div key={i} className="bg-white dark:bg-gray-800 p-3 rounded border dark:border-gray-700">
+                                            <div key={i} className="bg-gray-900 p-3 rounded-md border border-gray-800">
                                                 <div className="font-medium text-gray-800 dark:text-gray-200">
                                                     {superset.name}
                                                 </div>
@@ -268,79 +271,70 @@ export function RagaInsights() {
     );
 
     return (
-        <div className="max-w-6xl mx-auto px-4 py-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
             {/* Header */}
-            <div className="text-center mb-8">
-                <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-4">Raga Insights</h1>
+            <div className="mb-6">
+                <h1 className="text-3xl sm:text-4xl font-bold text-gray-100">Raga Insights</h1>
+                <p className="mt-1 text-gray-400">Relationships between ragas: shared notes, rotations and subsets</p>
 
                 {/* Stats */}
-                <div className="flex items-center justify-center gap-6">
-                    <div className="text-center">
-                        <div className="text-2xl font-bold text-blue-600">{HINDUSTANI_RAGAS.length}</div>
-                        <div className="text-sm text-gray-600 dark:text-gray-400">Hindustani</div>
-                    </div>
-                    <div className="text-center">
-                        <div className="text-2xl font-bold text-purple-600">{MELAKARTA_72.length}</div>
-                        <div className="text-sm text-gray-600 dark:text-gray-400">Carnatic</div>
-                    </div>
-                    <div className="text-center">
-                        <div className="text-2xl font-bold text-green-600">{sameNotesGroups.length}</div>
-                        <div className="text-sm text-gray-600 dark:text-gray-400">Same Notes</div>
-                    </div>
-                    <div className="text-center">
-                        <div className="text-2xl font-bold text-orange-600">{murchannaGroups.length}</div>
-                        <div className="text-sm text-gray-600 dark:text-gray-400">Murchanna</div>
-                    </div>
-                </div>
+                <dl className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {[
+                        { label: 'Hindustani ragas', value: HINDUSTANI_RAGAS.length },
+                        { label: 'Melakartas', value: MELAKARTA_72.length },
+                        { label: 'Same-note groups', value: sameNotesGroups.length },
+                        { label: 'Murchanna groups', value: murchannaGroups.length }
+                    ].map(stat => (
+                        <div key={stat.label} className="rounded-lg border border-gray-800 bg-gray-900 px-4 py-3">
+                            <dt className="text-xs text-gray-400">{stat.label}</dt>
+                            <dd className="mt-0.5 text-2xl font-semibold text-gray-100 tabular-nums">{stat.value}</dd>
+                        </div>
+                    ))}
+                </dl>
             </div>
 
             {/* Tabs */}
-            <div className="flex justify-center mb-6">
-                <div className="flex bg-white rounded-lg p-1 shadow border border-gray-700">
-                    {[
-                        { id: 'same-notes', label: 'Same Notes', count: filteredResults.sameNotes.length },
-                        { id: 'murchanna', label: 'Murchanna', count: filteredResults.murchanna.length },
-                        { id: 'subsets', label: 'Subsets', count: filteredResults.subsets.length }
-                    ].map(tab => (
-                        <button
-                            key={tab.id}
-                            onClick={() => setActiveTab(tab.id)}
-                            className={`px-4 py-2 rounded-md font-medium transition-colors ${activeTab === tab.id
-                                ? 'bg-blue-600 text-white'
-                                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-                                }`}
-                        >
-                            {tab.label}
-                            <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${activeTab === tab.id
-                                ? 'bg-blue-500'
-                                : 'bg-gray-200 dark:bg-gray-600'
-                                }`}>
-                                {tab.count}
-                            </span>
-                        </button>
-                    ))}
-                </div>
+            <div className="grid grid-cols-3 sm:inline-grid mb-6 rounded-lg border border-gray-700 bg-gray-800 p-0.5" role="tablist">
+                {[
+                    { id: 'same-notes', label: 'Same Notes', count: filteredResults.sameNotes.length },
+                    { id: 'murchanna', label: 'Murchanna', count: filteredResults.murchanna.length },
+                    { id: 'subsets', label: 'Subsets', count: filteredResults.subsets.length }
+                ].map(tab => (
+                    <button
+                        key={tab.id}
+                        role="tab"
+                        aria-selected={activeTab === tab.id}
+                        onClick={() => setActiveTab(tab.id)}
+                        className={`px-2 sm:px-4 py-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${activeTab === tab.id
+                            ? 'bg-gray-600 text-gray-100'
+                            : 'text-gray-400 hover:text-gray-100'
+                            }`}
+                    >
+                        {tab.label}
+                        <span className="ml-1.5 text-xs text-gray-400 tabular-nums">{tab.count}</span>
+                    </button>
+                ))}
             </div>
 
             {/* Filters */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6">
+            <div className="rounded-xl border border-gray-800 bg-gray-900 p-4 mb-6">
                 <div className={`grid grid-cols-1 gap-4 ${activeTab === 'subsets' ? 'md:grid-cols-5' : 'md:grid-cols-4'}`}>
                     {activeTab === 'subsets' ? (
                         <>
                             <input
                                 type="search"
-                                placeholder="Search subsets (smaller raga)..."
-                                aria-label="Search subsets"
-                                value={subsetQuery}
-                                onChange={e => setSubsetQuery(e.target.value)}
+                                placeholder="Subsets of… (raga name)"
+                                aria-label="Find subsets of a raga"
+                                value={subsetsOfQuery}
+                                onChange={e => setSubsetsOfQuery(e.target.value)}
                                 className="px-3 py-2 border rounded-lg bg-gray-700 border-gray-600"
                             />
                             <input
                                 type="search"
-                                placeholder="Search supersets (larger raga)..."
-                                aria-label="Search supersets"
-                                value={supersetQuery}
-                                onChange={e => setSupersetQuery(e.target.value)}
+                                placeholder="Supersets of… (raga name)"
+                                aria-label="Find supersets of a raga"
+                                value={supersetsOfQuery}
+                                onChange={e => setSupersetsOfQuery(e.target.value)}
                                 className="px-3 py-2 border rounded-lg bg-gray-700 border-gray-600"
                             />
                         </>
@@ -379,7 +373,7 @@ export function RagaInsights() {
 
                     <button
                         onClick={clearFilters}
-                        className="px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600"
+                        className="btn btn-secondary"
                     >
                         Clear Filters
                     </button>

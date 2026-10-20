@@ -1,86 +1,124 @@
-/* Google Font Import - MUST be first */
+/* Google Font Import - MUST be first (Crimson Text is used for headings only) */
 @import url('https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400&display=swap');
 
 @import "tailwindcss";
 
-/* Base Styles - Permanent Dark Mode */
+/*
+ * Design tokens. The gray/slate scales are remapped to one neutral ramp so every surface
+ * across the three pages shares the same colours, and blue is the single accent.
+ */
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-serif: 'Crimson Text', Georgia, serif;
+
+  --color-gray-50: #f5f6f8;
+  --color-gray-100: #e7e9ee;
+  --color-gray-200: #cfd3dc;
+  --color-gray-300: #b4bac6;
+  --color-gray-400: #8c93a3;
+  --color-gray-500: #6b7182;
+  --color-gray-600: #3a3f4f;
+  --color-gray-700: #2a2e3b;
+  --color-gray-800: #1b1e28;
+  --color-gray-900: #13151c;
+  --color-gray-950: #0b0c10;
+
+  --color-slate-50: #f5f6f8;
+  --color-slate-100: #e7e9ee;
+  --color-slate-200: #cfd3dc;
+  --color-slate-300: #b4bac6;
+  --color-slate-400: #8c93a3;
+  --color-slate-500: #6b7182;
+  --color-slate-600: #3a3f4f;
+  --color-slate-700: #2a2e3b;
+  --color-slate-800: #1b1e28;
+  --color-slate-900: #13151c;
+  --color-slate-950: #0b0c10;
+
+  --color-blue-300: #a9bbff;
+  --color-blue-400: #8099fb;
+  --color-blue-500: #5b7cfa;
+  --color-blue-600: #4a6cf0;
+  --color-blue-700: #3d5ad6;
+}
+
 :root {
-  font-family: 'Crimson Text', serif;
-  background-color: #000000;
-  color: #e2e8f0;
+  --bg: var(--color-gray-950);
+  --surface: var(--color-gray-900);
+  --surface-2: var(--color-gray-800);
+  --surface-3: var(--color-gray-700);
+  --border: var(--color-gray-700);
+  --border-strong: var(--color-gray-600);
+  --text: var(--color-gray-100);
+  --text-muted: var(--color-gray-400);
+  --accent: var(--color-blue-500);
+  --accent-hover: var(--color-blue-600);
+  --danger: #f87171;
+
+  color-scheme: dark; /* dark native scrollbars, date pickers, etc. */
+  accent-color: var(--accent); /* checkboxes, radios, range inputs */
+  font-family: var(--font-sans);
+  background-color: var(--bg);
+  color: var(--text);
 }
 
 body {
-  font-family: 'Crimson Text', serif;
-  background: linear-gradient(135deg, #000000 0%, #1a1633 100%);
-  color: #e2e8f0;
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text);
   min-height: 100vh;
   margin: 0;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Force dark mode colors on common utility classes */
+h1,
+h2,
+h3 {
+  font-family: var(--font-serif);
+  letter-spacing: -0.01em;
+}
+
+/* Legacy light-theme utility classes still used in markup, mapped onto the dark surfaces */
 .bg-white {
-  background-color: #1f1b38 !important;
+  background-color: var(--surface) !important;
 }
 
 .bg-gray-50 {
-  background-color: #334155 !important;
+  background-color: var(--surface-2) !important;
 }
 
 .bg-gray-100 {
-  background-color: #475569 !important;
-  color: #e2e8f0 !important;
+  background-color: var(--surface-3) !important;
+  color: var(--text) !important;
 }
 
 .bg-blue-50 {
-  background-color: #1e3a8a !important;
-  color: #bfdbfe !important;
+  background-color: rgb(91 124 250 / 0.15) !important;
+  color: var(--color-blue-300) !important;
 }
 
 .bg-green-50 {
-  background-color: #14532d !important;
+  background-color: rgb(34 197 94 / 0.12) !important;
   color: #bbf7d0 !important;
 }
 
 .text-gray-800,
 .text-gray-900 {
-  color: #e2e8f0 !important;
+  color: var(--text) !important;
 }
 
 .text-gray-600,
 .text-gray-700 {
-  color: #cbd5e1 !important;
+  color: var(--color-gray-300) !important;
 }
 
 .border-gray-200,
 .border-gray-300 {
-  border-color: #475569 !important;
-}
-
-input,
-select,
-textarea {
-  background-color: #1f1b38 !important;
-  color: #e2e8f0 !important;
-  border-color: #475569 !important;
-  border-radius: 0.5rem;
-  padding: 0.5rem;
-}
-
-/* Custom chevron: the native arrow hugs the right border while the text is inset, and its
-   position varies by browser. Reserve room on the right so text never runs under it. */
-select {
-  appearance: none;
-  -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 7.5l5 5 5-5'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 0.6rem center;
-  background-size: 1rem;
-  padding-right: 2rem !important;
+  border-color: var(--border) !important;
 }
 
 .border-blue-200 {
-  border-color: #1d4ed8 !important;
+  border-color: var(--color-blue-700) !important;
 }
 
 .border-green-200 {
@@ -88,7 +126,137 @@ select {
 }
 
 .border-purple-200 {
-  border-color: #7e22ce !important;
+  border-color: #6b21a8 !important;
+}
+
+/* Form controls */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+select,
+textarea {
+  background-color: var(--surface-2) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border-strong) !important;
+  border-radius: 0.5rem;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.875rem;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px rgb(91 124 250 / 0.25);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--color-gray-500);
+}
+
+/* Custom chevron: the native arrow hugs the right border while the text is inset, and its
+   position varies by browser. Reserve room on the right so text never runs under it. */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%238c93a3' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 7.5l5 5 5-5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.6rem center;
+  background-size: 1rem;
+  padding-right: 2rem !important;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  width: 1rem;
+  height: 1rem;
+  cursor: pointer;
+}
+
+/*
+ * Buttons: one accent for primary actions, quiet secondary/ghost buttons for everything
+ * else, and danger only for destructive actions. In the components layer so utility
+ * classes (w-full, flex-1, ...) can still adjust them.
+ */
+@layer components {
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.5rem 0.9rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.25;
+    border-radius: 0.5rem;
+    border: 1px solid transparent;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+  }
+
+  .btn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .btn-sm {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.75rem;
+    border-radius: 0.4rem;
+  }
+
+  .btn-primary {
+    background-color: var(--accent);
+    color: #fff;
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background-color: var(--accent-hover);
+  }
+
+  .btn-secondary {
+    background-color: var(--surface-2);
+    border-color: var(--border-strong);
+    color: var(--text);
+  }
+
+  .btn-secondary:hover:not(:disabled) {
+    background-color: var(--surface-3);
+  }
+
+  .btn-ghost {
+    background-color: transparent;
+    color: var(--text-muted);
+  }
+
+  .btn-ghost:hover:not(:disabled) {
+    background-color: var(--surface-2);
+    color: var(--text);
+  }
+
+  .btn-danger {
+    background-color: transparent;
+    border-color: rgb(248 113 113 / 0.4);
+    color: var(--danger);
+  }
+
+  .btn-danger:hover:not(:disabled) {
+    background-color: rgb(248 113 113 / 0.1);
+  }
+
+  /* Selected state for toggle buttons (e.g. a playing chalan, an armed chord) */
+  .btn-selected {
+    background-color: rgb(91 124 250 / 0.18);
+    border-color: var(--accent);
+    color: var(--color-blue-300);
+  }
 }
 
 /* Chord Circle */
@@ -200,138 +368,24 @@ select {
   border-color: #2563eb;
 }
 
-/* Chord Cards Grid */
-.chord-card {
-  transition: all 0.3s ease;
-  cursor: pointer;
-  background-color: #1f1b38;
-  border: 1px solid #475569;
-  border-radius: 0.75rem;
-  padding: 1rem;
-}
-
-.chord-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
-  border-color: #60a5fa;
-}
-
-/* Buttons - Custom CSS instead of @apply */
-.btn-primary {
-  padding: 0.5rem 0.75rem;
-  background-color: #3b82f6;
-  color: white;
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  transition: background-color 0.2s;
-  border: none;
-  cursor: pointer;
-}
-
-.btn-primary:hover {
-  background-color: #2563eb;
-}
-
-.btn-primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-secondary {
-  padding: 0.5rem 1rem;
-  background-color: #334155;
-  color: #cbd5e1;
-  border-radius: 0.5rem;
-  border: 1px solid #475569;
-  font-weight: 500;
-  transition: all 0.2s;
-  cursor: pointer;
-}
-
-.btn-secondary:hover {
-  background-color: #475569;
-}
-
-.btn-tanpura {
-  padding: 0.5rem 1rem;
-  font-size: 0.875rem;
-  border-radius: 0.5rem;
-  font-weight: 500;
-  transition: all 0.2s;
-  cursor: pointer;
-  border: 1px solid transparent;
-}
-
-.btn-tanpura.playing {
-  background-color: #f97316;
-  color: white;
-}
-
-.btn-tanpura.playing:hover {
-  background-color: #ea580c;
-}
-
-.btn-tanpura:not(.playing) {
-  background-color: #334155;
-  color: #fed7aa;
-  border-color: #475569;
-}
-
-.btn-tanpura:not(.playing):hover {
-  background-color: #475569;
-}
-
-/* Tabs */
-.tab-btn {
-  padding: 0.25rem 0.75rem;
-  border-radius: 0.375rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  transition: all 0.2s;
-  border: none;
-  cursor: pointer;
-  background-color: #334155;
-  color: #cbd5e1;
-}
-
-.tab-btn.active {
-  background-color: #3b82f6;
-  color: white;
-}
-
-.tab-btn:not(.active):hover {
-  background-color: #475569;
-}
-
 /* Chord type list buttons */
 .chord-type-btn {
   width: 100%;
   text-align: left;
   padding: 0.375rem 0.75rem;
   border-radius: 0.375rem;
-  border: 1px solid #475569;
-  background-color: #1f1b38;
-  color: #e2e8f0;
-  transition: all 0.2s;
+  border: 1px solid var(--border);
+  background-color: var(--surface);
+  color: var(--text);
+  transition: background-color 0.15s, border-color 0.15s;
   cursor: pointer;
 }
 
 .chord-type-btn.active {
-  border-color: #3b82f6;
-  background-color: rgba(59, 130, 246, 0.2);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  border-color: var(--accent);
+  background-color: rgb(91 124 250 / 0.15);
 }
 
 .chord-type-btn:not(.active):hover {
-  background-color: #334155;
-}
-
-/* Containers */
-.card {
-  background-color: #1f1b38;
-  border-radius: 0.75rem;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
-  padding: 1.5rem;
-  border: 1px solid #2e2a4a;
+  background-color: var(--surface-2);
 }

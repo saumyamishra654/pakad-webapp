@@ -125,13 +125,13 @@ describe('ChordTool tonic and editing', () => {
         expect(tonicSelect.value).toBe('');
     });
 
-    it('places a chord by tapping + Add and then a beat (touch screens)', async () => {
+    it('places a chord by tapping it and then a beat (touch screens)', async () => {
+        window.matchMedia = (query) => ({ matches: query === '(hover: none)' });
         await renderChordTool();
-        await click(screen.getAllByText('Add')[0]);
+        await click(screen.getAllByText(/Notes:/)[0].closest('[draggable]'));
         expect(screen.getByText(/Tap a beat to place/)).toBeTruthy();
 
-        const beatCell = screen.getAllByText('3').find(el => el.closest('[class*="border-2"]'));
-        await click(beatCell.closest('[class*="border-2"]'));
+        await click(document.querySelector('[data-beat="2"]'));
 
         const saved = JSON.parse(localStorage.getItem('pakad_progressions'));
         expect(saved[0].chords).toHaveLength(1);

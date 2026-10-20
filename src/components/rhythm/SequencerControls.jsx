@@ -7,12 +7,12 @@ import React from 'react';
 import { PLAY, STOP } from '../../utils/glyphs.js';
 import { DraftNumberInput } from '../common/DraftNumberInput.jsx';
 
-const INPUT_CLASS = 'w-16 px-2 py-1 border border-gray-600 rounded text-sm bg-gray-700 text-white';
+const INPUT_CLASS = 'w-20';
 
 function Field({ label, children }) {
     return (
         <label className="flex items-center gap-2 text-sm">
-            <span className="text-gray-300">{label}</span>
+            <span className="text-gray-400">{label}</span>
             {children}
         </label>
     );
@@ -46,7 +46,7 @@ export function SequencerControls({ settings, onChange, isPlaying, onPlayStop, o
                     <select
                         value={settings.mode}
                         onChange={e => onChange({ mode: e.target.value })}
-                        className="px-2 py-1 border border-gray-600 rounded text-sm bg-gray-700 text-white"
+                        className="w-28"
                     >
                         <option value="unison">Unison</option>
                         <option value="melody">Melody</option>
@@ -82,16 +82,13 @@ export function SequencerControls({ settings, onChange, isPlaying, onPlayStop, o
                 <div className="flex gap-2">
                     <button
                         onClick={onPlayStop}
-                        className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${isPlaying
-                            ? 'bg-yellow-500 hover:bg-yellow-600 text-white'
-                            : 'bg-green-500 hover:bg-green-600 text-white'
-                            }`}
+                        className={`btn ${isPlaying ? 'btn-selected' : 'btn-primary'} min-w-[5.5rem]`}
                     >
                         {isPlaying ? `${STOP} Stop` : `${PLAY} Play`}
                     </button>
                     <button
                         onClick={onClear}
-                        className="px-4 py-2 rounded-lg font-medium text-sm bg-red-600 hover:bg-red-700 text-white"
+                        className="btn btn-danger"
                     >
                         Clear
                     </button>
@@ -102,9 +99,8 @@ export function SequencerControls({ settings, onChange, isPlaying, onPlayStop, o
                         type="checkbox"
                         checked={settings.loop}
                         onChange={e => onChange({ loop: e.target.checked })}
-                        className="w-4 h-4"
                     />
-                    <span className="text-gray-300">Loop</span>
+                    <span className="text-gray-400">Loop</span>
                 </label>
             </div>
 
@@ -115,7 +111,7 @@ export function SequencerControls({ settings, onChange, isPlaying, onPlayStop, o
                         value={settings.breakpoints}
                         onChange={e => onChange({ breakpoints: e.target.value })}
                         placeholder="e.g., 4-4 or 3-3-2"
-                        className="w-28 px-2 py-1 border border-gray-600 rounded text-sm bg-gray-700 text-white"
+                        className="w-36"
                     />
                 </Field>
                 {breakpointError && (

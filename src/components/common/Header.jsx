@@ -1,52 +1,49 @@
 /**
- * Header Component - Minimal header matching original design
- * Original has no header - just dark mode toggle in corner
+ * Header Component - app bar with brand and page navigation
  */
 
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
+const NAV_ITEMS = [
+    { to: '/', label: 'Chord Tool' },
+    { to: '/query', label: 'Raga Query' },
+    { to: '/insights', label: 'Insights' }
+];
+
 export function Header() {
     const location = useLocation();
 
     return (
-        <div className="flex items-center justify-between px-6 py-3">
-            {/* Logo/Brand */}
-            <Link to="/" className="text-2xl font-bold text-gray-800 dark:text-white">
-                Samvad
-            </Link>
+        <header className="sticky top-0 z-40 border-b border-gray-800 bg-gray-950/90 backdrop-blur">
+            <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 px-3 sm:px-6 h-14">
+                {/* Brand */}
+                <Link to="/" className="flex items-center gap-2 shrink-0">
+                    <img src="icon-192.svg" alt="" className="w-7 h-7 rounded-md" />
+                    <span className="font-serif text-xl font-semibold text-gray-100">Samvad</span>
+                </Link>
 
-            {/* Navigation */}
-            <div className="flex items-center gap-2">
-                <Link
-                    to="/"
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${location.pathname === '/'
-                        ? 'bg-blue-500 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300'
-                        }`}
-                >
-                    Chord Tool
-                </Link>
-                <Link
-                    to="/query"
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${location.pathname === '/query'
-                        ? 'bg-blue-500 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300'
-                        }`}
-                >
-                    Raga Query
-                </Link>
-                <Link
-                    to="/insights"
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${location.pathname === '/insights'
-                        ? 'bg-blue-500 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300'
-                        }`}
-                >
-                    Insights
-                </Link>
+                {/* Navigation */}
+                <nav className="flex items-center gap-0.5 sm:gap-1 min-w-0">
+                    {NAV_ITEMS.map(({ to, label }) => {
+                        const active = location.pathname === to;
+                        return (
+                            <Link
+                                key={to}
+                                to={to}
+                                aria-current={active ? 'page' : undefined}
+                                className={`px-2 sm:px-3 py-1.5 rounded-md text-[13px] sm:text-sm font-medium whitespace-nowrap transition-colors ${active
+                                    ? 'bg-gray-800 text-gray-100'
+                                    : 'text-gray-400 hover:text-gray-100 hover:bg-gray-900'
+                                    }`}
+                            >
+                                {label}
+                            </Link>
+                        );
+                    })}
+                </nav>
             </div>
-        </div>
+        </header>
     );
 }
 

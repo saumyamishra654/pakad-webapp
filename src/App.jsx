@@ -25,7 +25,7 @@ const PageLoader = () => (
 function App() {
   return (
     <HashRouter>
-      <div className="min-h-screen bg-[#000000] text-[#e2e8f0]">
+      <div className="min-h-screen bg-gray-950 text-gray-100">
         <Header />
 
         <main className="pt-2">

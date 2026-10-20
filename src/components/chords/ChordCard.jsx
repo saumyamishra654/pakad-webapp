@@ -37,7 +37,7 @@ export function ChordCard({
             return (
                 <span key={i}>
                     {i > 0 && ' - '}
-                    <span className={isNoteOutside ? 'bg-yellow-300 text-black px-1 rounded font-semibold' : ''}>
+                    <span data-outside={isNoteOutside || undefined} className={isNoteOutside ? 'text-red-300 font-semibold' : ''}>
                         {label}
                     </span>
                 </span>
@@ -45,64 +45,62 @@ export function ChordCard({
         });
     };
 
+    const variant = isExtended ? 'extended' : isOutside ? 'outside' : 'normal';
+
     return (
         <div
-            className={`p-3 rounded-lg border ${isExtended
-                ? 'bg-gradient-to-br from-yellow-600 to-orange-600 text-white border-yellow-400'
+            data-variant={variant}
+            className={`p-3 rounded-lg border bg-gray-950/60 cursor-grab active:cursor-grabbing transition-colors hover:border-gray-600 ${isExtended
+                ? 'border-amber-500/40'
                 : isOutside
-                    ? 'bg-red-900/30 border-red-700'
-                    : 'bg-gray-800 border-gray-600'
-                } ${isSelected ? 'ring-2 ring-yellow-300' : ''} ${className}`}
+                    ? 'border-red-500/40'
+                    : 'border-gray-800'
+                } ${isSelected ? 'ring-2 ring-blue-500' : ''} ${className}`}
+            // Touch screens can't drag: tapping the card arms it, then tapping a beat places it
+            onClick={() => {
+                if (onSelect && window.matchMedia?.('(hover: none)').matches) {
+                    onSelect(isSelected ? null : chord);
+                }
+            }}
             draggable
             onDragStart={(e) => {
                 e.dataTransfer.setData('application/json', JSON.stringify(chord));
             }}
         >
-            {/* Header with color dot and chord name */}
-            <div className="flex items-center gap-2 mb-2">
-                <div
-                    className="w-3 h-3 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: chord.color || '#3b82f6' }}
+            {/* Header: colour dot, chord name, western name */}
+            <div className="flex items-baseline gap-2">
+                <span
+                    className="w-2.5 h-2.5 rounded-full flex-shrink-0 self-center"
+                    style={{ backgroundColor: chord.color || '#5b7cfa' }}
                 />
-                <span className="font-semibold text-white">
+                <span className="font-medium text-sm text-gray-100 truncate">
                     {rootLabel} {chordTypeName}
                 </span>
+                {westernName && (
+                    <span className="ml-auto text-xs text-gray-400 whitespace-nowrap">{westernName}</span>
+                )}
             </div>
 
-            {/* Notes and western name */}
-            <p className={`text-sm ${isExtended ? 'text-gray-100' : 'text-gray-400'} mb-3`}>
+            {/* Notes */}
+            <p className="mt-1 mb-2.5 text-xs text-gray-400">
                 Notes: {renderNotes()}
-                {westernName && (
-                    <span className="block mt-1 font-medium text-gray-500">{westernName}</span>
-                )}
+                {isExtended && <span className="ml-1.5 text-amber-300/80">extended</span>}
             </p>
 
             {/* Chord playback buttons */}
-            <div className="flex gap-2">
+            <div className="flex gap-1.5">
                 <button
                     onClick={(e) => { e.stopPropagation(); onPlayUnison && onPlayUnison(chord); }}
-                    className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                    className="btn btn-sm btn-secondary"
                 >
                     Unison
                 </button>
                 <button
                     onClick={(e) => { e.stopPropagation(); onPlayMelody && onPlayMelody(chord); }}
-                    className="px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
+                    className="btn btn-sm btn-secondary"
                 >
                     Melody
                 </button>
-                {onSelect && (
-                    // Tap-to-place: drag and drop doesn't work on touch screens
-                    <button
-                        onClick={(e) => { e.stopPropagation(); onSelect(isSelected ? null : chord); }}
-                        className={`px-2 py-1 text-xs rounded transition-colors ${isSelected
-                            ? 'bg-yellow-300 text-black'
-                            : 'bg-gray-600 text-white hover:bg-gray-500'}`}
-                        title="Select, then tap a beat in the progression to place it"
-                    >
-                        {isSelected ? 'Cancel' : 'Add'}
-                    </button>
-                )}
             </div>
         </div>
     );
@@ -127,7 +125,7 @@ export function ChordGrid({
     }
 
     return (
-        <div className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 ${className}`}>
+        <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 ${className}`}>
             {chords.map((chord, index) => (
                 <ChordCard
                     key={`${chord.root}-${chord.type}-${index}`}

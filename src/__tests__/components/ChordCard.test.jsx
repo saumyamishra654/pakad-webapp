@@ -80,13 +80,13 @@ describe('ChordCard', () => {
     it('applies extended chord styling when isExtended is true', () => {
         const { container } = render(<ChordCard {...defaultProps} isExtended={true} />);
         const card = container.firstChild;
-        expect(card.className).toContain('from-yellow-600');
+        expect(card.getAttribute('data-variant')).toBe('extended');
     });
 
     it('applies outside chord styling when isOutside is true', () => {
         const { container } = render(<ChordCard {...defaultProps} isOutside={true} />);
         const card = container.firstChild;
-        expect(card.className).toContain('bg-red-900');
+        expect(card.getAttribute('data-variant')).toBe('outside');
     });
 
     it('is draggable', () => {
@@ -105,8 +105,8 @@ describe('ChordCard', () => {
                 ragaPattern={ragaPattern}
             />
         );
-        // Ga should be highlighted (has bg-yellow-300 class)
-        const highlightedSpans = container.querySelectorAll('.bg-yellow-300');
+        // Ga should be highlighted
+        const highlightedSpans = container.querySelectorAll('[data-outside]');
         expect(highlightedSpans.length).toBe(1);
     });
 });

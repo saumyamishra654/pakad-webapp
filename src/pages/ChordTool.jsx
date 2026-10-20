@@ -29,6 +29,9 @@ import { usePianoSamples } from '../hooks/usePianoSamples.js';
 import { useTanpura } from '../hooks/useTanpura.js';
 import { useSequencer } from '../hooks/useSequencer.js';
 
+// Small uppercase label above form fields
+const FIELD_LABEL = 'block mb-1.5 text-xs font-medium uppercase tracking-wide text-gray-400';
+
 const DEFAULT_PROGRESSIONS = [1, 2, 3, 4].map(id => ({ id, name: String(id), chords: [], isPlaying: false, currentBeat: -1 }));
 
 function loadSavedProgressions() {
@@ -568,43 +571,43 @@ export function ChordTool() {
     const labels = useMemo(() => getDisplayLabels(isCarnatic), [isCarnatic]);
 
     return (
-        <div className="max-w-7xl mx-auto px-4 py-8 dark:text-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 text-gray-200">
             {/* Page Header */}
-            <div className="text-center mb-8">
-                <h1 className="text-4xl font-bold text-gray-800 dark:text-white mb-2">
+            <div className="mb-6">
+                <h1 className="text-3xl sm:text-4xl font-bold text-gray-100">
                     Raga-Based Chord Formation
                 </h1>
-                <p className="text-gray-600 dark:text-gray-400 text-lg">
+                <p className="mt-1 text-gray-400">
                     Generate chords within raga frameworks
                 </p>
             </div>
 
-            {/* Top Control Bar - Exact match to index.html */}
-            <div className="bg-white dark:bg-[#1f1b38] rounded-xl p-4 mb-8 shadow-lg border border-gray-200 dark:border-gray-700 text-xs">
-                <div className="flex flex-col md:flex-row md:flex-wrap lg:flex-nowrap gap-6 justify-between items-start">
-                    {/* Music System Toggle */}
-                    <div className="px-2">
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 invisible">
-                            &nbsp;
-                        </label>
-                        <div className="flex items-center gap-3">
-                            <span className={`text-xs whitespace-nowrap ${!isCarnatic ? 'font-semibold text-blue-600' : 'text-gray-600 dark:text-gray-400'}`}>Hindustani</span>
-                            <button
-                                onClick={() => handleModeChange(!isCarnatic)}
-                                className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors flex-shrink-0 ${isCarnatic ? 'bg-blue-600' : 'bg-gray-300'}`}
-                                title="Toggle between Hindustani and Carnatic"
-                            >
-                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isCarnatic ? 'translate-x-5' : 'translate-x-1'}`} />
-                            </button>
-                            <span className={`text-xs whitespace-nowrap ${isCarnatic ? 'font-semibold text-blue-600' : 'text-gray-600 dark:text-gray-400'}`}>Carnatic</span>
+            {/* Top Control Panel */}
+            <div className="rounded-xl border border-gray-800 bg-gray-900 p-4 sm:p-5 mb-8">
+                <div className="flex flex-wrap items-end gap-4">
+                    {/* Music system */}
+                    <div>
+                        <span className={FIELD_LABEL}>System</span>
+                        <div className="inline-flex rounded-lg border border-gray-700 bg-gray-800 p-0.5" role="group" aria-label="Music system">
+                            {[{ value: false, label: 'Hindustani' }, { value: true, label: 'Carnatic' }].map(({ value, label }) => (
+                                <button
+                                    key={label}
+                                    onClick={() => isCarnatic !== value && handleModeChange(value)}
+                                    aria-pressed={isCarnatic === value}
+                                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${isCarnatic === value
+                                        ? 'bg-gray-600 text-gray-100'
+                                        : 'text-gray-400 hover:text-gray-100'
+                                        }`}
+                                >
+                                    {label}
+                                </button>
+                            ))}
                         </div>
                     </div>
 
                     {/* Raga Selection */}
-                    <div className="px-2 flex-1 min-w-[200px]">
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Selected {isCarnatic ? 'Melakarta' : 'Raga'}:
-                        </label>
+                    <label className="flex-1 min-w-[12rem]">
+                        <span className={FIELD_LABEL}>{isCarnatic ? 'Melakarta' : 'Raga'}</span>
                         <select
                             value={selectedRagaName}
                             onChange={(e) => {
@@ -612,7 +615,7 @@ export function ChordTool() {
                                 // Otherwise a ?raga= link keeps blocking auto-selection after "Select…"
                                 if (searchParams.get('raga')) setSearchParams({}, { replace: true });
                             }}
-                            className="w-full p-2 text-xs border border-gray-600 rounded-lg bg-[#334155] text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full"
                         >
                             <option value="">Select…</option>
                             {ragaList.map(r => (
@@ -621,13 +624,11 @@ export function ChordTool() {
                                 </option>
                             ))}
                         </select>
-                    </div>
+                    </label>
 
                     {/* Tonic Selection */}
-                    <div className="px-2">
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Tonic:
-                        </label>
+                    <label className="w-32">
+                        <span className={FIELD_LABEL}>Tonic</span>
                         <select
                             value={noTonic ? '' : selectedTonic}
                             onChange={(e) => {
@@ -636,7 +637,7 @@ export function ChordTool() {
                                 setNoTonic(none);
                                 setSelectedTonic(none ? 0 : parseInt(e.target.value, 10));
                             }}
-                            className="w-25 p-2 text-xs border border-gray-600 rounded-lg bg-[#334155] text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full"
                         >
                             <option value="">No Tonic</option>
                             {WESTERN_NOTES_SHARP.map((note, index) => (
@@ -645,131 +646,94 @@ export function ChordTool() {
                                 </option>
                             ))}
                         </select>
-                    </div>
-
-                    {/* Toggles & Custom Section */}
-                    <div className="px-3 flex gap-6">
-                        <div className="flex flex-wrap items-center gap-4">
-                            <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1 invisible">
-                                    &nbsp;
-                                </label>
-                                <label className="inline-flex items-center cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        checked={separateAarohAvroh}
-                                        onChange={e => setSeparateAarohAvroh(e.target.checked)}
-                                        className="w-4 h-4"
-                                    />
-                                    <span className="ml-2 text-xs text-gray-700 dark:text-gray-300">
-                                        Separate Aaroh/Avroh
-                                    </span>
-                                </label>
-                            </div>
-                            <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1 invisible">
-                                    &nbsp;
-                                </label>
-                                <label className={`inline-flex items-center ${customScaleMode ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
-                                    <input
-                                        type="checkbox"
-                                        checked={showOutsideChords && !customScaleMode}
-                                        onChange={e => {
-                                            if (!customScaleMode) {
-                                                setShowOutsideChords(e.target.checked);
-                                            }
-                                        }}
-                                        disabled={customScaleMode}
-                                        className="form-checkbox h-4 w-4 text-orange-600 rounded focus:ring-orange-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    />
-                                    <span className="ml-2 text-xs text-gray-700 dark:text-gray-300">
-                                        Show Chords Outside Raga
-                                    </span>
-                                </label>
-                            </div>
-                            <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1 invisible">
-                                    &nbsp;
-                                </label>
-                                <label className="inline-flex items-center cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        checked={showRagaNotesOnKeyboard}
-                                        onChange={e => setShowRagaNotesOnKeyboard(e.target.checked)}
-                                        className="form-checkbox h-4 w-4 text-purple-600 rounded focus:ring-purple-500"
-                                    />
-                                    <span className="ml-2 text-xs text-gray-700 dark:text-gray-300">
-                                        Show Raga Notes on Keyboard
-                                    </span>
-                                </label>
-                            </div>
-                        </div>
-
-                        <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-1 invisible">
-                                &nbsp;
-                            </label>
-                            <div>
-                                <label className="inline-flex items-center cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        checked={customScaleMode}
-                                        onChange={e => setCustomScaleMode(e.target.checked)}
-                                        className="form-checkbox h-4 w-4 text-emerald-600 rounded focus:ring-emerald-500"
-                                    />
-                                    <span className="ml-2 text-xs text-gray-700 dark:text-gray-300">Custom Scale</span>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
+                    </label>
                 </div>
 
-                {/* Second Row - Play buttons and toggles */}
-                <div className="flex flex-wrap items-center justify-center gap-3 mt-4 pt-4 border-t border-gray-600">
+                {/* Options */}
+                <div className="flex flex-wrap gap-x-6 gap-y-2 mt-4 text-sm text-gray-300">
+                    <label className="inline-flex items-center gap-2 cursor-pointer">
+                        <input
+                            type="checkbox"
+                            checked={separateAarohAvroh}
+                            onChange={e => setSeparateAarohAvroh(e.target.checked)}
+                        />
+                        Separate Aaroh/Avroh
+                    </label>
+                    <label className={`inline-flex items-center gap-2 ${customScaleMode ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
+                        <input
+                            type="checkbox"
+                            checked={showOutsideChords && !customScaleMode}
+                            onChange={e => {
+                                if (!customScaleMode) {
+                                    setShowOutsideChords(e.target.checked);
+                                }
+                            }}
+                            disabled={customScaleMode}
+                        />
+                        Show chords outside raga
+                    </label>
+                    <label className="inline-flex items-center gap-2 cursor-pointer">
+                        <input
+                            type="checkbox"
+                            checked={showRagaNotesOnKeyboard}
+                            onChange={e => setShowRagaNotesOnKeyboard(e.target.checked)}
+                        />
+                        Show raga notes on keyboard
+                    </label>
+                    <label className="inline-flex items-center gap-2 cursor-pointer">
+                        <input
+                            type="checkbox"
+                            checked={customScaleMode}
+                            onChange={e => setCustomScaleMode(e.target.checked)}
+                        />
+                        Custom scale
+                    </label>
+                </div>
+
+                {/* Playback actions */}
+                <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-gray-800">
                     {/* Aaroh / Avroh / Full Raga (click again to stop) */}
                     {[
-                        { mode: 'aaroh', label: 'Aaroh', color: 'bg-blue-600 hover:bg-blue-700' },
-                        { mode: 'avroh', label: 'Avroh', color: 'bg-green-600 hover:bg-green-700' },
-                        { mode: 'full', label: 'Full Raga', color: 'bg-purple-600 hover:bg-purple-700' }
-                    ].map(({ mode, label, color }) => (
+                        { mode: 'aaroh', label: 'Aaroh' },
+                        { mode: 'avroh', label: 'Avroh' },
+                        { mode: 'full', label: 'Full Raga' }
+                    ].map(({ mode, label }) => (
                         <button
                             key={mode}
                             onClick={() => playChalan(mode)}
-                            className={`px-4 py-2 ${color} text-white rounded-lg font-medium text-sm flex items-center gap-2 transition-colors`}
+                            className={`btn ${chalanMode === mode ? 'btn-selected' : 'btn-secondary'}`}
                         >
                             {chalanMode === mode ? `${STOP} Stop` : `${PLAY} ${label}`}
                         </button>
                     ))}
 
-                    {/* Show/Hide Keyboard Toggle */}
-                    <button
-                        onClick={() => setShowPiano(!showPiano)}
-                        className="px-4 py-2 rounded-lg font-medium text-sm bg-gray-600 text-white hover:bg-gray-500 transition-colors"
-                    >
-                        {showPiano ? 'Hide Keyboard' : 'Show Keyboard'}
-                    </button>
-
-                    {isPianoLoading && (
-                        <span className="px-2 py-1 text-xs text-yellow-400 animate-pulse font-medium bg-gray-800 rounded border border-yellow-400/30">
-                            Loading Sounds...
-                        </span>
-                    )}
-
                     {/* Tanpura Toggle */}
                     <button
                         onClick={() => toggleTanpura(selectedTonic)}
-                        className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-colors ${isTanpuraPlaying
-                            ? 'bg-orange-500 text-white'
-                            : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
-                            }`}
+                        aria-pressed={isTanpuraPlaying}
+                        className={`btn ${isTanpuraPlaying ? 'btn-selected' : 'btn-secondary'}`}
                     >
-                        {PLAY} Tanpura
+                        {isTanpuraPlaying ? `${STOP} Tanpura` : `${PLAY} Tanpura`}
                     </button>
+
+                    {/* Show/Hide Keyboard Toggle */}
+                    <button
+                        onClick={() => setShowPiano(!showPiano)}
+                        className="btn btn-ghost"
+                    >
+                        {showPiano ? 'Hide keyboard' : 'Show keyboard'}
+                    </button>
+
+                    {isPianoLoading && (
+                        <span className="text-xs text-gray-400 animate-pulse">
+                            Loading sounds…
+                        </span>
+                    )}
 
                     {/* Outside Chords Min/Max Controls */}
                     {showOutsideChords && !customScaleMode && (
-                        <div className="flex items-center gap-2 px-3 py-1 bg-gray-700 rounded-lg">
-                            <span className="text-xs text-orange-300">Outside:</span>
+                        <div className="flex items-center gap-2 ml-auto text-sm text-gray-400">
+                            <span>Notes outside raga</span>
                             <select
                                 value={outsideMinAllowed}
                                 onChange={e => {
@@ -777,14 +741,13 @@ export function ChordTool() {
                                     setOutsideMinAllowed(newMin);
                                     if (outsideMaxAllowed < newMin) setOutsideMaxAllowed(newMin);
                                 }}
-                                className="w-12 p-1 border border-gray-500 rounded text-xs bg-gray-600 text-white"
-                                title="Min notes outside"
+                                aria-label="Minimum notes outside"
                             >
                                 <option value={1}>1</option>
                                 <option value={2}>2</option>
                                 <option value={3}>3</option>
                             </select>
-                            <span className="text-xs text-gray-400">-</span>
+                            <span>to</span>
                             <select
                                 value={outsideMaxAllowed}
                                 onChange={e => {
@@ -792,8 +755,7 @@ export function ChordTool() {
                                     setOutsideMaxAllowed(newMax);
                                     if (outsideMinAllowed > newMax) setOutsideMinAllowed(newMax);
                                 }}
-                                className="w-12 p-1 border border-gray-500 rounded text-xs bg-gray-600 text-white"
-                                title="Max notes outside"
+                                aria-label="Maximum notes outside"
                             >
                                 <option value={1}>1</option>
                                 <option value={2}>2</option>
@@ -821,7 +783,7 @@ export function ChordTool() {
 
             {/* Piano Keyboard - positioned between control bar and circles */}
             {showPiano && selectedRaga && (
-                <div className="bg-[#1f1b38] rounded-xl shadow-lg p-6 border border-gray-700 mb-6">
+                <div className="rounded-xl border border-gray-800 bg-gray-900 p-4 sm:p-6 mb-6">
                     <PianoKeyboard
                         highlightedNotes={showRagaNotesOnKeyboard ? patternToPitchClasses(getCurrentPatterns().all) : []}
                         isCarnatic={isCarnatic}
@@ -839,27 +801,21 @@ export function ChordTool() {
 
 
             {/* Tab Navigation */}
-            <div className="mt-4 mb-3">
-                <div className="flex gap-2">
+            <div className="flex gap-6 border-b border-gray-800 mb-6" role="tablist">
+                {[{ id: 'chords', label: 'Chord Visualization' }, { id: 'custom', label: 'Custom Chords' }].map(tab => (
                     <button
-                        onClick={() => setActiveTab('chords')}
-                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'chords'
-                            ? 'bg-blue-500 text-white'
-                            : 'border border-gray-600 text-gray-300 hover:bg-gray-700'
+                        key={tab.id}
+                        role="tab"
+                        aria-selected={activeTab === tab.id}
+                        onClick={() => setActiveTab(tab.id)}
+                        className={`-mb-px pb-2.5 pt-1 border-b-2 text-sm font-medium transition-colors ${activeTab === tab.id
+                            ? 'border-blue-500 text-gray-100'
+                            : 'border-transparent text-gray-400 hover:text-gray-200'
                             }`}
                     >
-                        Chord Visualization
+                        {tab.label}
                     </button>
-                    <button
-                        onClick={() => setActiveTab('custom')}
-                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'custom'
-                            ? 'bg-pink-500 text-white'
-                            : 'border border-gray-600 text-gray-300 hover:bg-gray-700'
-                            }`}
-                    >
-                        Custom Chords
-                    </button>
-                </div>
+                ))}
             </div>
 
             {/* Tab Content */}
@@ -887,17 +843,11 @@ export function ChordTool() {
                         {separateAarohAvroh ? (
                             <div>
                                 {/* Click hint - shown once */}
-                                <div className="flex items-center justify-center gap-2 mb-4 px-3 py-1 bg-blue-900/40 rounded-full w-fit mx-auto">
-                                    <svg width="12" height="12" viewBox="0 0 12 12" className="text-blue-400">
-                                        <circle cx="6" cy="6" r="5" fill="none" stroke="currentColor" strokeWidth="1" />
-                                        <circle cx="6" cy="6" r="2" fill="currentColor" />
-                                    </svg>
-                                    <span className="text-xs text-blue-300 font-medium">Click notes to filter chords</span>
-                                </div>
+                                <p className="mb-4 text-center text-xs text-gray-400">Click a note to filter chords</p>
 
                                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                                     <div className="text-center">
-                                        <h3 className="text-lg font-medium text-blue-300 mb-3">Aaroh (Ascending)</h3>
+                                        <h3 className="text-xs font-medium uppercase tracking-wide text-gray-400 mb-3">Aaroh (Ascending)</h3>
                                         <ChordCircle
                                             pattern={getCurrentPatterns().aaroh}
                                             chords={chordData.aaroh}
@@ -911,7 +861,7 @@ export function ChordTool() {
                                         />
                                     </div>
                                     <div className="text-center">
-                                        <h3 className="text-lg font-medium text-green-300 mb-3">Avroh (Descending)</h3>
+                                        <h3 className="text-xs font-medium uppercase tracking-wide text-gray-400 mb-3">Avroh (Descending)</h3>
                                         <ChordCircle
                                             pattern={getCurrentPatterns().avroh}
                                             chords={chordData.avroh}
@@ -971,7 +921,7 @@ export function ChordTool() {
                     {/* Left sidebar - Custom Chord Builder */}
                     <div className="w-full xl:w-80 flex-shrink-0">
                         <h2 className="text-lg font-semibold text-white mb-4">Custom Chord Builder</h2>
-                        <div className="space-y-4 bg-[#1f1b38] rounded-xl p-4 border border-gray-700">
+                        <div className="space-y-4 rounded-xl border border-gray-800 bg-gray-900 p-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-300 mb-2">Root</label>
                                 <select
@@ -987,15 +937,15 @@ export function ChordTool() {
                             <div>
                                 <label className="block text-sm font-medium text-gray-300 mb-2">Add Intervals</label>
                                 <div className="grid grid-cols-2 gap-2">
-                                    <button onClick={() => addStack(3)} className="px-2 py-1 text-xs rounded bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200">+m3</button>
-                                    <button onClick={() => addStack(4)} className="px-2 py-1 text-xs rounded bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200">+M3</button>
-                                    <button onClick={() => addStack(5)} className="px-2 py-1 text-xs rounded bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200">+4th</button>
-                                    <button onClick={() => addStack(6)} className="px-2 py-1 text-xs rounded bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200">+Tritone</button>
+                                    <button onClick={() => addStack(3)} className="btn btn-sm btn-secondary">+m3</button>
+                                    <button onClick={() => addStack(4)} className="btn btn-sm btn-secondary">+M3</button>
+                                    <button onClick={() => addStack(5)} className="btn btn-sm btn-secondary">+4th</button>
+                                    <button onClick={() => addStack(6)} className="btn btn-sm btn-secondary">+Tritone</button>
                                 </div>
                             </div>
                             <div className="flex gap-2">
-                                <button onClick={removeLast} disabled={customIntervalsAbs.length <= 1} className="flex-1 px-2 py-1 text-xs rounded border border-gray-600 bg-gray-700 hover:bg-gray-600 text-gray-200 disabled:opacity-50">Undo</button>
-                                <button onClick={resetCustom} className="flex-1 px-2 py-1 text-xs rounded border border-gray-600 bg-gray-700 hover:bg-gray-600 text-gray-200">Reset</button>
+                                <button onClick={removeLast} disabled={customIntervalsAbs.length <= 1} className="btn btn-sm btn-secondary flex-1">Undo</button>
+                                <button onClick={resetCustom} className="btn btn-sm btn-secondary flex-1">Reset</button>
                             </div>
                             <div className="text-xs text-gray-300 space-y-2 p-3 bg-gray-800 rounded">
                                 <div><strong>Steps:</strong> {customIntervalsAbs.map((v, i, arr) => i === 0 ? '0' : `+${v - arr[i - 1]}`).join(' ')}</div>
@@ -1015,7 +965,7 @@ export function ChordTool() {
                                         playNote(note.noteIndex, note.octave, 0.8, i * 0.08);
                                     });
                                 }}
-                                className="w-full py-2 rounded-lg font-medium bg-pink-600 text-white hover:bg-pink-700"
+                                className="btn btn-primary w-full"
                             >
                                 {PLAY} Play Custom Chord
                             </button>
@@ -1040,14 +990,14 @@ export function ChordTool() {
 
 
                 {/* Available Chords (with Progression Builder inside) */}
-                <div className="bg-[#1f1b38] rounded-xl shadow-lg p-6 border border-gray-700">
-                    <h2 className="text-xl font-semibold text-white mb-4">
+                <div className="rounded-xl border border-gray-800 bg-gray-900 p-4 sm:p-6">
+                    <h2 className="text-2xl font-semibold text-gray-100 mb-4">
                         Available Chords
                     </h2>
 
                     {!separateAarohAvroh ? (
-                        <div className="max-h-64 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+                        <div className="max-h-[22rem] overflow-y-auto pr-1">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                                 {currentChords.map((chord, index) => (
                                     <ChordCard
                                         key={`all-${chord.root}-${chord.type}-${index}`}
@@ -1067,9 +1017,9 @@ export function ChordTool() {
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-6 min-h-[250px]">
                             {/* Aaroh Chords - Scrollable */}
                             <div>
-                                <h3 className="text-lg font-medium text-blue-300 mb-3">Aaroh Chords ({chordData.aaroh.length})</h3>
-                                <div className="max-h-64 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <h3 className="text-xs font-medium uppercase tracking-wide text-gray-400 mb-3">Aaroh Chords ({chordData.aaroh.length})</h3>
+                                <div className="max-h-[22rem] overflow-y-auto pr-1">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         {chordData.aaroh.map((chord, index) => (
                                             <ChordCard
                                                 key={`aaroh-${chord.root}-${chord.type}-${index}`}
@@ -1088,9 +1038,9 @@ export function ChordTool() {
                             </div>
                             {/* Avroh Chords - Scrollable */}
                             <div>
-                                <h3 className="text-lg font-medium text-green-300 mb-3">Avroh Chords ({chordData.avroh.length})</h3>
-                                <div className="max-h-64 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <h3 className="text-xs font-medium uppercase tracking-wide text-gray-400 mb-3">Avroh Chords ({chordData.avroh.length})</h3>
+                                <div className="max-h-[22rem] overflow-y-auto pr-1">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         {chordData.avroh.map((chord, index) => (
                                             <ChordCard
                                                 key={`avroh-${chord.root}-${chord.type}-${index}`}
@@ -1130,9 +1080,9 @@ export function ChordTool() {
                                         {/* Outside Aaroh */}
                                         {chordData.outsideAaroh.length > 0 && (
                                             <div>
-                                                <h4 className="text-md font-medium text-blue-300 mb-3">Aaroh ({chordData.outsideAaroh.length})</h4>
+                                                <h4 className="text-xs font-medium uppercase tracking-wide text-gray-400 mb-3">Aaroh ({chordData.outsideAaroh.length})</h4>
                                                 <div className="max-h-48 overflow-y-auto pr-2">
-                                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                         {chordData.outsideAaroh.map((chord, index) => (
                                                             <ChordCard
                                                                 key={`outside-aaroh-${chord.root}-${chord.type}-${index}`}
@@ -1155,9 +1105,9 @@ export function ChordTool() {
                                         {/* Outside Avroh */}
                                         {chordData.outsideAvroh.length > 0 && (
                                             <div>
-                                                <h4 className="text-md font-medium text-green-300 mb-3">Avroh ({chordData.outsideAvroh.length})</h4>
+                                                <h4 className="text-xs font-medium uppercase tracking-wide text-gray-400 mb-3">Avroh ({chordData.outsideAvroh.length})</h4>
                                                 <div className="max-h-48 overflow-y-auto pr-2">
-                                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                         {chordData.outsideAvroh.map((chord, index) => (
                                                             <ChordCard
                                                                 key={`outside-avroh-${chord.root}-${chord.type}-${index}`}
@@ -1179,8 +1129,8 @@ export function ChordTool() {
                                         )}
                                     </div>
                                 ) : (
-                                    <div className="max-h-64 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+                                    <div className="max-h-[22rem] overflow-y-auto pr-1">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                                             {chordData.outside.map((chord, index) => (
                                                 <ChordCard
                                                     key={`outside-${chord.root}-${chord.type}-${index}`}
@@ -1203,30 +1153,33 @@ export function ChordTool() {
                         )}
 
                     {/* Chord Progression Builder - now inside Available Chords */}
-                    <div className="mt-6 pt-6 border-t border-gray-600">
-                        <h3 className="text-lg font-semibold text-white mb-4">
-                            Chord Progression Builder
-                        </h3>
+                    <div className="mt-8 pt-6 border-t border-gray-800">
+                        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                            <h3 className="text-xl font-semibold text-gray-100">
+                                Chord Progression Builder
+                            </h3>
 
-                        {/* Progression Tabs */}
-                        <div className="flex gap-2 mb-4">
-                            {rhythmProgressions.map(prog => (
-                                <button
-                                    key={prog.id}
-                                    onClick={() => handleSelectProgression(prog.id)}
-                                    className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${activeProgressionId === prog.id
-                                        ? 'bg-blue-600 text-white'
-                                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                                        }`}
-                                >
-                                    {prog.name}
-                                    {prog.chords.length > 0 && (
-                                        <span className="ml-1 text-xs opacity-70">
-                                            ({prog.chords.length})
-                                        </span>
-                                    )}
-                                </button>
-                            ))}
+                            {/* Track selector */}
+                            <div className="inline-flex rounded-lg border border-gray-700 bg-gray-800 p-0.5" role="group" aria-label="Track">
+                                {rhythmProgressions.map(prog => (
+                                    <button
+                                        key={prog.id}
+                                        onClick={() => handleSelectProgression(prog.id)}
+                                        aria-pressed={activeProgressionId === prog.id}
+                                        className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${activeProgressionId === prog.id
+                                            ? 'bg-gray-600 text-gray-100'
+                                            : 'text-gray-400 hover:text-gray-100'
+                                            }`}
+                                    >
+                                        Track {prog.name}
+                                        {prog.chords.length > 0 && (
+                                            <span className="ml-1 text-xs text-gray-400">
+                                                {prog.chords.length}
+                                            </span>
+                                        )}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
 
                         <SequencerControls
@@ -1257,20 +1210,20 @@ export function ChordTool() {
                         <div className="flex flex-wrap gap-2 mb-4">
                             <button
                                 onClick={() => setShowMidiSettings(!showMidiSettings)}
-                                className="px-3 py-1 text-xs bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors"
+                                className="btn btn-sm btn-secondary"
                             >
                                 MIDI Settings
                             </button>
                             <button
                                 onClick={handleDownloadMidi}
                                 disabled={activeProgression.chords.length === 0}
-                                className="px-3 py-1 text-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="btn btn-sm btn-secondary"
                             >
                                 Download MIDI
                             </button>
                             <button
                                 onClick={() => setShowPianoChords(!showPianoChords)}
-                                className="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+                                className="btn btn-sm btn-ghost"
                             >
                                 {showPianoChords ? 'Hide' : 'Show'} Piano Chords
                             </button>
@@ -1287,11 +1240,11 @@ export function ChordTool() {
 
                         {/* Tap-to-place prompt, fixed so it stays visible while scrolling to the timeline */}
                         {pendingChord && (
-                            <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-2 rounded-full bg-yellow-300 text-black text-sm font-medium shadow-lg">
+                            <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-2 rounded-full bg-blue-500 text-white text-sm font-medium shadow-lg shadow-black/40">
                                 <span>Tap a beat to place {labels[pendingChord.root]} {pendingChord.name}</span>
                                 <button
                                     onClick={() => setPendingChord(null)}
-                                    className="px-2 py-0.5 rounded-full bg-black/10 hover:bg-black/20"
+                                    className="px-2 py-0.5 rounded-full bg-white/15 hover:bg-white/25"
                                 >
                                     Cancel
                                 </button>
@@ -1311,8 +1264,8 @@ export function ChordTool() {
                             onBeatClick={handleBeatClick}
                         />
 
-                        <div className="mt-4 text-sm text-gray-400">
-                            Drag chords onto the timeline, or tap Add on a chord and then tap a beat. Hover over a placed chord (or tap it on a touch screen) to remove it.
+                        <div className="mt-3 text-xs text-gray-500">
+                            Drag chords onto the timeline (on a touch screen, tap a chord and then a beat). Hover over a placed chord to remove it.
                         </div>
 
                         {/* Piano Chords View - below timeline */}
