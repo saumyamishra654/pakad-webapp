@@ -14,7 +14,7 @@ import { ChordCircle } from '../components/chords/ChordCircle.jsx';
 import { ChordCard, ChordGrid } from '../components/chords/ChordCard.jsx';
 import { ChordTypeList } from '../components/chords/ChordTypeList.jsx';
 import { PianoKeyboard } from '../components/common/PianoKeyboard.jsx';
-import { TimelineGrid, PlaybackControls } from '../components/rhythm/TimelineGrid.jsx';
+import { TimelineGrid } from '../components/rhythm/TimelineGrid.jsx';
 import { PianoChordsView } from '../components/rhythm/PianoChordsView.jsx';
 import { MidiSettingsPanel } from '../components/rhythm/MidiSettingsPanel.jsx';
 import { SequencerControls } from '../components/rhythm/SequencerControls.jsx';
@@ -736,7 +736,7 @@ export function ChordTool() {
                             onClick={() => playChalan(mode)}
                             className={`px-4 py-2 ${color} text-white rounded-lg font-medium text-sm flex items-center gap-2 transition-colors`}
                         >
-                            {chalanMode === mode ? <><span>■</span> Stop</> : <><span>▶</span> {label}</>}
+                            {chalanMode === mode ? 'Stop' : label}
                         </button>
                     ))}
 
@@ -762,7 +762,7 @@ export function ChordTool() {
                             : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
                             }`}
                     >
-                        <span>▶</span> Tanpura
+                        Tanpura
                     </button>
 
                     {/* Outside Chords Min/Max Controls */}
@@ -1000,9 +1000,9 @@ export function ChordTool() {
                                 <div><strong>Steps:</strong> {customIntervalsAbs.map((v, i, arr) => i === 0 ? '0' : `+${v - arr[i - 1]}`).join(' ')}</div>
                                 <div><strong>Notes:</strong> {customNotesAll.map(i => labels[i]).join(' - ')}</div>
                                 <div className="flex gap-1 flex-wrap">
-                                    <span className={`px-2 py-0.5 rounded text-xs ${customValidation.all ? 'bg-green-800 text-green-200' : 'bg-red-800 text-red-200'}`}>All {customValidation.all ? '✓' : '✗'}</span>
-                                    <span className={`px-2 py-0.5 rounded text-xs ${customValidation.aaroh ? 'bg-green-800 text-green-200' : 'bg-red-800 text-red-200'}`}>Aaroh {customValidation.aaroh ? '✓' : '✗'}</span>
-                                    <span className={`px-2 py-0.5 rounded text-xs ${customValidation.avroh ? 'bg-green-800 text-green-200' : 'bg-red-800 text-red-200'}`}>Avroh {customValidation.avroh ? '✓' : '✗'}</span>
+                                    <span className={`px-2 py-0.5 rounded text-xs ${customValidation.all ? 'bg-green-800 text-green-200' : 'bg-red-800 text-red-200'}`}>All: {customValidation.all ? 'in scale' : 'outside'}</span>
+                                    <span className={`px-2 py-0.5 rounded text-xs ${customValidation.aaroh ? 'bg-green-800 text-green-200' : 'bg-red-800 text-red-200'}`}>Aaroh: {customValidation.aaroh ? 'in scale' : 'outside'}</span>
+                                    <span className={`px-2 py-0.5 rounded text-xs ${customValidation.avroh ? 'bg-green-800 text-green-200' : 'bg-red-800 text-red-200'}`}>Avroh: {customValidation.avroh ? 'in scale' : 'outside'}</span>
                                 </div>
                             </div>
                             <button
@@ -1016,7 +1016,7 @@ export function ChordTool() {
                                 }}
                                 className="w-full py-2 rounded-lg font-medium bg-pink-600 text-white hover:bg-pink-700"
                             >
-                                ▶ Play Custom Chord
+                                Play Custom Chord
                             </button>
                         </div>
                     </div>
@@ -1258,20 +1258,20 @@ export function ChordTool() {
                                 onClick={() => setShowMidiSettings(!showMidiSettings)}
                                 className="px-3 py-1 text-xs bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors"
                             >
-                                ⚙ MIDI Settings
+                                MIDI Settings
                             </button>
                             <button
                                 onClick={handleDownloadMidi}
                                 disabled={activeProgression.chords.length === 0}
                                 className="px-3 py-1 text-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                ⬇ Download MIDI
+                                Download MIDI
                             </button>
                             <button
                                 onClick={() => setShowPianoChords(!showPianoChords)}
                                 className="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
                             >
-                                🎹 {showPianoChords ? 'Hide' : 'Show'} Piano Chords
+                                {showPianoChords ? 'Hide' : 'Show'} Piano Chords
                             </button>
                         </div>
 
@@ -1311,7 +1311,7 @@ export function ChordTool() {
                         />
 
                         <div className="mt-4 text-sm text-gray-400">
-                            Drag chords onto the timeline, or tap + Add on a chord and then tap a beat • Hover (or tap ×) to remove
+                            Drag chords onto the timeline, or tap Add on a chord and then tap a beat. Hover over a placed chord (or tap it on a touch screen) to remove it.
                         </div>
 
                         {/* Piano Chords View - below timeline */}

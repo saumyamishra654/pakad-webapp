@@ -83,13 +83,13 @@ export function ChordCard({
                     onClick={(e) => { e.stopPropagation(); onPlayUnison && onPlayUnison(chord); }}
                     className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
                 >
-                    ♪ Unison
+                    Unison
                 </button>
                 <button
                     onClick={(e) => { e.stopPropagation(); onPlayMelody && onPlayMelody(chord); }}
                     className="px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
                 >
-                    ♫ Melody
+                    Melody
                 </button>
                 {onSelect && (
                     // Tap-to-place: drag and drop doesn't work on touch screens
@@ -100,7 +100,7 @@ export function ChordCard({
                             : 'bg-gray-600 text-white hover:bg-gray-500'}`}
                         title="Select, then tap a beat in the progression to place it"
                     >
-                        {isSelected ? '✕ Cancel' : '+ Add'}
+                        {isSelected ? 'Cancel' : 'Add'}
                     </button>
                 )}
             </div>

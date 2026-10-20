@@ -86,7 +86,7 @@ export function SequencerControls({ settings, onChange, isPlaying, onPlayStop, o
                             : 'bg-green-500 hover:bg-green-600 text-white'
                             }`}
                     >
-                        {isPlaying ? '⏹ Stop' : '▶ Play'}
+                        {isPlaying ? 'Stop' : 'Play'}
                     </button>
                     <button
                         onClick={onClear}

@@ -143,7 +143,9 @@ export function TimelineGrid({
                                                             className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-xs opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 flex items-center justify-center font-bold transition-opacity shadow-md z-10"
                                                             title="Remove chord"
                                                         >
-                                                            ×
+                                                            <svg viewBox="0 0 10 10" className="w-2 h-2" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+                                                                <path d="M2 2l6 6M8 2l-6 6" />
+                                                            </svg>
                                                         </button>
                                                     </div>
                                                 );
@@ -171,64 +173,6 @@ export function TimelineGrid({
                     </span>
                 )}
             </div>
-        </div>
-    );
-}
-
-/**
- * Playback controls for timeline
- */
-export function PlaybackControls({
-    isPlaying,
-    onPlayPause,
-    onStop,
-    onClear,
-    loop,
-    onLoopToggle,
-    className = ''
-}) {
-    return (
-        <div className={`flex items-center gap-3 ${className}`}>
-            {/* Play/Pause */}
-            <button
-                onClick={onPlayPause}
-                className={`
-                    px-3 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-colors
-                    ${isPlaying
-                        ? 'bg-yellow-500 hover:bg-yellow-600 text-white'
-                        : 'bg-green-500 hover:bg-green-600 text-white'
-                    }
-                `}
-            >
-                {isPlaying ? '⏸ Pause' : '▶ Play'}
-            </button>
-
-            {/* Stop */}
-            <button
-                onClick={onStop}
-                className="px-3 py-2 rounded-lg font-medium text-sm bg-gray-200 hover:bg-gray-300 text-gray-700"
-            >
-                ⏹ Stop
-            </button>
-
-            {/* Loop */}
-            <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
-                <input
-                    type="checkbox"
-                    checked={loop}
-                    onChange={e => onLoopToggle(e.target.checked)}
-                    className="w-4 h-4"
-                />
-                Loop
-            </label>
-
-            {/* Clear */}
-            <button
-                onClick={onClear}
-                className="px-3 py-2 text-sm bg-red-100 text-red-700 rounded-lg hover:bg-red-200"
-            >
-                Clear
-            </button>
         </div>
     );
 }

@@ -533,7 +533,7 @@ export function RagaQuery() {
                                             to={`/?raga=${encodeURIComponent(raga.name)}`}
                                             className="px-3 py-1 text-sm bg-green-900/40 text-green-300 rounded-lg hover:bg-green-800/40"
                                         >
-                                            Chords →
+                                            Chords
                                         </Link>
                                     </div>
                                 </div>
