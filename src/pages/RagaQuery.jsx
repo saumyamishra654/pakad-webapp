@@ -232,7 +232,7 @@ export function RagaQuery() {
                             className={`
                 px-2 py-3 rounded-lg text-sm font-medium transition-all flex items-center justify-center
                 ${i === 0 ? 'bg-gray-900 text-gray-600 cursor-not-allowed hidden' :
-                                    isExcluded ? 'bg-red-900/50 text-red-200 border border-red-800' :
+                                    isExcluded ? 'bg-red-100 text-red-800 border border-red-300 dark:bg-red-900/50 dark:text-red-200 dark:border-red-800' :
                                         isSelected ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' :
                                             'bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700/50 hover:border-gray-600'
                                 }
@@ -355,7 +355,7 @@ export function RagaQuery() {
                                     value={searchQuery}
                                     onChange={e => setSearchQuery(e.target.value)}
                                     placeholder="Enter raga name..."
-                                    className="w-full px-4 py-2.5 rounded-lg bg-gray-900 border border-gray-800 text-white placeholder-gray-600 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                    className="w-full px-4 py-2.5 rounded-lg bg-gray-900 border border-gray-800 text-gray-100 placeholder-gray-600 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                                 />
                             </div>
 
@@ -367,7 +367,7 @@ export function RagaQuery() {
                                 <select
                                     value={scaleType}
                                     onChange={e => setScaleType(e.target.value)}
-                                    className="w-full px-4 py-2.5 rounded-lg bg-gray-900 border border-gray-800 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                    className="w-full px-4 py-2.5 rounded-lg bg-gray-900 border border-gray-800 text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                                 >
                                     <option value="all">Any Scale Type</option>
                                     <option value="5">Audav (5 notes)</option>
@@ -384,7 +384,7 @@ export function RagaQuery() {
                                 <select
                                     value={searchMode}
                                     onChange={e => setSearchMode(e.target.value)}
-                                    className="w-full px-4 py-2.5 rounded-lg bg-gray-900 border border-gray-800 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                    className="w-full px-4 py-2.5 rounded-lg bg-gray-900 border border-gray-800 text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                                 >
                                     <option value="contains">Contains selected notes</option>
                                     <option value="exact">Exact match</option>
@@ -403,7 +403,7 @@ export function RagaQuery() {
                                         onChange={e => setSeparateNoteSelection(e.target.checked)}
                                         className="hidden"
                                     />
-                                    <span className="text-sm text-gray-300 group-hover:text-white transition-colors">Separate aaroh/avroh note selection</span>
+                                    <span className="text-sm text-gray-300 group-hover:text-gray-100 transition-colors">Separate aaroh/avroh note selection</span>
                                 </label>
                             </div>
 
@@ -464,7 +464,7 @@ export function RagaQuery() {
                 {/* Results Section */}
                 <div className="bg-gray-900 rounded-xl shadow-lg p-6 min-h-[500px]">
                     <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-lg font-semibold text-white">
+                        <h2 className="text-lg font-semibold text-gray-100">
                             Results ({filteredResults.length})
                         </h2>
                     </div>
@@ -486,7 +486,7 @@ export function RagaQuery() {
                                                 {raga.name}
                                             </span>
                                             {isCarnatic && raga.number && (
-                                                <span className="text-xs bg-purple-900/40 text-purple-300 px-2 py-0.5 rounded">
+                                                <span className="text-xs bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 px-2 py-0.5 rounded">
                                                     #{raga.number}
                                                 </span>
                                             )}

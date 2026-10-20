@@ -42,6 +42,49 @@
   --color-blue-700: #3d5ad6;
 }
 
+/* `dark:` utilities follow the app's theme (data-theme on <html>), not the OS setting */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/*
+ * Light theme: the neutral scale is flipped (950 = page background, 100 = main text), so
+ * every gray-* utility and token below switches together. Blue stays the accent.
+ */
+:root[data-theme="light"] {
+  --color-gray-50: #0f1115;
+  --color-gray-100: #1b1e26;
+  --color-gray-200: #2f343f;
+  --color-gray-300: #454b58;
+  --color-gray-400: #5f6677;
+  --color-gray-500: #8a90a0;
+  --color-gray-600: #cfd4dd;
+  --color-gray-700: #e1e4ea;
+  --color-gray-800: #eef0f4;
+  --color-gray-900: #ffffff;
+  --color-gray-950: #f6f7f9;
+
+  --color-slate-50: #0f1115;
+  --color-slate-100: #1b1e26;
+  --color-slate-200: #2f343f;
+  --color-slate-300: #454b58;
+  --color-slate-400: #5f6677;
+  --color-slate-500: #8a90a0;
+  --color-slate-600: #cfd4dd;
+  --color-slate-700: #e1e4ea;
+  --color-slate-800: #eef0f4;
+  --color-slate-900: #ffffff;
+  --color-slate-950: #f6f7f9;
+
+  --color-blue-300: #3d5ad6;
+  --danger: #dc2626;
+
+  --circle-outline: #cfd4dd;
+  --circle-node-off: #e1e4ea;
+  --circle-node-off-stroke: #b4bac6;
+  --circle-label-off: #5f6677;
+
+  color-scheme: light;
+}
+
 :root {
   --bg: var(--color-gray-950);
   --surface: var(--color-gray-900);
@@ -54,6 +97,11 @@
   --accent: var(--color-blue-500);
   --accent-hover: var(--color-blue-600);
   --danger: #f87171;
+
+  --circle-outline: #3a3f4f;
+  --circle-node-off: #2a2e3b;
+  --circle-node-off-stroke: #6b7182;
+  --circle-label-off: #b4bac6;
 
   color-scheme: dark; /* dark native scrollbars, date pickers, etc. */
   accent-color: var(--accent); /* checkboxes, radios, range inputs */
@@ -103,6 +151,10 @@ body {
 .bg-green-50 {
   background-color: rgb(34 197 94 / 0.12) !important;
   color: #bbf7d0 !important;
+}
+
+[data-theme="light"] .bg-green-50 {
+  color: #166534 !important;
 }
 
 .text-gray-800,
@@ -254,7 +306,7 @@ input[type="radio"] {
     background-color: rgb(248 113 113 / 0.1);
   }
 
-  /* Selected state for toggle buttons (e.g. a playing chalan, an armed chord) */
+  /* Selected state for toggle buttons (e.g. a playing chalan, a playing sequence) */
   .btn-selected {
     background-color: rgb(91 124 250 / 0.18);
     border-color: var(--accent);

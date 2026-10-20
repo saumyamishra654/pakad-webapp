@@ -69,13 +69,7 @@ export function ChordCircle({
         <div className={`flex flex-col items-center ${className}`}>
             {/* Click hint */}
             {onNoteClick && !hideClickHint && (
-                <div className="flex items-center gap-2 mb-3 px-3 py-1 bg-blue-900/40 rounded-full">
-                    <svg width="12" height="12" viewBox="0 0 12 12" className="text-blue-400">
-                        <circle cx="6" cy="6" r="5" fill="none" stroke="currentColor" strokeWidth="1" />
-                        <circle cx="6" cy="6" r="2" fill="currentColor" />
-                    </svg>
-                    <span className="text-xs text-blue-300 font-medium">Click notes to filter chords</span>
-                </div>
+                <p className="mb-3 text-xs text-gray-400">Click a note to filter chords</p>
             )}
 
             <div className="relative">
@@ -86,7 +80,7 @@ export function ChordCircle({
                         cy={centerY}
                         r={radius + 20}
                         fill="none"
-                        stroke="#475569"
+                        style={{ stroke: 'var(--circle-outline)' }}
                         strokeWidth="2"
                     />
 
@@ -193,7 +187,7 @@ export function ChordCircle({
                                 fillColor = '#10b981'; // Green for available notes
                             }
                         } else {
-                            fillColor = '#475569'; // Gray for unavailable
+                            fillColor = 'var(--circle-node-off)'; // Gray for unavailable (theme-aware)
                         }
 
                         // Determine stroke color
@@ -201,7 +195,7 @@ export function ChordCircle({
                         if (isSelected) {
                             strokeColor = noteFilterMode === 'root' ? '#e9d5ff' : '#fecaca';
                         } else {
-                            strokeColor = isPresent ? '#ffffff' : '#64748b';
+                            strokeColor = isPresent ? '#ffffff' : 'var(--circle-node-off-stroke)';
                         }
 
                         return (
@@ -210,21 +204,24 @@ export function ChordCircle({
                                     cx={pos.x}
                                     cy={pos.y}
                                     r={isPresent ? (isRoot ? 14 : 12) : 12}
-                                    fill={fillColor}
-                                    stroke={strokeColor}
                                     strokeWidth={isSelected ? "3" : "2"}
                                     className="note-dot cursor-pointer hover:opacity-80"
                                     onClick={() => onNoteClick && onNoteClick(index)}
-                                    style={{ cursor: onNoteClick ? 'pointer' : 'default' }}
+                                    // style (not fill/stroke attributes) so theme variables resolve
+                                    style={{ fill: fillColor, stroke: strokeColor, cursor: onNoteClick ? 'pointer' : 'default' }}
                                 />
                                 <text
                                     x={pos.x}
                                     y={pos.y + 4}
                                     textAnchor="middle"
                                     fontSize={isRoot ? "9" : "10"}
-                                    fill="#cbd5e1"
                                     fontWeight="bold"
-                                    style={{ userSelect: 'none', pointerEvents: 'none' }}
+                                    style={{
+                                        // white on coloured nodes; theme-aware on the neutral "not in raga" nodes
+                                        fill: fillColor === 'var(--circle-node-off)' ? 'var(--circle-label-off)' : '#ffffff',
+                                        userSelect: 'none',
+                                        pointerEvents: 'none'
+                                    }}
                                 >
                                     {swara}
                                 </text>

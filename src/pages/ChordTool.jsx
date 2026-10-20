@@ -823,7 +823,7 @@ export function ChordTool() {
                 <div className="flex flex-col xl:flex-row gap-6">
                     {/* Left sidebar - Chord type buttons */}
                     <div className="w-full xl:w-80 flex-shrink-0">
-                        <h2 className="text-lg font-semibold text-white mb-4">Chord Types</h2>
+                        <h2 className="text-lg font-semibold text-gray-100 mb-4">Chord Types</h2>
                         <ChordTypeList
                             selected={selectedChordType}
                             onSelect={setSelectedChordType}
@@ -920,14 +920,14 @@ export function ChordTool() {
                 <div className="flex flex-col xl:flex-row gap-6">
                     {/* Left sidebar - Custom Chord Builder */}
                     <div className="w-full xl:w-80 flex-shrink-0">
-                        <h2 className="text-lg font-semibold text-white mb-4">Custom Chord Builder</h2>
+                        <h2 className="text-lg font-semibold text-gray-100 mb-4">Custom Chord Builder</h2>
                         <div className="space-y-4 rounded-xl border border-gray-800 bg-gray-900 p-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-300 mb-2">Root</label>
                                 <select
                                     value={customRoot}
                                     onChange={e => setCustomRoot(parseInt(e.target.value))}
-                                    className="w-full p-2 text-sm border border-gray-600 rounded-lg bg-gray-700 text-white"
+                                    className="w-full p-2 text-sm border border-gray-600 rounded-lg bg-gray-700 text-gray-100"
                                 >
                                     {labels.map((s, idx) => (
                                         <option key={idx} value={idx}>{s}</option>

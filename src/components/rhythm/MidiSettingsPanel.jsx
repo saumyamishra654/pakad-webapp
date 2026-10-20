@@ -11,7 +11,7 @@ function NumberField({ label, ...props }) {
     return (
         <label className="flex flex-col gap-1">
             <span className="text-gray-400">{label}</span>
-            <DraftNumberInput {...props} className="px-2 py-1 border border-gray-600 rounded bg-gray-700 text-white" />
+            <DraftNumberInput {...props} className="px-2 py-1 border border-gray-600 rounded bg-gray-700 text-gray-100" />
         </label>
     );
 }
@@ -26,8 +26,8 @@ export function MidiSettingsPanel({ settings, onChange, sequencerBpm }) {
     const followsBpm = settings.tempoOverride === null;
 
     return (
-        <div className="mb-4 p-4 rounded-lg border border-purple-700 bg-purple-900/30">
-            <h4 className="text-sm font-semibold text-purple-200 mb-3">MIDI Export Settings</h4>
+        <div className="mb-4 p-4 rounded-lg border border-gray-800 bg-gray-950/50">
+            <h4 className="text-xs font-medium uppercase tracking-wide text-gray-400 mb-3">MIDI export settings</h4>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                 <div className="flex flex-col gap-1">
                     <label className="flex items-center gap-2 text-gray-400">
@@ -85,7 +85,7 @@ export function MidiSettingsPanel({ settings, onChange, sequencerBpm }) {
                     <select
                         value={settings.scope}
                         onChange={e => onChange({ scope: e.target.value })}
-                        className="px-2 py-1 border border-gray-600 rounded bg-gray-700 text-white"
+                        className="px-2 py-1 border border-gray-600 rounded bg-gray-700 text-gray-100"
                     >
                         <option value="all">All tracks (multi-track file)</option>
                         <option value="current">Current track only</option>

@@ -4,6 +4,7 @@
 
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { useTheme } from '../../hooks/useTheme.js';
 
 const NAV_ITEMS = [
     { to: '/', label: 'Chord Tool' },
@@ -13,6 +14,7 @@ const NAV_ITEMS = [
 
 export function Header() {
     const location = useLocation();
+    const { theme, toggleTheme } = useTheme();
 
     return (
         <header className="sticky top-0 z-40 border-b border-gray-800 bg-gray-950/90 backdrop-blur">
@@ -20,7 +22,7 @@ export function Header() {
                 {/* Brand */}
                 <Link to="/" className="flex items-center gap-2 shrink-0">
                     <img src="icon-192.svg" alt="" className="w-7 h-7 rounded-md" />
-                    <span className="font-serif text-xl font-semibold text-gray-100">Samvad</span>
+                    <span className="font-serif text-xl font-semibold text-gray-100 max-[420px]:sr-only">Samvad</span>
                 </Link>
 
                 {/* Navigation */}
@@ -41,6 +43,26 @@ export function Header() {
                             </Link>
                         );
                     })}
+
+                    <button
+                        onClick={toggleTheme}
+                        className="ml-1 p-1.5 rounded-md text-gray-400 hover:text-gray-100 hover:bg-gray-900 transition-colors"
+                        aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                        title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+                    >
+                        {theme === 'dark' ? (
+                            // Sun
+                            <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                                <circle cx="12" cy="12" r="4" />
+                                <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+                            </svg>
+                        ) : (
+                            // Moon
+                            <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                            </svg>
+                        )}
+                    </button>
                 </nav>
             </div>
         </header>

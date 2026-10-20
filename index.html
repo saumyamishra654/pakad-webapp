@@ -10,6 +10,16 @@
   <meta name="theme-color" content="#1e3a8a" />
   <meta name="description" content="Explore raga-based chords and progressions for Indian classical music" />
   <title>Samvad - Raga Chord Tool</title>
+  <script>
+    // Apply the saved or OS theme before first paint to avoid a flash (see src/hooks/useTheme.js)
+    try {
+      var t = localStorage.getItem('samvad_theme');
+      if (t !== 'light' && t !== 'dark') t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+      document.documentElement.dataset.theme = t;
+    } catch (e) {
+      document.documentElement.dataset.theme = 'dark';
+    }
+  </script>
 </head>
 
 <body>

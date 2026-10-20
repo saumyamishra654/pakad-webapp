@@ -108,16 +108,16 @@ function ChordPiano({ pianoKeys }) {
  */
 export function PianoChordsView({ chords, labels, tonic }) {
     return (
-        <div className="mt-4 p-3 rounded-lg border border-blue-700 bg-blue-900/30">
-            <h3 className="text-md font-semibold text-blue-200 mb-3">Piano Chords</h3>
+        <div className="mt-4 p-3 rounded-lg border border-gray-800 bg-gray-950/50">
+            <h3 className="text-xs font-sans font-medium uppercase tracking-wide text-gray-400 mb-3">Piano chords</h3>
             <div className="space-y-3">
                 {chords.map((item) => {
                     const chord = item.chord;
                     const chordName = chord.name || chord.type?.name || '';
                     return (
-                        <div key={item.id} className="p-2 bg-gray-800 rounded border border-gray-600">
+                        <div key={item.id} className="p-2 bg-gray-900 rounded border border-gray-800">
                             <div className="flex items-center gap-3 mb-2">
-                                <span className="text-sm font-medium text-white">
+                                <span className="text-sm font-medium text-gray-100">
                                     Beat {item.beat + 1}: {labels[chord.root]} {chordName}
                                 </span>
                                 <span className="text-xs text-gray-400">
