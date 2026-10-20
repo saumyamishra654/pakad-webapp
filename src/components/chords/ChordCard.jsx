@@ -4,6 +4,7 @@
 
 import React from 'react';
 import { getChordNotation } from '../../utils/chordHelpers.js';
+import { getRomanNumeral } from '../../utils/romanNumerals.js';
 import { getDisplayLabels } from '../../utils/noteHelpers.js';
 
 /**
@@ -26,6 +27,7 @@ export function ChordCard({
 
     const labels = getDisplayLabels(isCarnatic);
     const westernName = getChordNotation(chord, tonic);
+    const numeral = getRomanNumeral(chord);
     const rootLabel = labels[chord.root];
     const chordTypeName = chord.name || chord.type?.name || '';
 
@@ -73,6 +75,9 @@ export function ChordCard({
                     className="w-2.5 h-2.5 rounded-full flex-shrink-0 self-center"
                     style={{ backgroundColor: chord.color || '#5b7cfa' }}
                 />
+                {numeral && (
+                    <span data-testid="roman-numeral" className="text-xs text-gray-500 tabular-nums">{numeral}</span>
+                )}
                 <span className="font-medium text-sm text-gray-100 truncate">
                     {rootLabel} {chordTypeName}
                 </span>

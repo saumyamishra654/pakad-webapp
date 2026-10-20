@@ -5,6 +5,7 @@
  */
 
 import React, { useState, useCallback } from 'react';
+import { getRomanNumeral } from '../../utils/romanNumerals.js';
 import { getDisplayLabels } from '../../utils/noteHelpers.js';
 
 /**
@@ -132,7 +133,7 @@ export function TimelineGrid({
                                                                 style={{ backgroundColor: bgColor }}
                                                             />
                                                             <span className="font-medium text-gray-100 truncate text-xs">
-                                                                {westernName || `${rootLabel} ${typeName}`}
+                                                                {[getRomanNumeral(chord.chord), westernName || `${rootLabel} ${typeName}`].filter(Boolean).join(' · ')}
                                                             </span>
                                                         </div>
                                                         {/* Delete button on hover */}

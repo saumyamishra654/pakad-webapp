@@ -109,4 +109,12 @@ describe('ChordCard', () => {
         const highlightedSpans = container.querySelectorAll('[data-outside]');
         expect(highlightedSpans.length).toBe(1);
     });
+
+    it('shows the same Roman numeral regardless of tonic', () => {
+        const { unmount } = render(<ChordCard {...defaultProps} tonic={2} />);
+        expect(screen.getByTestId('roman-numeral').textContent).toBe('I');
+        unmount();
+        render(<ChordCard {...defaultProps} tonic={0} />);
+        expect(screen.getByTestId('roman-numeral').textContent).toBe('I');
+    });
 });

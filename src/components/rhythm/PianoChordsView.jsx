@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { arrangeChordNotes } from '../../utils/chordHelpers.js';
+import { getRomanNumeral } from '../../utils/romanNumerals.js';
 
 const WHITE_PCS = [0, 2, 4, 5, 7, 9, 11];
 const BLACK_PCS = [1, 3, 6, 8, 10];
@@ -114,11 +115,13 @@ export function PianoChordsView({ chords, labels, tonic }) {
                 {chords.map((item) => {
                     const chord = item.chord;
                     const chordName = chord.name || chord.type?.name || '';
+                    const numeral = getRomanNumeral(chord);
                     return (
                         <div key={item.id} className="p-2 bg-gray-900 rounded border border-gray-800">
                             <div className="flex items-center gap-3 mb-2">
                                 <span className="text-sm font-medium text-gray-100">
                                     Beat {item.beat + 1}: {labels[chord.root]} {chordName}
+                                    {numeral && <span className="ml-2 text-xs text-gray-500 tabular-nums">{numeral}</span>}
                                 </span>
                                 <span className="text-xs text-gray-400">
                                     {chord.notes.map(n => labels[n]).join(' - ')}
