@@ -49,8 +49,9 @@ const chordInPattern = (chord, pattern) =>
 
 /**
  * Rate how well a template fits a raga.
- * 'fits' = every step inside the raga; 'close' = at most a quarter of the
- * steps (minimum one) fall outside; otherwise 'none'.
+ * 'fits' = every step inside the raga; 'close' = exactly one step (by
+ * position, so a repeated chord counts once per position) is outside;
+ * 'none' = more than one step is outside.
  */
 export function templateFit(template, patterns) {
     const steps = template.steps.map(step => {
@@ -65,7 +66,7 @@ export function templateFit(template, patterns) {
     const outside = steps.filter(s => !s.inRaga).length;
     let status = 'none';
     if (outside === 0) status = 'fits';
-    else if (outside <= Math.max(1, Math.floor(steps.length * 0.25))) status = 'close';
+    else if (outside === 1) status = 'close';
     return { status, steps };
 }
 

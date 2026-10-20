@@ -27,6 +27,19 @@ describe('progressionHelpers', () => {
         expect(templateFit(tpl('authentic-cadence'), P(kafi)).status).toBe('none');
         expect(templateFit(tpl('ii-v-i'), P(bhupali)).status).toBe('none');
     });
+    it('counts outside steps by position: exactly one is close, more is none', () => {
+        const outside = fit => fit.steps.filter(s => !s.inRaga).length;
+        const mixo = templateFit(tpl('mixolydian'), P(bilawal));
+        expect(outside(mixo)).toBe(1);
+        expect(mixo.status).toBe('close');
+        const kafiCad = templateFit(tpl('authentic-cadence'), P(kafi));
+        expect(outside(kafiCad)).toBe(2); // I and the closing I both need Ga; V needs Ni
+        expect(kafiCad.status).toBe('none');
+        // Bilawal lacks Ni-flat and Ga-flat: I7 (x7 positions) and IV7 (x3) are outside, only V7 fits.
+        const blues = templateFit(tpl('twelve-bar-blues'), P(bilawal));
+        expect(outside(blues)).toBeGreaterThan(1);
+        expect(blues.status).toBe('none');
+    });
     it('accepts boolean patterns', () => {
         const b = bilawal.map(Boolean);
         expect(templateFit(tpl('authentic-cadence'), P(b)).status).toBe('fits');
