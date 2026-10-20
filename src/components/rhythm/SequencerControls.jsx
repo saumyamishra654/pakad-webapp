@@ -4,6 +4,7 @@
  */
 
 import React from 'react';
+import { PLAY, STOP } from '../../utils/glyphs.js';
 import { DraftNumberInput } from '../common/DraftNumberInput.jsx';
 
 const INPUT_CLASS = 'w-16 px-2 py-1 border border-gray-600 rounded text-sm bg-gray-700 text-white';
@@ -86,7 +87,7 @@ export function SequencerControls({ settings, onChange, isPlaying, onPlayStop, o
                             : 'bg-green-500 hover:bg-green-600 text-white'
                             }`}
                     >
-                        {isPlaying ? 'Stop' : 'Play'}
+                        {isPlaying ? `${STOP} Stop` : `${PLAY} Play`}
                     </button>
                     <button
                         onClick={onClear}

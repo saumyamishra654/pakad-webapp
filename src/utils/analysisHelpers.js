@@ -53,6 +53,14 @@ export function analyzeMurchanna(hindustaniRagas, carnaticRagas) {
         ...carnaticRagas.map(r => ({ ...r, type: 'carnatic' }))
     ];
 
+    // Index ragas by pattern once, so each rotation is a lookup instead of a full scan
+    const ragasByPattern = new Map();
+    for (const r of allRagas) {
+        const key = patternToString(r.notePattern);
+        if (!ragasByPattern.has(key)) ragasByPattern.set(key, []);
+        ragasByPattern.get(key).push(r);
+    }
+
     const processedPatterns = new Set();
     const groups = [];
 
@@ -71,9 +79,7 @@ export function analyzeMurchanna(hindustaniRagas, carnaticRagas) {
             const rotatedPattern = rotateBinary(raga.notePattern, rotation);
             const rotatedKey = patternToString(rotatedPattern);
 
-            const matchingRagas = allRagas.filter(r =>
-                patternToString(r.notePattern) === rotatedKey
-            );
+            const matchingRagas = ragasByPattern.get(rotatedKey) || [];
 
             if (matchingRagas.length > 0) {
                 murchannaGroup.murchannas.push({

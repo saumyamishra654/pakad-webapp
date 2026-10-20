@@ -22,6 +22,7 @@ import { EXTENDED_CHORD_TYPES } from '../data/chordTypes.js';
 import { getAvailableChords, getChordsOutsidePattern, countChordsByType, arrangeChordNotes, filterChordsByNote } from '../utils/chordHelpers.js';
 import { getDisplayLabels, patternToPitchClasses, patternsDiffer, WESTERN_NOTES_SHARP } from '../utils/noteHelpers.js';
 import { buildChalan, transposeNote } from '../utils/chalan.js';
+import { PLAY, STOP } from '../utils/glyphs.js';
 import { buildMidiFromProgression, buildMidiFromTracks, downloadMidi } from '../utils/midiExport.js';
 import { useAudio } from '../hooks/useAudio.js';
 import { usePianoSamples } from '../hooks/usePianoSamples.js';
@@ -736,7 +737,7 @@ export function ChordTool() {
                             onClick={() => playChalan(mode)}
                             className={`px-4 py-2 ${color} text-white rounded-lg font-medium text-sm flex items-center gap-2 transition-colors`}
                         >
-                            {chalanMode === mode ? 'Stop' : label}
+                            {chalanMode === mode ? `${STOP} Stop` : `${PLAY} ${label}`}
                         </button>
                     ))}
 
@@ -762,7 +763,7 @@ export function ChordTool() {
                             : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
                             }`}
                     >
-                        Tanpura
+                        {PLAY} Tanpura
                     </button>
 
                     {/* Outside Chords Min/Max Controls */}
@@ -1016,7 +1017,7 @@ export function ChordTool() {
                                 }}
                                 className="w-full py-2 rounded-lg font-medium bg-pink-600 text-white hover:bg-pink-700"
                             >
-                                Play Custom Chord
+                                {PLAY} Play Custom Chord
                             </button>
                         </div>
                     </div>

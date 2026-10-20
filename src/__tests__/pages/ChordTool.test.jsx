@@ -86,7 +86,7 @@ describe('ChordTool sequencer', () => {
     it('skips beats while samples load instead of playing them all at once afterwards', async () => {
         fetchDelay = 1600;
         await renderChordTool({ strict: true, chords: fourBeats });
-        await click(screen.getByText('Play'));
+        await click(screen.getByText(/Play$/));
         await advance(6000);
 
         // Count notes per start time: no burst, and one 3-note chord per beat once loaded
@@ -99,9 +99,9 @@ describe('ChordTool sequencer', () => {
     it('stays silent when stopped while samples are loading', async () => {
         fetchDelay = 1600;
         await renderChordTool({ chords: fourBeats });
-        await click(screen.getByText('Play'));
+        await click(screen.getByText(/Play$/));
         await advance(700);
-        await click(screen.getByText('Stop'));
+        await click(screen.getByText(/Stop$/));
         await advance(3000);
         expect(noteStarts).toHaveLength(0);
     });
@@ -109,7 +109,7 @@ describe('ChordTool sequencer', () => {
     it('does not refetch every sample on every beat when samples fail to load', async () => {
         fetchOk = false;
         await renderChordTool({ chords: fourBeats });
-        await click(screen.getByText('Play'));
+        await click(screen.getByText(/Play$/));
         await advance(10000);
         // 36 samples per attempt, at most one attempt every 5 s
         expect(globalThis.fetch.mock.calls.length).toBeLessThanOrEqual(36 * 3);

@@ -3,48 +3,47 @@
  * Relationship analysis: same-notes, murchanna, subsets
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { HINDUSTANI_RAGAS } from '../data/ragaData.js';
 import { MELAKARTA_72 } from '../data/melakartaData.js';
 import { NotePatternBadges } from '../components/common/NoteBadge.jsx';
 import { countNotes } from '../utils/noteHelpers.js';
 import { analyzeSameNotes, analyzeMurchanna, analyzeSubsets, filterAnalysisResults } from '../utils/analysisHelpers.js';
 
+// The raga data is static, so analyse it once per session and reuse it on every visit
+let cachedAnalysis = null;
+function getAnalysis() {
+    if (!cachedAnalysis) {
+        cachedAnalysis = {
+            sameNotes: analyzeSameNotes(HINDUSTANI_RAGAS, MELAKARTA_72),
+            murchanna: analyzeMurchanna(HINDUSTANI_RAGAS, MELAKARTA_72),
+            subsets: analyzeSubsets(HINDUSTANI_RAGAS, MELAKARTA_72)
+        };
+    }
+    return cachedAnalysis;
+}
+
+const matchesName = (raga, query) => raga.name.toLowerCase().includes(query.trim().toLowerCase());
+
 /**
  * RagaInsights page component
  */
 export function RagaInsights() {
     const [activeTab, setActiveTab] = useState('same-notes');
-    const [isLoading, setIsLoading] = useState(true);
 
-    // Analysis results
-    const [sameNotesGroups, setSameNotesGroups] = useState([]);
-    const [murchannaGroups, setMurchannaGroups] = useState([]);
-    const [subsetRelations, setSubsetRelations] = useState([]);
+    // Analysis results (computed once per session, see getAnalysis)
+    const { sameNotes: sameNotesGroups, murchanna: murchannaGroups, subsets: subsetRelations } = getAnalysis();
 
     // Filters
     const [searchQuery, setSearchQuery] = useState('');
+    const [subsetQuery, setSubsetQuery] = useState('');     // Subsets tab: the smaller raga
+    const [supersetQuery, setSupersetQuery] = useState(''); // Subsets tab: the larger raga(s)
     const [systemFilter, setSystemFilter] = useState('all');
     const [scaleTypeFilter, setScaleTypeFilter] = useState('all');
     const [showOnlyMatches, setShowOnlyMatches] = useState(false);
 
     // Expanded items
     const [expandedItems, setExpandedItems] = useState(new Set());
-
-    // Run analysis on mount
-    useEffect(() => {
-        // Use setTimeout to allow UI to render loading state
-        setTimeout(() => {
-            const sameNotes = analyzeSameNotes(HINDUSTANI_RAGAS, MELAKARTA_72);
-            const murchanna = analyzeMurchanna(HINDUSTANI_RAGAS, MELAKARTA_72);
-            const subsets = analyzeSubsets(HINDUSTANI_RAGAS, MELAKARTA_72);
-
-            setSameNotesGroups(sameNotes);
-            setMurchannaGroups(murchanna);
-            setSubsetRelations(subsets);
-            setIsLoading(false);
-        }, 100);
-    }, []);
 
     // Apply filters
     const filteredResults = useMemo(() => {
@@ -53,9 +52,15 @@ export function RagaInsights() {
         return {
             sameNotes: filterAnalysisResults(sameNotesGroups, filters),
             murchanna: filterAnalysisResults(murchannaGroups, filters),
-            subsets: filterAnalysisResults(subsetRelations, filters)
+            // Subsets has its own subset/superset search bars instead of the general one
+            subsets: filterAnalysisResults(subsetRelations, { ...filters, searchQuery: '' })
+                .filter(rel => !subsetQuery.trim() || matchesName(rel.subset, subsetQuery))
+                .map(rel => (supersetQuery.trim()
+                    ? { ...rel, supersets: rel.supersets.filter(s => matchesName(s, supersetQuery)) }
+                    : rel))
+                .filter(rel => rel.supersets.length > 0)
         };
-    }, [sameNotesGroups, murchannaGroups, subsetRelations, searchQuery, systemFilter, scaleTypeFilter, showOnlyMatches]);
+    }, [sameNotesGroups, murchannaGroups, subsetRelations, searchQuery, subsetQuery, supersetQuery, systemFilter, scaleTypeFilter, showOnlyMatches]);
 
     const toggleExpanded = (id) => {
         setExpandedItems(prev => {
@@ -71,6 +76,8 @@ export function RagaInsights() {
 
     const clearFilters = () => {
         setSearchQuery('');
+        setSubsetQuery('');
+        setSupersetQuery('');
         setSystemFilter('all');
         setScaleTypeFilter('all');
         setShowOnlyMatches(false);
@@ -260,17 +267,6 @@ export function RagaInsights() {
         </div>
     );
 
-    if (isLoading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
-                    <p className="text-gray-600 dark:text-gray-400">Analyzing raga relationships...</p>
-                </div>
-            </div>
-        );
-    }
-
     return (
         <div className="max-w-6xl mx-auto px-4 py-8">
             {/* Header */}
@@ -328,14 +324,36 @@ export function RagaInsights() {
 
             {/* Filters */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <input
-                        type="text"
-                        placeholder="Search ragas..."
-                        value={searchQuery}
-                        onChange={e => setSearchQuery(e.target.value)}
-                        className="px-3 py-2 border rounded-lg bg-gray-700 border-gray-600"
-                    />
+                <div className={`grid grid-cols-1 gap-4 ${activeTab === 'subsets' ? 'md:grid-cols-5' : 'md:grid-cols-4'}`}>
+                    {activeTab === 'subsets' ? (
+                        <>
+                            <input
+                                type="search"
+                                placeholder="Search subsets (smaller raga)..."
+                                aria-label="Search subsets"
+                                value={subsetQuery}
+                                onChange={e => setSubsetQuery(e.target.value)}
+                                className="px-3 py-2 border rounded-lg bg-gray-700 border-gray-600"
+                            />
+                            <input
+                                type="search"
+                                placeholder="Search supersets (larger raga)..."
+                                aria-label="Search supersets"
+                                value={supersetQuery}
+                                onChange={e => setSupersetQuery(e.target.value)}
+                                className="px-3 py-2 border rounded-lg bg-gray-700 border-gray-600"
+                            />
+                        </>
+                    ) : (
+                        <input
+                            type="search"
+                            placeholder="Search ragas..."
+                            aria-label="Search ragas"
+                            value={searchQuery}
+                            onChange={e => setSearchQuery(e.target.value)}
+                            className="px-3 py-2 border rounded-lg bg-gray-700 border-gray-600"
+                        />
+                    )}
 
                     <select
                         value={systemFilter}
