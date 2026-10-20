@@ -19,6 +19,11 @@ const STATUS_CLASS = {
 
 function thaatHeader({ exact, containing }) {
     if (exact) return exact.mode ? `${exact.name} thaat · ${exact.mode}` : `${exact.name} thaat`;
+    if (containing.length >= 10) return 'Fits every thaat';
+    if (containing.length > 3) {
+        const names = containing.slice(0, 3).map(t => t.name).join(', ');
+        return `Within ${names} and ${containing.length - 3} more`;
+    }
     if (containing.length > 0) return `Within ${containing.map(t => t.name).join(', ')}`;
     return 'No matching thaat';
 }

@@ -41,6 +41,13 @@ describe('harmonyHelpers', () => {
         expect(rootMotionScore(0, 0)).toBe(-5); // repeat
     });
 
+    it('labels a six-semitone root motion as a tritone', () => {
+        const out = suggestNextChords(buildChord(0, 'major'), [buildChord(6, 'major')]);
+        expect(out[0].reasons).toContain('tritone');
+        expect(out[0].reasons).not.toContain('third');
+        expect(rootMotionScore(0, 6)).toBe(rootMotionScore(0, 3));
+    });
+
     it('ranks fifth/fourth motion and shared tones above repeats', () => {
         const out = suggestNextChords(buildChord(0, 'major'), bilawalChords);
         expect(out.length).toBeLessThanOrEqual(6);

@@ -86,6 +86,7 @@ export function suggestNextChords(prev, candidates, { limit = 6, towardTonic = f
             if (d === 5) reasons.push('root up a 4th');
             else if (d === 7) reasons.push('root down a 4th');
             else if (d === 1 || d === 2 || d === 10 || d === 11) reasons.push('step');
+            else if (d === 6) reasons.push('tritone');
             else reasons.push('third');
             if (tonic) reasons.push('resolves to Sa');
             return { chord, score: 2 * n + rootMotionScore(prev.root, chord.root) + (tonic ? 4 : 0), reasons };

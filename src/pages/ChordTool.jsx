@@ -41,6 +41,23 @@ const FIELD_LABEL = 'block mb-1.5 text-xs font-medium uppercase tracking-wide te
 
 const DEFAULT_PROGRESSIONS = [1, 2, 3, 4].map(id => ({ id, name: String(id), chords: [], isPlaying: false, currentBeat: -1 }));
 
+const isIntInRange = (v, min, max) => Number.isInteger(v) && v >= min && v <= max;
+
+function loadSavedSequencer() {
+    let beats = 8;
+    let bpm = 120;
+    try {
+        const parsed = JSON.parse(localStorage.getItem('pakad_sequencer'));
+        if (isIntInRange(parsed?.beats, 2, 18)) beats = parsed.beats;
+        if (isIntInRange(parsed?.bpm, 40, 240)) bpm = parsed.bpm;
+    } catch {
+        // Ignore storage errors
+    }
+    const highest = loadSavedProgressions().reduce(
+        (m, p) => p.chords.reduce((mm, c) => Math.max(mm, c.beat), m), -1);
+    return { beats: Math.min(18, Math.max(beats, highest + 1)), bpm };
+}
+
 function loadSavedProgressions() {
     try {
         const parsed = JSON.parse(localStorage.getItem('pakad_progressions'));
@@ -125,8 +142,17 @@ export function ChordTool() {
 
     // Rhythm/beat state
     // Always valid numbers: SequencerControls commits typed values on blur/Enter
-    const [beats, setBeats] = useState(8);
-    const [bpm, setBpm] = useState(120);
+    const [initialSequencer] = useState(loadSavedSequencer);
+    const [beats, setBeats] = useState(initialSequencer.beats);
+    const [bpm, setBpm] = useState(initialSequencer.bpm);
+
+    useEffect(() => {
+        try {
+            localStorage.setItem('pakad_sequencer', JSON.stringify({ beats, bpm }));
+        } catch {
+            // Ignore storage errors
+        }
+    }, [beats, bpm]);
 
     const [loop, setLoop] = useState(true);
 
@@ -266,6 +292,7 @@ export function ChordTool() {
         if (!selectedRaga) return { all: [], aaroh: [], avroh: [] };
         return { all: selectedRaga.notePattern, aaroh: selectedRaga.aarohPattern, avroh: selectedRaga.avrohPattern };
     }, [customScaleMode, separateAarohAvroh, customNotePattern, customAarohPattern, customAvrohPattern, selectedRaga]);
+    const currentPatterns = useMemo(() => getCurrentPatterns(), [getCurrentPatterns]);
 
     // Handle note click - cycle through: any -> root -> clear
     const handleNoteClick = useCallback((noteIndex) => {
@@ -287,7 +314,7 @@ export function ChordTool() {
 
     // Compute available chords
     const chordData = useMemo(() => {
-        const patterns = getCurrentPatterns();
+        const patterns = currentPatterns;
         if (patterns.all.length === 0) {
             return { all: [], aaroh: [], avroh: [], outside: [], counts: {} };
         }
@@ -333,7 +360,7 @@ export function ChordTool() {
             outsideAvroh: applyNoteFilter(outsideAvroh),
             counts: countChordsByType(allForCounts)
         };
-    }, [getCurrentPatterns, selectedChordType, showExtended, separateAarohAvroh, showOutsideChords, outsideMinAllowed, outsideMaxAllowed, selectedNote, noteFilterMode]);
+    }, [currentPatterns, selectedChordType, showExtended, separateAarohAvroh, showOutsideChords, outsideMinAllowed, outsideMaxAllowed, selectedNote, noteFilterMode]);
 
     // Get current chords based on active tab
     const currentChords = useMemo(() => {
@@ -370,7 +397,7 @@ export function ChordTool() {
 
     // Validate custom chord against raga patterns
     const customValidation = useMemo(() => {
-        const patterns = getCurrentPatterns();
+        const patterns = currentPatterns;
         const checkValid = (pattern) => {
             if (pattern.length === 0) return false;
             return customNotesAll.every(n => pattern[n]);
@@ -380,7 +407,7 @@ export function ChordTool() {
             aaroh: checkValid(patterns.aaroh),
             avroh: checkValid(patterns.avroh)
         };
-    }, [customNotesAll, getCurrentPatterns]);
+    }, [customNotesAll, currentPatterns]);
 
 
 
@@ -452,13 +479,17 @@ export function ChordTool() {
 
     // Harmonise the aaroh, avroh or whole chalan onto the active track
     const handleHarmonise = useCallback((mode) => {
-        const patterns = getCurrentPatterns();
+        const patterns = currentPatterns;
         const melody = buildChalan(patterns, mode).map(n => n.noteIndex);
-        if (melody.length === 0) return;
         const source = mode === 'aaroh' ? patterns.aaroh : mode === 'avroh' ? patterns.avroh : patterns.all;
         const candidates = getAvailableChords(source?.length ? source : patterns.all, 'all', false);
-        replaceTrack(harmonizeLine(melody, candidates));
-    }, [getCurrentPatterns, replaceTrack]);
+        const chords = harmonizeLine(melody, candidates);
+        if (!chords.some(Boolean)) {
+            alert('No chord in this scale contains these notes.');
+            return;
+        }
+        replaceTrack(chords);
+    }, [currentPatterns, replaceTrack]);
 
     // Tap-to-place (touch screens can't drag): arm a chord, then tap a beat
     const [pendingChord, setPendingChord] = useState(null);
@@ -473,7 +504,7 @@ export function ChordTool() {
 
     // Next-chord suggestions: first empty beat after the last placed chord
     const { suggestionTarget, suggestions } = useMemo(() => {
-        const placed = activeProgression.chords;
+        const placed = activeProgression.chords.filter(c => c.beat < beats);
         if (placed.length === 0) return { suggestionTarget: null, suggestions: [] };
         const last = placed.reduce((a, b) => (b.beat >= a.beat ? b : a));
         const taken = new Set();
@@ -481,12 +512,12 @@ export function ChordTool() {
         let target = last.beat + 1;
         while (target < beats && taken.has(target)) target++;
         if (target >= beats) return { suggestionTarget: null, suggestions: [] };
-        const candidates = getAvailableChords(getCurrentPatterns().all, 'all', showExtended);
+        const candidates = getAvailableChords(currentPatterns.all, 'all', showExtended);
         return {
             suggestionTarget: target,
             suggestions: suggestNextChords(last.chord, candidates, { towardTonic: target === beats - 1 })
         };
-    }, [activeProgression.chords, beats, getCurrentPatterns, showExtended]);
+    }, [activeProgression.chords, beats, currentPatterns, showExtended]);
 
     // Remove chord from progression
     const handleChordRemove = useCallback((beatIndex, chordId) => {
@@ -596,7 +627,7 @@ export function ChordTool() {
         if (wasPlaying === mode) return; // clicking the playing button stops it
         if (!(await ensureReady())) return;
 
-        const notes = buildChalan(getCurrentPatterns(), mode);
+        const notes = buildChalan(currentPatterns, mode);
         const sources = notes.map(({ noteIndex, octave, at }) => {
             const note = transposeNote(noteIndex, octave, selectedTonic);
             return playNote(note.noteIndex, note.octave, 0.6, at);
@@ -604,7 +635,7 @@ export function ChordTool() {
         const endMs = ((notes.at(-1)?.at ?? 0) + 0.6) * 1000;
         chalanRef.current = { sources, timer: setTimeout(() => setChalanMode(null), endMs) };
         setChalanMode(mode);
-    }, [chalanMode, stopChalan, ensureReady, getCurrentPatterns, selectedTonic, playNote]);
+    }, [chalanMode, stopChalan, ensureReady, currentPatterns, selectedTonic, playNote]);
 
     useEffect(() => stopChalan, [stopChalan]); // stop on unmount
 
@@ -836,7 +867,7 @@ export function ChordTool() {
             {showPiano && selectedRaga && (
                 <div className="rounded-xl border border-gray-800 bg-gray-900 p-4 sm:p-6 mb-6">
                     <PianoKeyboard
-                        highlightedNotes={showRagaNotesOnKeyboard ? patternToPitchClasses(getCurrentPatterns().all) : []}
+                        highlightedNotes={showRagaNotesOnKeyboard ? patternToPitchClasses(currentPatterns.all) : []}
                         isCarnatic={isCarnatic}
                         tonic={selectedTonic}
                         onNoteClick={async (noteIndex, octave) => {
@@ -845,7 +876,7 @@ export function ChordTool() {
                             const note = transposeNote(noteIndex, octave, selectedTonic);
                             playNote(note.noteIndex, note.octave, 0.5);
                         }}
-                        swarLabels={showRagaNotesOnKeyboard ? getCurrentPatterns().all.map((p, i) => p ? i : null) : null}
+                        swarLabels={showRagaNotesOnKeyboard ? currentPatterns.all.map((p, i) => p ? i : null) : null}
                     />
                 </div>
             )}
@@ -900,7 +931,7 @@ export function ChordTool() {
                                     <div className="text-center">
                                         <h3 className="text-xs font-medium uppercase tracking-wide text-gray-400 mb-3">Aaroh (Ascending)</h3>
                                         <ChordCircle
-                                            pattern={getCurrentPatterns().aaroh}
+                                            pattern={currentPatterns.aaroh}
                                             chords={chordData.aaroh}
                                             onNoteClick={handleNoteClick}
                                             selectedNote={selectedNote}
@@ -914,7 +945,7 @@ export function ChordTool() {
                                     <div className="text-center">
                                         <h3 className="text-xs font-medium uppercase tracking-wide text-gray-400 mb-3">Avroh (Descending)</h3>
                                         <ChordCircle
-                                            pattern={getCurrentPatterns().avroh}
+                                            pattern={currentPatterns.avroh}
                                             chords={chordData.avroh}
                                             onNoteClick={handleNoteClick}
                                             selectedNote={selectedNote}
@@ -952,7 +983,7 @@ export function ChordTool() {
                         ) : (
                             <div className="flex justify-center">
                                 <ChordCircle
-                                    pattern={getCurrentPatterns().all}
+                                    pattern={currentPatterns.all}
                                     chords={chordData.all}
                                     onNoteClick={handleNoteClick}
                                     selectedNote={selectedNote}
@@ -1026,7 +1057,7 @@ export function ChordTool() {
                     {/* Right main content area */}
                     <div className="flex-1 w-full flex justify-center">
                         <ChordCircle
-                            pattern={getCurrentPatterns().all}
+                            pattern={currentPatterns.all}
                             chords={[]}
                             customNotes={customNotesAll}
                             isCarnatic={isCarnatic}
@@ -1146,7 +1177,7 @@ export function ChordTool() {
                                                                 isCarnatic={isCarnatic}
                                                                 isExtended={chord.isExtended}
                                                                 isOutside={true}
-                                                                ragaPattern={getCurrentPatterns().aaroh}
+                                                                ragaPattern={currentPatterns.aaroh}
                                                             />
                                                         ))}
                                                     </div>
@@ -1171,7 +1202,7 @@ export function ChordTool() {
                                                                 isCarnatic={isCarnatic}
                                                                 isExtended={chord.isExtended}
                                                                 isOutside={true}
-                                                                ragaPattern={getCurrentPatterns().avroh}
+                                                                ragaPattern={currentPatterns.avroh}
                                                             />
                                                         ))}
                                                     </div>
@@ -1194,7 +1225,7 @@ export function ChordTool() {
                                                     isCarnatic={isCarnatic}
                                                     isExtended={chord.isExtended}
                                                     isOutside={true}
-                                                    ragaPattern={getCurrentPatterns().all}
+                                                    ragaPattern={currentPatterns.all}
                                                 />
                                             ))}
                                         </div>
@@ -1257,7 +1288,7 @@ export function ChordTool() {
                             onClear={handleClear}
                         />
 
-                        {/* MIDI Controls */}
+                        {/* Progression actions */}
                         <div className="flex flex-wrap gap-2 mb-4">
                             <button
                                 onClick={() => setShowMidiSettings(!showMidiSettings)}
@@ -1306,7 +1337,7 @@ export function ChordTool() {
 
                         {showTemplates && (
                             <ProgressionTemplates
-                                patterns={getCurrentPatterns()}
+                                patterns={currentPatterns}
                                 labels={labels}
                                 onUse={replaceTrack}
                                 onPreview={chord => handlePlayChord(chord, true)}

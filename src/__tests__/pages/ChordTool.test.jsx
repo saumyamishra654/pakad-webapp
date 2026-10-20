@@ -47,9 +47,10 @@ function seedProgressions(chordsForTrack1) {
     localStorage.setItem('pakad_progressions', JSON.stringify(progressions));
 }
 
-async function renderChordTool({ strict = false, chords = [] } = {}) {
+async function renderChordTool({ strict = false, chords = [], sequencer = null } = {}) {
     vi.resetModules(); // fresh module-level AudioContext and sample cache per test
     seedProgressions(chords);
+    if (sequencer) localStorage.setItem('pakad_sequencer', JSON.stringify(sequencer));
     const { ChordTool } = await import('../../pages/ChordTool.jsx');
     const tree = <MemoryRouter><ChordTool /></MemoryRouter>;
     render(strict ? <StrictMode>{tree}</StrictMode> : tree);
@@ -245,5 +246,57 @@ describe('ChordTool next-chord suggestions', () => {
         const saved = JSON.parse(localStorage.getItem('pakad_progressions'));
         expect(saved[0].chords.some(c => c.beat === 1)).toBe(true);
         expect(noteStarts.length).toBeGreaterThan(0);
+    });
+});
+
+describe('ChordTool sequencer settings persistence', () => {
+    const beatsInput = () => screen.getByText('Beats:').closest('label').querySelector('input');
+    const bpmInput = () => screen.getByText('BPM:').closest('label').querySelector('input');
+
+    it('raises Beats to cover saved chords and writes pakad_sequencer', async () => {
+        await renderChordTool({ chords: [{ id: 1, chord: C_MAJOR, beat: 11, duration: 1 }] });
+        expect(beatsInput().value).toBe('12');
+        expect(JSON.parse(localStorage.getItem('pakad_sequencer'))).toEqual({ beats: 12, bpm: 120 });
+    });
+
+    it('restores saved beats and bpm', async () => {
+        await renderChordTool({ sequencer: { beats: 10, bpm: 90 } });
+        expect(beatsInput().value).toBe('10');
+        expect(bpmInput().value).toBe('90');
+    });
+
+    it('falls back to defaults for invalid saved values', async () => {
+        await renderChordTool({ sequencer: { beats: 99, bpm: 'fast' } });
+        expect(beatsInput().value).toBe('8');
+        expect(bpmInput().value).toBe('120');
+    });
+});
+
+describe('ChordTool harmonise with nothing placeable', () => {
+    it('alerts and leaves the track untouched without confirming', async () => {
+        const confirmSpy = vi.fn(() => true);
+        window.confirm = confirmSpy;
+        await renderChordTool({ chords: fourBeats });
+        await click(screen.getByText('Custom scale'));
+        await click(screen.getByText('Harmonise aaroh'));
+        expect(globalThis.alert).toHaveBeenCalledWith('No chord in this scale contains these notes.');
+        expect(confirmSpy).not.toHaveBeenCalled();
+        const saved = JSON.parse(localStorage.getItem('pakad_progressions'));
+        expect(saved[0].chords.map(c => c.beat)).toEqual([0, 1, 2, 3]);
+    });
+});
+
+describe('ChordTool template ordering', () => {
+    it('does not list the 12-bar blues above a better-fitting template for Khamaj', async () => {
+        await renderChordTool();
+        const ragaSelect = screen.getAllByRole('combobox').find(s => [...s.options].some(o => o.text === 'Khamaj'));
+        await act(async () => { fireEvent.change(ragaSelect, { target: { value: 'Khamaj' } }); });
+        await click(screen.getByText('Templates'));
+        const rows = screen.getAllByTestId('template-row');
+        const rank = { Fits: 0, 'One chord outside': 1, "Doesn't fit": 2 };
+        const status = (r) => rank[Object.keys(rank).find(k => r.textContent.includes(k))];
+        const blues = rows.findIndex(r => r.textContent.includes('12-bar blues'));
+        expect(blues).toBeGreaterThanOrEqual(0);
+        rows.slice(0, blues).forEach(r => expect(status(r)).toBeLessThanOrEqual(status(rows[blues])));
     });
 });
