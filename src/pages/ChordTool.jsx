@@ -19,6 +19,7 @@ import { PianoChordsView } from '../components/rhythm/PianoChordsView.jsx';
 import { MidiSettingsPanel } from '../components/rhythm/MidiSettingsPanel.jsx';
 import { ProgressionTemplates } from '../components/rhythm/ProgressionTemplates.jsx';
 import { layoutSteps } from '../utils/progressionHelpers.js';
+import { harmonizeLine } from '../utils/harmonyHelpers.js';
 import { SequencerControls } from '../components/rhythm/SequencerControls.jsx';
 import { EXTENDED_CHORD_TYPES } from '../data/chordTypes.js';
 import { getAvailableChords, getChordsOutsidePattern, countChordsByType, arrangeChordNotes, filterChordsByNote } from '../utils/chordHelpers.js';
@@ -447,6 +448,16 @@ export function ChordTool() {
         updateProgression(activeProgressionId, { chords: items });
         return true;
     }, [activeProgression, activeProgressionId, beats, updateProgression]);
+
+    // Harmonise the aaroh, avroh or whole chalan onto the active track
+    const handleHarmonise = useCallback((mode) => {
+        const patterns = getCurrentPatterns();
+        const melody = buildChalan(patterns, mode).map(n => n.noteIndex);
+        if (melody.length === 0) return;
+        const source = mode === 'aaroh' ? patterns.aaroh : mode === 'avroh' ? patterns.avroh : patterns.all;
+        const candidates = getAvailableChords(source?.length ? source : patterns.all, 'all', false);
+        replaceTrack(harmonizeLine(melody, candidates));
+    }, [getCurrentPatterns, replaceTrack]);
 
     // Tap-to-place (touch screens can't drag): arm a chord, then tap a beat
     const [pendingChord, setPendingChord] = useState(null);
@@ -1241,6 +1252,15 @@ export function ChordTool() {
                                 className="btn btn-sm btn-secondary"
                             >
                                 Templates
+                            </button>
+                            <button onClick={() => handleHarmonise('aaroh')} className="btn btn-sm btn-secondary">
+                                Harmonise aaroh
+                            </button>
+                            <button onClick={() => handleHarmonise('avroh')} className="btn btn-sm btn-secondary">
+                                Harmonise avroh
+                            </button>
+                            <button onClick={() => handleHarmonise('full')} className="btn btn-sm btn-secondary">
+                                Harmonise full raga
                             </button>
                             <button
                                 onClick={handleDownloadMidi}

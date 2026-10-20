@@ -185,3 +185,36 @@ describe('ChordTool progression templates', () => {
         expect(saved[0].chords).toHaveLength(12);
     });
 });
+
+describe('ChordTool harmonise', () => {
+    async function selectRaga(name) {
+        await renderChordTool();
+        const ragaSelect = screen.getAllByRole('combobox').find(s => [...s.options].some(o => o.text === name));
+        await act(async () => { fireEvent.change(ragaSelect, { target: { value: name } }); });
+    }
+
+    it('Harmonise aaroh places no chord containing Ma when the aaroh skips it', async () => {
+        await selectRaga('Alhaiya Bilawal');
+        await click(screen.getByText('Harmonise aaroh'));
+        const saved = JSON.parse(localStorage.getItem('pakad_progressions'));
+        expect(saved[0].chords.length).toBeGreaterThan(0);
+        saved[0].chords.forEach(c => expect(c.chord.notes).not.toContain(5));
+    });
+
+    it('Harmonise avroh can use Ma', async () => {
+        await selectRaga('Alhaiya Bilawal');
+        await click(screen.getByText('Harmonise avroh'));
+        const saved = JSON.parse(localStorage.getItem('pakad_progressions'));
+        expect(saved[0].chords.some(c => c.chord.notes.includes(5))).toBe(true);
+    });
+
+    it('leaves a beat empty when no chord covers a note', async () => {
+        await selectRaga('Rajeshwari'); // its Ni (11) is in no available chord
+        await click(screen.getByText('Harmonise full raga'));
+        const saved = JSON.parse(localStorage.getItem('pakad_progressions'));
+        const beats = saved[0].chords.map(c => c.beat);
+        expect(beats.length).toBeGreaterThan(0);
+        expect(Math.max(...beats) + 1).toBeGreaterThan(beats.length); // a gap in the beats
+        saved[0].chords.forEach(c => expect(c.chord.notes).toBeDefined());
+    });
+});
