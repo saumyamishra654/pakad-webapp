@@ -30,7 +30,7 @@ import { useTanpura } from '../hooks/useTanpura.js';
 import { useSequencer } from '../hooks/useSequencer.js';
 
 // How long notes ring when a chord is previewed (Unison/Melody buttons, timeline clicks)
-const CHORD_PREVIEW_SECONDS = 3.5;
+const CHORD_PREVIEW_SECONDS = 2.5;
 
 // Small uppercase label above form fields
 const FIELD_LABEL = 'block mb-1.5 text-xs font-medium uppercase tracking-wide text-gray-400';

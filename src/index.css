@@ -98,6 +98,15 @@
   --accent-hover: var(--color-blue-600);
   --danger: #f87171;
 
+  /* Buttons use a warm brown accent */
+  --btn-brown: #9a6534;
+  --btn-brown-hover: #84542a;
+  --btn-tint: rgb(196 140 88 / 0.14);
+  --btn-tint-hover: rgb(196 140 88 / 0.22);
+  --btn-tint-border: rgb(196 140 88 / 0.4);
+  --btn-tint-selected: rgb(196 140 88 / 0.3);
+  --btn-tint-text: #e8c49b;
+
   --circle-outline: #3a3f4f;
   --circle-node-off: #2a2e3b;
   --circle-node-off-stroke: #6b7182;
@@ -252,7 +261,7 @@ input[type="radio"] {
   }
 
   .btn:focus-visible {
-    outline: 2px solid var(--accent);
+    outline: 2px solid var(--btn-brown);
     outline-offset: 2px;
   }
 
@@ -268,34 +277,32 @@ input[type="radio"] {
   }
 
   .btn-primary {
-    background-color: var(--accent);
+    background-color: var(--btn-brown);
     color: #fff;
   }
 
   .btn-primary:hover:not(:disabled) {
-    background-color: var(--accent-hover);
+    background-color: var(--btn-brown-hover);
   }
 
-  /* Tinted with the accent so buttons stand apart from the panels they sit on */
+  /* Warm brown tint so buttons stand apart from the panels they sit on */
   .btn-secondary {
-    background-color: rgb(91 124 250 / 0.12);
-    border-color: rgb(91 124 250 / 0.35);
-    color: var(--color-blue-300);
+    background-color: var(--btn-tint);
+    border-color: var(--btn-tint-border);
+    color: var(--btn-tint-text);
   }
 
   .btn-secondary:hover:not(:disabled) {
-    background-color: rgb(91 124 250 / 0.2);
-    border-color: rgb(91 124 250 / 0.5);
+    background-color: var(--btn-tint-hover);
   }
 
   .btn-ghost {
     background-color: transparent;
-    color: var(--color-blue-400);
+    color: var(--btn-tint-text);
   }
 
   .btn-ghost:hover:not(:disabled) {
-    background-color: rgb(91 124 250 / 0.1);
-    color: var(--color-blue-300);
+    background-color: var(--btn-tint);
   }
 
   .btn-danger {
@@ -310,8 +317,8 @@ input[type="radio"] {
 
   /* Selected state for toggle buttons (e.g. a playing chalan, a playing sequence) */
   .btn-selected {
-    background-color: rgb(91 124 250 / 0.3);
-    border-color: var(--accent);
+    background-color: var(--btn-tint-selected);
+    border-color: var(--btn-brown);
     color: #fff;
   }
 }
@@ -322,6 +329,7 @@ input[type="radio"] {
   --btn-tan-hover: #ead9c1;
   --btn-tan-border: #d8bf9c;
   --btn-tan-selected: #e2cba9;
+  --btn-tint: #f3e7d6;
   --btn-brown: #7a4a24;
   --btn-brown-hover: #643b1a;
   --btn-brown-text: #4a2e16;
@@ -365,7 +373,7 @@ input[type="radio"] {
 /* Segmented controls (System, Track, Insights tabs): selected segment tinted with the accent */
 [data-theme="dark"] [role="group"] > button[aria-pressed="true"],
 [data-theme="dark"] [role="tablist"] > button.rounded-md[aria-selected="true"] {
-  background-color: rgb(91 124 250 / 0.25);
+  background-color: var(--btn-tint-selected);
   color: #fff;
 }
 
@@ -499,8 +507,8 @@ input[type="radio"] {
 }
 
 .chord-type-btn.active {
-  border-color: var(--accent);
-  background-color: rgb(91 124 250 / 0.15);
+  border-color: var(--btn-brown);
+  background-color: var(--btn-tint);
 }
 
 .chord-type-btn:not(.active):hover {
