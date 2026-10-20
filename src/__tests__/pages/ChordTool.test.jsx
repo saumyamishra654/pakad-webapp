@@ -233,4 +233,17 @@ describe('ChordTool next-chord suggestions', () => {
         const saved = JSON.parse(localStorage.getItem('pakad_progressions'));
         expect(saved[0].chords.some(c => c.beat === 1)).toBe(true);
     });
+
+    it('hovering a suggestion plays nothing; clicking places it and plays it once', async () => {
+        await renderChordTool({ chords: [{ id: 1, chord: C_MAJOR, beat: 0, duration: 1 }] });
+        const btn = screen.getByText('Next for beat 2').parentElement.querySelector('button');
+        await act(async () => { fireEvent.mouseEnter(btn); fireEvent.focus(btn); });
+        await advance(500);
+        expect(noteStarts).toHaveLength(0);
+        await click(btn);
+        await advance(500);
+        const saved = JSON.parse(localStorage.getItem('pakad_progressions'));
+        expect(saved[0].chords.some(c => c.beat === 1)).toBe(true);
+        expect(noteStarts.length).toBeGreaterThan(0);
+    });
 });

@@ -13,7 +13,7 @@ import { getChordNotation } from '../../utils/chordHelpers.js';
  * @param {number} props.targetBeat - Zero-based beat the suggestions are for
  * @param {number} props.tonic - Tonic pitch class, for Western chord names
  * @param {Function} props.onPlace - Called with the chosen chord
- * @param {Function} props.onPreview - Called with a chord to audition it
+ * @param {Function} props.onPreview - Called once with the chord after it is placed (click only, never on hover)
  */
 export function ChordSuggestions({ suggestions, targetBeat, tonic = 0, onPlace, onPreview }) {
     if (!suggestions || suggestions.length === 0) return null;
@@ -27,8 +27,7 @@ export function ChordSuggestions({ suggestions, targetBeat, tonic = 0, onPlace, 
                         type="button"
                         className="btn btn-sm btn-secondary"
                         title={reasons.join(', ')}
-                        onMouseEnter={() => onPreview?.(chord)}
-                        onClick={() => onPlace(chord)}
+                        onClick={() => { onPlace(chord); onPreview?.(chord); }}
                     >
                         {getRomanNumeral(chord)} {getChordNotation(chord, tonic)}
                     </button>
