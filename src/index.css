@@ -314,6 +314,50 @@ input[type="radio"] {
   }
 }
 
+/* Light theme: warm brown buttons instead of plain white ones */
+:root[data-theme="light"] {
+  --btn-tan: #f3e7d6;
+  --btn-tan-hover: #ead9c1;
+  --btn-tan-border: #d8bf9c;
+  --btn-tan-selected: #e2cba9;
+  --btn-brown: #7a4a24;
+  --btn-brown-hover: #643b1a;
+  --btn-brown-text: #4a2e16;
+}
+
+@layer components {
+  [data-theme="light"] .btn-primary {
+    background-color: var(--btn-brown);
+  }
+
+  [data-theme="light"] .btn-primary:hover:not(:disabled) {
+    background-color: var(--btn-brown-hover);
+  }
+
+  [data-theme="light"] .btn-secondary {
+    background-color: var(--btn-tan);
+    border-color: var(--btn-tan-border);
+    color: var(--btn-brown-text);
+  }
+
+  [data-theme="light"] .btn-secondary:hover:not(:disabled) {
+    background-color: var(--btn-tan-hover);
+  }
+
+  [data-theme="light"] .btn-selected {
+    background-color: var(--btn-tan-selected);
+    border-color: var(--btn-brown);
+    color: var(--btn-brown-text);
+  }
+}
+
+/* Segmented controls (System, Track, Insights tabs): selected segment in tan */
+[data-theme="light"] [role="group"] > button[aria-pressed="true"],
+[data-theme="light"] [role="tablist"] > button.rounded-md[aria-selected="true"] {
+  background-color: var(--btn-tan-selected);
+  color: var(--btn-brown-text);
+}
+
 /* Chord Circle */
 .chord-circle {
   filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.4));
