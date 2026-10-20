@@ -159,7 +159,8 @@ it('matches thaats exactly and by containment', () => {
 it('rates template fit', () => {
     expect(templateFit(tpl('authentic-cadence'), P(bilawal)).status).toBe('fits');
     expect(templateFit(tpl('dorian-vamp'), P(kafi)).status).toBe('fits');
-    expect(templateFit(tpl('authentic-cadence'), P(kafi)).status).toBe('close'); // only V (needs Ni) is outside
+    expect(templateFit(tpl('mixolydian'), P(bilawal)).status).toBe('close'); // only ♭VII (needs Ni♭) is outside
+    expect(templateFit(tpl('authentic-cadence'), P(kafi)).status).toBe('none'); // I and V both need notes Kafi lacks
     expect(templateFit(tpl('ii-v-i'), P(bhupali)).status).toBe('none');        // no crash on a pentatonic raga
 });
 it('reports aaroh/avroh validity per step', () => {
