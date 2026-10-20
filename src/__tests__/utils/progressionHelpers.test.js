@@ -33,7 +33,7 @@ describe('progressionHelpers', () => {
         expect(outside(mixo)).toBe(1);
         expect(mixo.status).toBe('close');
         const kafiCad = templateFit(tpl('authentic-cadence'), P(kafi));
-        expect(outside(kafiCad)).toBe(2); // I and the closing I both need Ga; V needs Ni
+        expect(outside(kafiCad)).toBe(3); // both I positions need Ga, V needs Ni; IV fits
         expect(kafiCad.status).toBe('none');
         // Bilawal lacks Ni-flat and Ga-flat: I7 (x7 positions) and IV7 (x3) are outside, only V7 fits.
         const blues = templateFit(tpl('twelve-bar-blues'), P(bilawal));
