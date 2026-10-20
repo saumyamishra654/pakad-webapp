@@ -29,25 +29,24 @@ export function NoteBadge({
     const label = labels[noteIndex] || '';
 
     const sizeClasses = {
-        sm: 'px-1.5 py-0.5 text-[9px]',
+        sm: 'px-1.5 py-0.5 text-[11px] leading-4',
         md: 'px-2 py-1 text-xs',
         lg: 'px-3 py-1.5 text-sm'
     };
 
     const baseClasses = `
-    inline-block rounded font-medium transition-all
+    inline-block rounded font-medium transition-colors
     ${sizeClasses[size] || sizeClasses.md}
-    ${onClick ? 'cursor-pointer hover:scale-105' : ''}
+    ${onClick ? 'cursor-pointer' : ''}
   `;
 
     const activeClasses = `
     ${activeColor.startsWith('bg-') ? activeColor : ''} 
-    text-white shadow-sm
+    text-white
   `;
 
     const inactiveClasses = `
-    bg-gray-200 dark:bg-gray-700 
-    text-gray-400 dark:text-gray-500
+    bg-gray-800 text-gray-500
   `;
 
     const style = activeColor.startsWith('#') && isActive

@@ -306,43 +306,42 @@ export function RagaQuery() {
     };
 
     return (
-        <div className="min-h-screen pb-12 bg-black transition-colors">
-            <div className="max-w-6xl mx-auto px-4 py-8">
+        <div className="min-h-screen pb-12">
+            <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
                 {/* Header */}
-                <div className="text-center mb-8">
-                    <h1 className="text-3xl font-bold text-white mb-2">
-                        Raga Database Query
-                    </h1>
-                    <p className="text-gray-400">
-                        Search {ragaList.length} {isCarnatic ? 'Carnatic' : 'Hindustani'} ragas by notes
-                    </p>
-                </div>
+                <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
+                    <div>
+                        <h1 className="text-3xl sm:text-4xl font-bold text-gray-100">
+                            Raga Database Query
+                        </h1>
+                        <p className="mt-1 text-gray-400">
+                            Search {ragaList.length} {isCarnatic ? 'Carnatic' : 'Hindustani'} ragas by notes
+                        </p>
+                    </div>
 
-                {/* Mode Toggle */}
-                {/* Mode Toggle */}
-                <div className="flex justify-center items-center gap-3 mb-6">
-                    <span className={`text-sm font-medium ${!isCarnatic ? 'text-blue-400' : 'text-gray-400'}`}>
-                        Hindustani ({HINDUSTANI_RAGAS.length})
-                    </span>
-
-                    <button
-                        onClick={toggleSystem}
-                        className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${isCarnatic ? 'bg-purple-600' : 'bg-blue-600'}`}
-                        title="Toggle Music System"
-                    >
-                        <span
-                            className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${isCarnatic ? 'translate-x-6' : 'translate-x-1'}`}
-                        />
-                    </button>
-
-                    <span className={`text-sm font-medium ${isCarnatic ? 'text-purple-400' : 'text-gray-400'}`}>
-                        Carnatic ({MELAKARTA_72.length})
-                    </span>
+                    {/* Music system */}
+                    <div className="inline-flex rounded-lg border border-gray-700 bg-gray-800 p-0.5" role="group" aria-label="Music system">
+                        {[
+                            { carnatic: false, label: `Hindustani (${HINDUSTANI_RAGAS.length})` },
+                            { carnatic: true, label: `Carnatic (${MELAKARTA_72.length})` }
+                        ].map(({ carnatic, label }) => (
+                            <button
+                                key={label}
+                                onClick={() => isCarnatic !== carnatic && toggleSystem()}
+                                aria-pressed={isCarnatic === carnatic}
+                                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${isCarnatic === carnatic
+                                    ? 'bg-gray-600 text-gray-100'
+                                    : 'text-gray-400 hover:text-gray-100'
+                                    }`}
+                            >
+                                {label}
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
                 {/* Filters */}
-                {/* Filters */}
-                <div className="bg-gray-900 rounded-xl shadow-lg p-6 mb-8">
+                <div className="rounded-xl border border-gray-800 bg-gray-900 p-4 sm:p-6 mb-4">
                     <div className="flex flex-col lg:flex-row gap-8">
                         {/* Left Column: Inputs & Toggles */}
                         <div className="lg:w-1/3 space-y-5">
@@ -404,7 +403,7 @@ export function RagaQuery() {
                                         onChange={e => setSeparateNoteSelection(e.target.checked)}
                                         className="hidden"
                                     />
-                                    <span className="text-gray-300 group-hover:text-white transition-colors">Enable separate Aaroh/Avroh note selection</span>
+                                    <span className="text-sm text-gray-300 group-hover:text-white transition-colors">Separate aaroh/avroh note selection</span>
                                 </label>
                             </div>
 
@@ -423,7 +422,7 @@ export function RagaQuery() {
                         {/* Right Column: Note Selector */}
                         <div className="lg:w-2/3">
                             <div className="bg-gray-900 rounded-xl p-5 border border-gray-800/50 h-full">
-                                <h3 className="text-sm font-medium text-gray-400 mb-4">Select Notes (Swaras):</h3>
+                                <h3 className="text-xs font-sans font-medium uppercase tracking-wide text-gray-400 mb-4">Select notes (swaras)</h3>
                                 <p className="text-xs text-gray-500 mb-4">Sa is always included. Click once to include, twice to exclude.</p>
 
                                 {separateNoteSelection ? (
@@ -450,11 +449,10 @@ export function RagaQuery() {
                 </div>
 
                 {/* Clear Filters Button */}
-                {/* Clear Filters Button */}
-                <div className="mb-6 flex justify-end">
+                <div className="mb-4 flex justify-end">
                     <button
                         onClick={clearFilters}
-                        className="flex items-center gap-2 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-900 transition-colors border border-black"
+                        className="btn btn-ghost"
                     >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -480,9 +478,9 @@ export function RagaQuery() {
                             {filteredResults.map(raga => (
                                 <div
                                     key={raga.name}
-                                    className="flex items-center justify-between p-4 bg-gray-900 border border-gray-700 rounded-lg hover:bg-gray-800 transition-colors"
+                                    className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 p-4 bg-gray-950/50 border border-gray-800 rounded-lg hover:border-gray-700 transition-colors"
                                 >
-                                    <div className="flex-1">
+                                    <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-3">
                                             <span className="font-semibold text-gray-100">
                                                 {raga.name}
@@ -516,14 +514,14 @@ export function RagaQuery() {
                                         </div>
                                     </div>
 
-                                    <div className="flex items-center gap-2 ml-4 self-start">
+                                    <div className="flex items-center gap-2 sm:ml-4">
                                         {/* Play button */}
                                         <button
                                             onClick={() => playRaga(raga)}
-                                            className="p-2 rounded-full bg-blue-900/40 text-blue-400 hover:bg-blue-800/40"
+                                            className="btn btn-sm btn-secondary !px-2" aria-label="Play aaroh and avroh"
                                             title="Play aaroh + avroh"
                                         >
-                                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                                                 <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
                                             </svg>
                                         </button>
@@ -531,9 +529,9 @@ export function RagaQuery() {
                                         {/* Link to ChordTool */}
                                         <Link
                                             to={`/?raga=${encodeURIComponent(raga.name)}`}
-                                            className="px-3 py-1 text-sm bg-green-900/40 text-green-300 rounded-lg hover:bg-green-800/40"
+                                            className="btn btn-sm btn-secondary"
                                         >
-                                            Chords
+                                            Open in Chord Tool
                                         </Link>
                                     </div>
                                 </div>

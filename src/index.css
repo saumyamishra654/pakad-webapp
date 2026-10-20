@@ -71,11 +71,14 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-h1,
-h2,
-h3 {
-  font-family: var(--font-serif);
-  letter-spacing: -0.01em;
+/* In the base layer so utilities like font-sans can still override it */
+@layer base {
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-serif);
+    letter-spacing: -0.01em;
+  }
 }
 
 /* Legacy light-theme utility classes still used in markup, mapped onto the dark surfaces */
