@@ -17,6 +17,8 @@ import { PianoKeyboard } from '../components/common/PianoKeyboard.jsx';
 import { TimelineGrid } from '../components/rhythm/TimelineGrid.jsx';
 import { PianoChordsView } from '../components/rhythm/PianoChordsView.jsx';
 import { MidiSettingsPanel } from '../components/rhythm/MidiSettingsPanel.jsx';
+import { ProgressionTemplates } from '../components/rhythm/ProgressionTemplates.jsx';
+import { layoutSteps } from '../utils/progressionHelpers.js';
 import { SequencerControls } from '../components/rhythm/SequencerControls.jsx';
 import { EXTENDED_CHORD_TYPES } from '../data/chordTypes.js';
 import { getAvailableChords, getChordsOutsidePattern, countChordsByType, arrangeChordNotes, filterChordsByNote } from '../utils/chordHelpers.js';
@@ -147,6 +149,7 @@ export function ChordTool() {
 
     // MIDI settings
     const [showMidiSettings, setShowMidiSettings] = useState(false);
+    const [showTemplates, setShowTemplates] = useState(false);
     const [showPianoChords, setShowPianoChords] = useState(false);
     const [midiSettings, setMidiSettings] = useState({
         tempoOverride: null, // null = use the sequencer BPM
@@ -427,6 +430,23 @@ export function ChordTool() {
             chords: [...existingChords, newChord].sort((a, b) => a.beat - b.beat)
         });
     }, [activeProgression, activeProgressionId, updateProgression]);
+
+    // Replace the active track with a progression laid out over the cycle.
+    // A null entry keeps its step position but adds no chord. Returns whether it replaced.
+    const replaceTrack = useCallback((chords) => {
+        if (activeProgression.chords.length > 0 &&
+            !window.confirm('Replace the chords on this track?')) {
+            return false;
+        }
+        const layout = layoutSteps(chords.length, beats);
+        const items = [];
+        layout.beatIndices.forEach((beat, i) => {
+            if (chords[i]) items.push({ id: nextChordIdRef.current++, chord: chords[i], beat, duration: 1 });
+        });
+        setBeats(layout.beats);
+        updateProgression(activeProgressionId, { chords: items });
+        return true;
+    }, [activeProgression, activeProgressionId, beats, updateProgression]);
 
     // Tap-to-place (touch screens can't drag): arm a chord, then tap a beat
     const [pendingChord, setPendingChord] = useState(null);
@@ -1217,6 +1237,12 @@ export function ChordTool() {
                                 MIDI Settings
                             </button>
                             <button
+                                onClick={() => setShowTemplates(!showTemplates)}
+                                className="btn btn-sm btn-secondary"
+                            >
+                                Templates
+                            </button>
+                            <button
                                 onClick={handleDownloadMidi}
                                 disabled={activeProgression.chords.length === 0}
                                 className="btn btn-sm btn-secondary"
@@ -1237,6 +1263,15 @@ export function ChordTool() {
                                 settings={midiSettings}
                                 onChange={(changes) => setMidiSettings(prev => ({ ...prev, ...changes }))}
                                 sequencerBpm={bpm}
+                            />
+                        )}
+
+                        {showTemplates && (
+                            <ProgressionTemplates
+                                patterns={getCurrentPatterns()}
+                                labels={labels}
+                                onUse={replaceTrack}
+                                onPreview={chord => handlePlayChord(chord, true)}
                             />
                         )}
 

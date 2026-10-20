@@ -139,3 +139,49 @@ describe('ChordTool tonic and editing', () => {
         expect(screen.queryByText(/Tap a beat to place/)).toBeNull();
     });
 });
+
+describe('ChordTool progression templates', () => {
+    async function openKafiTemplates() {
+        await renderChordTool();
+        const ragaSelect = screen.getAllByRole('combobox').find(s => [...s.options].some(o => o.text === 'Kafi'));
+        await act(async () => { fireEvent.change(ragaSelect, { target: { value: 'Kafi' } }); });
+        await click(screen.getByText('Templates'));
+    }
+    const beatsInput = () => screen.getByText('Beats:').closest('label').querySelector('input');
+
+    it('lists templates with a fit badge and suggests ones matching the thaat first', async () => {
+        await openKafiTemplates();
+        expect(screen.getByText(/Kafi thaat · Dorian/)).toBeTruthy();
+        const first = screen.getAllByTestId('template-row')[0];
+        expect(first.textContent).toMatch(/i – IV/);
+        expect(first.textContent).toMatch(/Fits/);
+    });
+
+    it('Use places the template on the active track and asks before overwriting', async () => {
+        await openKafiTemplates();
+        const row = () => screen.getAllByTestId('template-row').find(r => r.textContent.includes('I – IV – V – I'));
+        const use = () => row().querySelector('button.btn');
+        const confirmSpy = vi.fn(() => true);
+        window.confirm = confirmSpy;
+
+        await click(use());
+        expect(confirmSpy).not.toHaveBeenCalled();
+        let saved = JSON.parse(localStorage.getItem('pakad_progressions'));
+        expect(saved[0].chords.map(c => c.beat)).toEqual([0, 2, 4, 6]);
+
+        confirmSpy.mockReturnValue(false);
+        await click(screen.getAllByTestId('template-row')[0].querySelector('button.btn'));
+        expect(confirmSpy).toHaveBeenCalledTimes(1);
+        saved = JSON.parse(localStorage.getItem('pakad_progressions'));
+        expect(saved[0].chords.map(c => c.beat)).toEqual([0, 2, 4, 6]);
+    });
+
+    it('12-bar blues raises Beats to 12', async () => {
+        await openKafiTemplates();
+        const row = screen.getAllByTestId('template-row').find(r => r.textContent.includes('12-bar blues'));
+        await click(row.querySelector('button.btn'));
+        expect(beatsInput().value).toBe('12');
+        const saved = JSON.parse(localStorage.getItem('pakad_progressions'));
+        expect(saved[0].chords).toHaveLength(12);
+    });
+});
