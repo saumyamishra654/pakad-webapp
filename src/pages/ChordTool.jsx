@@ -29,6 +29,9 @@ import { usePianoSamples } from '../hooks/usePianoSamples.js';
 import { useTanpura } from '../hooks/useTanpura.js';
 import { useSequencer } from '../hooks/useSequencer.js';
 
+// How long notes ring when a chord is previewed (Unison/Melody buttons, timeline clicks)
+const CHORD_PREVIEW_SECONDS = 3.5;
+
 // Small uppercase label above form fields
 const FIELD_LABEL = 'block mb-1.5 text-xs font-medium uppercase tracking-wide text-gray-400';
 
@@ -384,20 +387,18 @@ export function ChordTool() {
         if (searchParams.get('raga')) setSearchParams({}, { replace: true });
     }, [searchParams, setSearchParams]);
 
-    // Play a chord (isUnison=true for all notes at once, false for melody/arpeggiated)
     // Schedule a chord on the audio clock, `delay` seconds from now (samples must be loaded).
+    // `duration` defaults to the sequencer's Duration setting.
     // Returns what it scheduled so the sequencer can cancel notes that haven't started.
-    const scheduleChord = useCallback((chord, isUnison, delay = 0) => {
-        const duration = Number.isFinite(chordNoteDuration) && chordNoteDuration > 0 ? chordNoteDuration : 0.8;
+    const scheduleChord = useCallback((chord, isUnison, delay = 0, duration = chordNoteDuration) => {
+        if (!Number.isFinite(duration) || duration <= 0) duration = 0.8;
         const arpDelay = Number.isFinite(arpeggiationDelay) ? Math.max(0, arpeggiationDelay) : 0.08;
         const now = audioContext?.currentTime ?? 0;
 
         return arrangeChordNotes(chord.notes, 4).flatMap(({ noteIndex, octave }, i) => {
             const note = transposeNote(noteIndex, octave, selectedTonic);
             const at = isUnison ? delay : delay + i * arpDelay;
-            const source = isUnison
-                ? playNote(note.noteIndex, note.octave, duration, at, 0.8)
-                : playNote(note.noteIndex, note.octave, duration * 0.6, at, 0.6);
+            const source = playNote(note.noteIndex, note.octave, duration, at, isUnison ? 0.8 : 0.6);
             return source ? [{ source, startAt: now + at }] : [];
         });
     }, [audioContext, playNote, selectedTonic, chordNoteDuration, arpeggiationDelay]);
@@ -409,7 +410,8 @@ export function ChordTool() {
         if (!(await ensureReady())) return;
         // Requests made while samples were loading would otherwise all sound at once
         if (request !== playRequestRef.current) return;
-        scheduleChord(chord, isUnison);
+        // Previewing a chord lets it ring; the sequencer uses its own Duration setting
+        scheduleChord(chord, isUnison, 0, CHORD_PREVIEW_SECONDS);
     }, [ensureReady, scheduleChord]);
 
     // Add chord to progression

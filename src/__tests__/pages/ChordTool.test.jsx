@@ -17,7 +17,7 @@ class FakeAudioContext {
     resume() { this.state = 'running'; return Promise.resolve(); }
     decodeAudioData() { return Promise.resolve({ duration: 3 }); }
     createGain() {
-        return { connect() {}, gain: { setValueAtTime() {}, linearRampToValueAtTime() {} } };
+        return { connect() {}, gain: { setValueAtTime() {}, linearRampToValueAtTime() {}, setTargetAtTime() {} } };
     }
     createBufferSource() {
         let startAt = null;

@@ -276,24 +276,26 @@ input[type="radio"] {
     background-color: var(--accent-hover);
   }
 
+  /* Tinted with the accent so buttons stand apart from the panels they sit on */
   .btn-secondary {
-    background-color: var(--surface-2);
-    border-color: var(--border-strong);
-    color: var(--text);
+    background-color: rgb(91 124 250 / 0.12);
+    border-color: rgb(91 124 250 / 0.35);
+    color: var(--color-blue-300);
   }
 
   .btn-secondary:hover:not(:disabled) {
-    background-color: var(--surface-3);
+    background-color: rgb(91 124 250 / 0.2);
+    border-color: rgb(91 124 250 / 0.5);
   }
 
   .btn-ghost {
     background-color: transparent;
-    color: var(--text-muted);
+    color: var(--color-blue-400);
   }
 
   .btn-ghost:hover:not(:disabled) {
-    background-color: var(--surface-2);
-    color: var(--text);
+    background-color: rgb(91 124 250 / 0.1);
+    color: var(--color-blue-300);
   }
 
   .btn-danger {
@@ -308,9 +310,9 @@ input[type="radio"] {
 
   /* Selected state for toggle buttons (e.g. a playing chalan, a playing sequence) */
   .btn-selected {
-    background-color: rgb(91 124 250 / 0.18);
+    background-color: rgb(91 124 250 / 0.3);
     border-color: var(--accent);
-    color: var(--color-blue-300);
+    color: #fff;
   }
 }
 
@@ -344,6 +346,15 @@ input[type="radio"] {
     background-color: var(--btn-tan-hover);
   }
 
+  [data-theme="light"] .btn-ghost {
+    color: var(--btn-brown);
+  }
+
+  [data-theme="light"] .btn-ghost:hover:not(:disabled) {
+    background-color: var(--btn-tan);
+    color: var(--btn-brown-hover);
+  }
+
   [data-theme="light"] .btn-selected {
     background-color: var(--btn-tan-selected);
     border-color: var(--btn-brown);
@@ -351,7 +362,14 @@ input[type="radio"] {
   }
 }
 
-/* Segmented controls (System, Track, Insights tabs): selected segment in tan */
+/* Segmented controls (System, Track, Insights tabs): selected segment tinted with the accent */
+[data-theme="dark"] [role="group"] > button[aria-pressed="true"],
+[data-theme="dark"] [role="tablist"] > button.rounded-md[aria-selected="true"] {
+  background-color: rgb(91 124 250 / 0.25);
+  color: #fff;
+}
+
+/* ...and in tan for the light theme */
 [data-theme="light"] [role="group"] > button[aria-pressed="true"],
 [data-theme="light"] [role="tablist"] > button.rounded-md[aria-selected="true"] {
   background-color: var(--btn-tan-selected);

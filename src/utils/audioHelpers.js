@@ -126,15 +126,16 @@ export function playNote({ ctx, buffers, noteIndex, octave = 4, duration = 0.5, 
     source.playbackRate.setValueAtTime(playbackRate, startTime);
 
     const bufferDuration = buffer.duration / playbackRate; // Adjust for playback rate
-    const maxDuration = 2.0;
-    const playDuration = Math.min(maxDuration, bufferDuration, duration);
-    const fadeOutStart = Math.max(0, playDuration - 0.03);
+    const playDuration = Math.min(bufferDuration, duration);
+    // Release like a piano damper rather than a hard cut (a 30 ms cut made notes sound clipped)
+    const release = Math.min(0.35, playDuration / 3);
+    const releaseStart = Math.max(0.01, playDuration - release);
 
     // Envelope
     gainNode.gain.setValueAtTime(0.0001, startTime);
     gainNode.gain.linearRampToValueAtTime(volume, startTime + 0.01);
-    gainNode.gain.setValueAtTime(volume, startTime + fadeOutStart);
-    gainNode.gain.linearRampToValueAtTime(0.0001, startTime + playDuration);
+    gainNode.gain.setValueAtTime(volume, startTime + releaseStart);
+    gainNode.gain.setTargetAtTime(0.0001, startTime + releaseStart, release / 4);
 
     source.start(startTime);
     source.stop(startTime + playDuration);
