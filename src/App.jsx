@@ -11,6 +11,7 @@ import { Header } from './components/common/Header.jsx';
 const RagaQuery = React.lazy(() => import('./pages/RagaQuery.jsx'));
 const RagaInsights = React.lazy(() => import('./pages/RagaInsights.jsx'));
 const ChordTool = React.lazy(() => import('./pages/ChordTool.jsx'));
+const Guide = React.lazy(() => import('./pages/Guide.jsx'));
 
 // Loading fallback
 const PageLoader = () => (
@@ -35,6 +36,7 @@ function App() {
               <Route path="/app.html" element={<ChordTool />} />
               <Route path="/query" element={<RagaQuery />} />
               <Route path="/insights" element={<RagaInsights />} />
+              <Route path="/guide" element={<Guide />} />
             </Routes>
           </React.Suspense>
         </main>
